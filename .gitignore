@@ -1,0 +1,20 @@
+# Ambiente Virtuale
+venv/
+.venv/
+env/
+
+# Cache di Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Variabili d'Ambiente e Segreti
+.env
+
+# Database Locali (SQLite)
+*.sqlite
+*.sqlite3
+*.db
+
+# Streamlit
+.streamlit/secrets.toml

@@ -1,0 +1,14 @@
+# Framework UI
+streamlit
+
+# Architettura Multi-Agente
+agno
+
+# LLM Provider
+google-generativeai
+
+# Gestione Variabili d'Ambiente
+python-dotenv
+
+# ORM e Database (Per la persistenza SQLite richiesta)
+SQLAlchemy
