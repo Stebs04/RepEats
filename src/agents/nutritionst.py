@@ -5,6 +5,7 @@ Gestisce l'integrazione con il modello LLM (Gemini) per l'analisi nutrizionale d
 
 from agno.agent import Agent
 from agno.models.google import Gemini
+from tools.openfoodfacts_tool import get_product_info_by_barcode
 
 class NutritionistAgent(Agent):
     """
@@ -39,5 +40,6 @@ class NutritionistAgent(Agent):
         super().__init__(
             model=Gemini(id=model_id),
             description="Esperto nutrizionista specializzato in analisi dei pasti e calcolo dei macronutrienti.",
+            tools=[get_product_info_by_barcode],
             instructions=defensive_instructions
         )

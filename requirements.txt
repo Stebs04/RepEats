@@ -14,3 +14,5 @@ python-dotenv
 SQLAlchemy
 
 google-genai
+
+requests
