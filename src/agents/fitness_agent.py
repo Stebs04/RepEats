@@ -1,11 +1,13 @@
 from agno.agent import Agent
 from agno.models.google import Gemini
 
+"""
+Configurazione di un agente specializzato in fitness e allenamento, con un focus difensivo per evitare risposte inappropriate o potenzialmente dannose.
+L'agente è progettato per fornire consigli personalizzati basati sui dati biometrici dell'utente, mantenendo sempre un tono professionale e motivante. 
+Le regole sono state implementate per garantire che l'agente rimanga entro i limiti del suo ambito di competenza e per promuovere la sicurezza dell'utente.
+Autore: Timothy Giolito 20054431
+"""
 def get_fitness_agent(user_data: dict):
-    """
-    Configura il Fitness Agent con un prompt engineering difensivo e 
-    contestualizzato sui dati dell'utente.
-    """
     
     # Costruzione del contesto biometrico dell'utente
     user_context = f"""
