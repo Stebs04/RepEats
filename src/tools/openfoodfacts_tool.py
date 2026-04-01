@@ -19,5 +19,15 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
     url = f"https://world.openfoodfacts.org/api/v2/product/{input_data.barcode}.json"
     response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status()
-    data = response.json
-    if data.get("igi")
+    data = response.json()
+    if data.get("status") != 1:
+        return ProductOutput()
+    product_data = data.get("product", {})
+    nutriments = product_data.get("nutriments", {})
+    return ProductOutput(
+        product_name=product_data.get("product_name"),
+        energy_kcal_100g=nutriments.get("energy-kcal_100g"),
+        proteins_100g=nutriments.get("proteins_100g"),
+        carbohydrates_100g=nutriments.get("carbohydrates_100g"),
+        fat_100g=nutriments.get("fat_100g")
+    )
