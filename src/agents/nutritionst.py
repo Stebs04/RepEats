@@ -5,7 +5,7 @@ Gestisce l'integrazione con il modello LLM (Gemini) per l'analisi nutrizionale d
 
 from agno.agent import Agent
 from agno.models.google import Gemini
-from tools.openfoodfacts_tool import get_product_info_by_barcode
+from src.tools.openfoodfacts_tool import get_product_info_by_barcode
 
 class NutritionistAgent(Agent):
     """

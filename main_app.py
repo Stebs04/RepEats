@@ -1,6 +1,14 @@
 import streamlit as st
 import os
+import tempfile
 from dotenv import load_dotenv
+from src.agents.nutritionst import NutritionistAgent
+from PIL import Image
+# In cima al file main_app.py, sostituisci i vecchi tentativi con questo:
+from agno.models.message import Image as AgnoImage
+
+
+
 
 # Importazione dei servizi del database (Inclusi i nuovi per la gestione chat)
 from src.database.user_service import (
@@ -104,9 +112,53 @@ def main() -> None:
         "👤 Profilo Utente"
     ])
 
+    # === TAB 1: NUTRIZIONE (Vision AI) ===
+    # Modulo UI core per l'analisi visiva dei pasti. Coordina l'acquisizione dell'immagine,
+    # la gestione del file system temporaneo e l'inferenza multimodale tramite LLM.
+    # Autore: Stefano Bellan (20054330)
     with tab_nutrizione:
         st.header("Analisi Pasto")
-        st.write("Qui caricheremo le foto per l'agente Nutrizionista.")
+        
+        # Acquisizione sicura: limita l'upload a formati immagine noti crando un buffer in memoria.
+        uploaded_file = st.file_uploader("Carica la foto del tuo pasto...", type=["jpg", "jpeg", "png"])
+        
+        if uploaded_file is not None:
+            # Rendering visivo: converte il buffer in PIL Image e lo mostra all'utente come preview.
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Anteprima del Pasto", use_container_width=True)
+            
+            # Inizializza l'agente LLM responsabile della business logic nutrizionale.
+            agent = NutritionistAgent()
+            
+            # Bottone di submit: innesca in modo esplicito la transazione verso le API del provider LLM.
+            if st.button("Analizza Pasto"):
+                # UX transitoria: previene task sovrapposti e indica attività asincrona in corso.
+                with st.spinner("L'Agente AI sta analizzando l'immagine..."):
+                    try:
+                        # Workaround Architetturale per il framework Agno: la classe `AgnoImage` richiede rigorosamente
+                        # un puntatore a percorso fisico (file path) e non accetta byte stream / buffer diretti da Streamlit.
+                        # Creiamo un file isolato su disco temporaneamente per completare la transazione.
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+                            tmp_file.write(uploaded_file.getvalue())
+                            tmp_path = tmp_file.name
+                        
+                        # Inferenza Multimodale: passa il prompt base integrando l'asset visivo su disco.
+                        response = agent.run(
+                            "Analizza questa immagine.", 
+                            images=[AgnoImage(filepath=tmp_path)]
+                        )
+                        
+                        # Esegue il parsing e rendering del Markdown validato dal modello.
+                        st.markdown(response.content)
+                        
+                        # Memory / Disk Management: rimozione pulita dell'identificatore I/O per prevenire saturazione disco ("garbage collection" manuale).
+                        os.remove(tmp_path)
+                        
+                    except Exception as e:
+                        # Gestione Fallimenti (Defensive Programming): intercetta network error o fallimenti sul FS loggando l'eccezione 
+                        # in UI in modo formattato per evitare il blocco dell'Application Loop.
+                        st.error(f"Si è verificato un errore critico durante l'analisi: {e}")
+
 
     with tab_allenamento:
         st.header("💪 Personal Trainer AI")
