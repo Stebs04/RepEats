@@ -12,3 +12,5 @@ python-dotenv
 
 # ORM e Database (Per la persistenza SQLite richiesta)
 SQLAlchemy
+
+google-genai
