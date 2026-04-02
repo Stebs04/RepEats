@@ -1,11 +1,30 @@
 """
 Modulo dell'Agente Nutrizionista.
 Gestisce l'integrazione con il modello LLM (Gemini) per l'analisi nutrizionale dei pasti.
+autore: Stefano Bellan (20054330)
 """
 
 from agno.agent import Agent
 from agno.models.google import Gemini
 from src.tools.openfoodfacts_tool import get_product_info_by_barcode
+from pydantic import BaseModel, Field
+
+# Schema Pydantic che definisce la struttura JSON di output richiesta all'LLM
+class MealAnalysis(BaseModel):
+    # Campo per l'analisi testuale del pasto
+    analysis_result: str = Field(description="Breve descrizione del pasto e analisi nutrizionale generale.")
+    
+    # Campo per le calorie totali stimate
+    calories: float = Field(description="Stima delle calorie totali del pasto.")
+
+    # Grammi stimati di proteine nel pasto
+    proteins: float = Field(description="Stima dei grammi di proteine totali.")
+
+    # Grammi stimati di carboidrati nel pasto
+    carbohydrates: float = Field(description="Stima dei grammi di carboidrati totali.")
+
+    # Grammi stimati di grassi nel pasto
+    fats: float = Field(description="Stima dei grammi di grassi totali.")
 
 class NutritionistAgent(Agent):
     """

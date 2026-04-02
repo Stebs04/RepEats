@@ -35,7 +35,7 @@ def create_user(username: str, email: str):
 
 
 """Dopo aver creato un nuovo utente e un nuovo profilo, bisogna aggiornare i dati inerenti a quell'utente"""
-def update_user_profile(user_id: int, weight: float, height: float, age: int, goals: str):
+def update_user_profile(user_id: int, weight: float, height: float, age: int, target_weight: float, goal_type: str):
 
     session = get_session()
     profile = session.query(UserProfile).filter_by(user_id = user_id).first()
@@ -44,7 +44,8 @@ def update_user_profile(user_id: int, weight: float, height: float, age: int, go
         profile.weight = weight
         profile.height = height
         profile.age = age
-        profile.fitness_goals = goals
+        profile.target_weight = target_weight
+        profile.goal_type = goal_type
         session.commit()
     session.close()
 
@@ -59,8 +60,9 @@ def get_user_data(user_id: int):
         "weight": user.profile.weight,
         "height": user.profile.height,
         "age": user.profile.age,
-        "goals": user.profile.fitness_goals
-    }
+        "target_weight": user.profile.target_weight,
+        "goal_type": user.profile.goal_type
+        }
     session.close()
     return data
 
@@ -145,3 +147,58 @@ def save_meal_log(user_id: int, analysis_result: str, calories: float = None, pr
     # Chiude la sessione per rilasciare le connessioni al database
     session.close()
 
+def calculate_daily_macros(user_id: int):
+    """
+    Calcola i macro-nutrienti e il fabbisogno calorico giornaliero di un utente 
+    in base alle proprie metriche biometriche e agli obiettivi di fitness.
+    Autore: Stefano Bellan (20054330)
+    """
+    # Recupera il profilo dell'utente (dati biometrici e obiettivi) dal database
+    user_data = get_user_data(user_id)
+
+    # Se mancano i dati fondamentali, restituiamo valori a zero per evitare il crash
+    if not user_data or not user_data['weight'] or not user_data['height'] or not user_data['age']:
+        return {
+            "tdee": 0,
+            "target_calories": 0,
+            "proteins": 0,
+            "fats": 0,
+            "carbohydrates": 0
+        }
+    
+    # Calcola il Metabolismo Basale (BMR) utilizzando l'equazione di Mifflin-St Jeor (permette di stimare le calorie consumate a riposo)
+    bmr = (10 * user_data['weight'] + (6.25 * user_data['height']) - (5 * user_data['age']))
+    
+    # Calcola il Dispendio Energetico Totale Giornaliero (TDEE) moltiplicando il BMR per un fattore di attività stimato standard (PAL = 1.55, attività moderata)
+    tdee = bmr * 1.55
+    
+    # Imposta le calorie target inziali pari al livello di mantenimento energetico (TDEE)
+    target_calories = tdee
+    
+    # Applica un deficit calorico di 500 kcal per facilitare la perdita di grasso corporeo (fase di cut)
+    if user_data['goal_type'] == 'dimagrimento':
+        target_calories = target_calories - 500
+    # Applica un surplus calorico di 300 kcal per facilitare l'ipertrofia e l'aumento di massa muscolare (fase di bulk)
+    elif user_data['goal_type'] == 'massa':
+         target_calories = target_calories + 300
+         
+    # Calcola il fabbisogno proteico in base al peso corporeo (fissato a 2.0g per kg per preservare/costruire massa magra)
+    proteins = user_data['weight'] * 2.0
+    
+    # Calcola il fabbisogno lipidico in base al peso corporeo (fissato a 0.9g per kg per un corretto apporto ormonale)
+    fats = user_data['weight'] * 0.9
+    
+    # Calcola le calorie rimanenti per i carboidrati decurtando le calorie di proteine (4 kcal/g) e grassi (9 kcal/g)
+    remaining_calories = target_calories - (proteins * 4.0) - (fats * 9.0)
+    
+    # Converte le calorie rimanenti in grammi di carboidrati (4 kcal per grammo)
+    carbohydrates = remaining_calories / 4.0
+    
+    # Restituisce il dizionario come payload con i valori arrotondati a 1 cifra decimale per un'esperienza UI pulita
+    return {
+        "tdee": round(tdee, 1),
+        "target_calories": round(target_calories, 1),
+        "proteins": round(proteins, 1),
+        "fats": round(fats, 1),
+        "carbohydrates": round(carbohydrates, 1)
+    }

@@ -63,8 +63,10 @@ class UserProfile(Base):
     weight = Column(Float)  # Memorizzato in chilogrammi (kg).
     height = Column(Float)  # Memorizzato in centimetri (cm).
     
-    # Serializzazione non strutturata per la persistenza di obiettivi eventualmente complessi.
-    fitness_goals = Column(Text)  # Può contenere testo piano o array codificati (es. JSON).
+    #Peso Ideale che l'utente vuole raggiungere
+    target_weight = Column(Float)
+    #Tipo di obiettivo che l'utente si è posto
+    goal_type = Column(String(50))
     
     # Back-reference alla proprietà profile di User. 
     # Mantiene coerenza nella navigazione bidirezionale in memoria.
