@@ -35,6 +35,9 @@ class User(Base):
     # Relazione 1-a-N: collega l'utente a tutte le sue cronologie di conversazione.
     conversations = relationship("Conversation", back_populates="user")
 
+  # NUOVA RELAZIONE: collega l'utente ai suoi pasti registrati
+    meal_logs = relationship("MealLog", back_populates="user", cascade="all, delete-orphan")
+
     def __repr__(self):
         """Rappresentazione testuale dell'oggetto, utile in fase di debugging."""
         return f"<User(username='{self.username}')>"
@@ -121,4 +124,35 @@ class Message(Base):
 
     # Definizione inversa della correlazione ORM con l'oggetto Conversation.
     conversation = relationship("Conversation", back_populates="messages")
+
     
+    
+class MealLog(Base):
+    """
+    Modello che memorizza le analisi nutrizionali effettuate dall'agente Nutrizionista.
+    Consente di mantenere uno storico dei pasti per ogni utente.
+    Autore: Stefano Bellan (20054330)
+    """
+
+    __tablename__ = 'meal_logs'
+
+    #Chiave primaria
+    id = Column(Integer, primary_key=True)
+
+    #Foreign Key che lo collega alla tabella degli utenti
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+
+    #Campo per l'analisi
+    analysis_result = Column(Text, nullable=False)
+
+    # --- NUOVI CAMPI PER I MACRONUTRIENTI (Valori strutturati) ---
+    calories = Column(Float, nullable=True)
+    proteins = Column(Float, nullable=True)
+    carbohydrates = Column(Float, nullable=True)
+    fats = Column(Float, nullable=True)
+
+    #Data e ora dell'analisi
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    #Relazione inversa verso User
+    user = relationship("User", back_populates="meal_logs")

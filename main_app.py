@@ -19,7 +19,8 @@ from src.database.user_service import (
     get_user_conversations,
     create_new_conversation,
     save_message,
-    get_chat_history
+    get_chat_history,
+    save_meal_log
 )
 
 # --- CONFIGURAZIONE INIZIALE ---
@@ -34,7 +35,7 @@ def setup_environment() -> None:
         st.stop()
 
 def init_session_state() -> None:
-    """
+    """F
     Inizializza lo stato dell'applicazione per l'utente corrente.
     """
     if 'current_user_id' not in st.session_state:
@@ -150,7 +151,17 @@ def main() -> None:
                         
                         # Esegue il parsing e rendering del Markdown validato dal modello.
                         st.markdown(response.content)
+
+                        # Persistenza del risultato: archivia l'esito dell'analisi associandolo 
+                        # all'identificativo univoco dell'utente attualmente in sessione.
+                        save_meal_log(
+                            user_id=st.session_state['current_user_id'],
+                            analysis_result=response.content
+                        )
                         
+                        # Feedback UI: notifica asincrona all'utente del corretto salvataggio nel database.
+                        st.success("Analisi salvata con successo nel tuo storico!!!")
+
                         # Memory / Disk Management: rimozione pulita dell'identificatore I/O per prevenire saturazione disco ("garbage collection" manuale).
                         os.remove(tmp_path)
                         
