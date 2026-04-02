@@ -4,13 +4,13 @@ import tempfile
 from dotenv import load_dotenv
 from src.agents.nutritionst import NutritionistAgent
 from PIL import Image
-# In cima al file main_app.py, sostituisci i vecchi tentativi con questo:
 from agno.models.message import Image as AgnoImage
+from src.agents.nutritionst import MealAnalysis
 
 
 
 
-# Importazione dei servizi del database (Inclusi i nuovi per la gestione chat)
+# Importazione dei servizi del database
 from src.database.user_service import (
     get_all_users, 
     create_user, 
@@ -20,7 +20,8 @@ from src.database.user_service import (
     create_new_conversation,
     save_message,
     get_chat_history,
-    save_meal_log
+    save_meal_log,
+    calculate_daily_macros
 )
 
 # --- CONFIGURAZIONE INIZIALE ---
@@ -114,60 +115,121 @@ def main() -> None:
     ])
 
     # === TAB 1: NUTRIZIONE (Vision AI) ===
-    # Modulo UI core per l'analisi visiva dei pasti. Coordina l'acquisizione dell'immagine,
-    # la gestione del file system temporaneo e l'inferenza multimodale tramite LLM.
+    # Componente UI principale dedicato al tracciamento e all'analisi nutrizionale multimodale.
+    # Gestisce il ciclo di vita dell'acquisizione dell'asset visivo, il calcolo algoritmico
+    # del fabbisogno quotidiano (BMR/TDEE) e orchestra le transazioni con l'agente LLM 
+    # per la classificazione e la persistenza strutturata dei macro-nutrienti estratti.
     # Autore: Stefano Bellan (20054330)
     with tab_nutrizione:
-        st.header("Analisi Pasto")
+        # Renderizza l'intestazione principale della dashboard nutrizionale
+        st.header("📊 Dashboard Nutrizionale")
         
-        # Acquisizione sicura: limita l'upload a formati immagine noti crando un buffer in memoria.
+        # Interroga il layer di servizio per calcolare i target metabolici basati sulle metriche utente
+        daily_targets = calculate_daily_macros(st.session_state['current_user_id'])
+
+        # Ripartisce la UI in un layout a griglia con due colonne di area equivalente
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Espone il Total Daily Energy Expenditure (TDEE), o fabbisogno di mantenimento
+            st.metric("Fabbisogno Calorico Giornaliero (TDEE)", f"{daily_targets['tdee']} kcal")
+            
+        with col2:
+            # Espone il target calorico corretto asimmetricamente in dipendenza dalla tipologia di obiettivo
+            st.metric("Obiettivo Calorico Giornaliero", f"{daily_targets['target_calories']} kcal")
+
+        # Inserisce un padding strutturale e un nuovo livello di gerarchia per la sezione dei marconutrienti
+        st.divider()
+        st.subheader("I tuoi Macronutrienti")
+        
+        # Genera tre slot orizzontali per allocare le proiezioni nutrizionali di base
+        mcol1, mcol2, mcol3 = st.columns(3)
+        
+        with mcol1:
+            # Rendering del fabbisogno plastico raccomandato (Proteine)
+            st.metric("Proteine", f"{daily_targets['proteins']} g")
+            
+        with mcol2:
+            # Rendering del fabbisogno lipidico raccomandato (Grassi)
+            st.metric("Grassi", f"{daily_targets['fats']} g")
+            
+        with mcol3:
+            # Rendering del fabbisogno energetico residuo (Carboidrati)
+            st.metric("Carboidrati", f"{daily_targets['carbohydrates']} g")
+        
+        # Instanzia il componente di upload, validando a livello applicativo l'MIME type per mitigare rischi
         uploaded_file = st.file_uploader("Carica la foto del tuo pasto...", type=["jpg", "jpeg", "png"])
         
+        # Verifica la presenza del buffer binario file in ingresso
         if uploaded_file is not None:
-            # Rendering visivo: converte il buffer in PIL Image e lo mostra all'utente come preview.
+            # Effettua la deserializzazione dell'immagine avvalendosi di PIL_Image per predisporre l'anteprima
             image = Image.open(uploaded_file)
             st.image(image, caption="Anteprima del Pasto", use_container_width=True)
             
-            # Inizializza l'agente LLM responsabile della business logic nutrizionale.
+            # Bootstrapping dell'agente reattivo designato al parsing e validazione nutrizionale
             agent = NutritionistAgent()
             
-            # Bottone di submit: innesca in modo esplicito la transazione verso le API del provider LLM.
+            # Definisce il trigger di evento action-oriented per innescare l'inferenza asincrona
             if st.button("Analizza Pasto"):
-                # UX transitoria: previene task sovrapposti e indica attività asincrona in corso.
+                # Evoca uno spinner di feedback per minimizzare percezioni di blocco applicativo
                 with st.spinner("L'Agente AI sta analizzando l'immagine..."):
                     try:
-                        # Workaround Architetturale per il framework Agno: la classe `AgnoImage` richiede rigorosamente
-                        # un puntatore a percorso fisico (file path) e non accetta byte stream / buffer diretti da Streamlit.
-                        # Creiamo un file isolato su disco temporaneamente per completare la transazione.
+                        # Predispone un file virtuale sul filesystem host in quanto la dipendenza Agno richiede hard link pass-through
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
                             tmp_file.write(uploaded_file.getvalue())
                             tmp_path = tmp_file.name
                         
-                        # Inferenza Multimodale: passa il prompt base integrando l'asset visivo su disco.
+                        # Invocazione sincrona dell'engine con pattern di costrizione, forzando output strutturati
                         response = agent.run(
-                            "Analizza questa immagine.", 
-                            images=[AgnoImage(filepath=tmp_path)]
+                            "Analizza accuratamente l'immagine del pasto. "
+                            "DEVI restituire i dati seguendo rigorosamente lo schema MealAnalysis: "
+                            "1. analysis_result: una breve descrizione. "
+                            "2. calories, proteins, carbohydrates, fats: solo numeri (stima media). "
+                            "NON aggiungere chiacchiere extra, rispondi solo con i dati strutturati.", 
+                            images=[AgnoImage(filepath=tmp_path)],
+                            response_model=MealAnalysis
                         )
                         
-                        # Esegue il parsing e rendering del Markdown validato dal modello.
-                        st.markdown(response.content)
+                        # Estrazione del payload raw di risposta generato dallo schema
+                        raw_content = response.content
 
-                        # Persistenza del risultato: archivia l'esito dell'analisi associandolo 
-                        # all'identificativo univoco dell'utente attualmente in sessione.
+                        # Gestisce dinamicamente il fallback text/json qualora avvenga un bypass dell'entity nativa
+                        if isinstance(raw_content, str):
+                            try:
+                                # Normalizza la stringa epurando artefatti markdown introdotti tipicamente dall'LLM
+                                clean_json = raw_content.replace("```json", "").replace("```", "").strip()
+                                # Marshalling dell'oggetto instanziando il data model Pydantic validato
+                                analysis = MealAnalysis.model_validate_json(clean_json)
+                            except Exception as e:
+                                # Intercetta malformazioni sintattiche JSON prevenendo il crash kernel dell'applicativo 
+                                st.error(f"Errore nel parsing del JSON: {e}")
+                                st.write("Dati ricevuti:", raw_content)
+                                st.stop()
+                        else:
+                            # Pass-through in caso di type match sull'oggetto desiderato
+                            analysis = raw_content
+
+                        # Generazione UI finali: esposizione della descrizione generalistica
+                        st.info(analysis.analysis_result)
+
+                        # Isolamento visivo dei dati tabellari finali estratti dal pasto analizzato
+                        res_col1, res_col2, res_col3 = st.columns(3)
+                        res_col1.metric("Calorie", f"{analysis.calories} kcal")
+                        res_col2.metric("Proteine", f"{analysis.proteins} g")
+                        res_col3.metric("Grassi", f"{analysis.fats} g")
+
+                        # Serializza il dump ed aggancia permanentemente lo snapshot analisi via ORM al context-user attivo
                         save_meal_log(
                             user_id=st.session_state['current_user_id'],
-                            analysis_result=response.content
+                            analysis_result=analysis.model_dump_json()
                         )
-                        
-                        # Feedback UI: notifica asincrona all'utente del corretto salvataggio nel database.
-                        st.success("Analisi salvata con successo nel tuo storico!!!")
+                        st.success("Analisi salvata con successo!")
 
-                        # Memory / Disk Management: rimozione pulita dell'identificatore I/O per prevenire saturazione disco ("garbage collection" manuale).
+                        # Esegue un cleanup esplicito dello swap file in ossequio ai pattern di disk-hygiene
                         os.remove(tmp_path)
                         
                     except Exception as e:
-                        # Gestione Fallimenti (Defensive Programming): intercetta network error o fallimenti sul FS loggando l'eccezione 
-                        # in UI in modo formattato per evitare il blocco dell'Application Loop.
+                        # Gestore di sistema di ultima istanza preposto alla cattura di faults di rete e file I/O
                         st.error(f"Si è verificato un errore critico durante l'analisi: {e}")
 
 
@@ -241,12 +303,22 @@ def main() -> None:
                     step=0.5
                 )
                 
-            goals = st.text_area(
-                "Obiettivi", value=user_data['goals'] if user_data['goals'] else ""
+            # Campo numerico per l'inserimento del peso obiettivo desiderato
+            target_weight = st.number_input(
+                "Peso Obiettivo (kg)", min_value=30.0, max_value=250.0, 
+                value=float(user_data['target_weight']) if user_data['target_weight'] else 70.0,
+                step=0.1
+            )
+            
+            # Menu a tendina per selezionare la tipologia di obiettivo nutrizionale
+            goal_type = st.selectbox(
+                "Tipo di Obiettivo", 
+                options=["dimagrimento", "mantenimento", "massa"],
+                index=0
             )
             
             if st.form_submit_button("Salva Modifiche"):
-                update_user_profile(st.session_state['current_user_id'], weight, height, age, goals)
+                update_user_profile(st.session_state['current_user_id'], weight, height, age, target_weight, goal_type)
                 st.success("Profilo aggiornato!")
 
 if __name__ == "__main__":
