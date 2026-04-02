@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from src.database.models import User, UserProfile, Conversation, Message
+from src.database.models import User, UserProfile, Conversation, Message, MealLog
 from src.database.database import get_session
 
 """
@@ -103,3 +103,45 @@ def get_chat_history(conversation_id: int):
     history = [{"role": m.role, "content": m.content} for m in messages]
     session.close()
     return history
+
+def save_meal_log(user_id: int, analysis_result: str, calories: float = None, proteins: float = None, carbs: float = None, fats: float = None):
+    """
+    Salva il log dell'analisi di un pasto nel database associandolo a uno specifico utente.
+
+    La funzione crea un nuovo record `MealLog` contenente i risultati dell'analisi 
+    e i valori nutrizionali (calorie e macronutrienti) calcolati, per poi persisterlo
+    tramite la sessione del database.
+
+    Args:
+        user_id (int): L'ID univoco dell'utente che ha registrato il pasto.
+        analysis_result (str): L'esito testuale dell'analisi effettuata sul pasto.
+        calories (float, opzionale): Valore calorico stimato. Default a None.
+        proteins (float, opzionale): Grammi stimati di proteine. Default a None.
+        carbs (float, opzionale): Grammi stimati di carboidrati. Default a None.
+        fats (float, opzionale): Grammi stimati di grassi. Default a None.
+
+    Returns:
+        None
+
+    Autore: Stefano Bellan (20054330)
+    """
+    # Ottiene un'istanza della sessione del database
+    session = get_session()
+    
+    # Istanzia un nuovo log popolando i campi del modello MealLog
+    new_log = MealLog(
+        user_id = user_id,
+        analysis_result = analysis_result, 
+        calories = calories,
+        proteins = proteins,
+        carbohydrates= carbs,
+        fats = fats
+    )
+
+    # Aggiunge il nuovo record alla transazione e lo salva permanentemente sul database
+    session.add(new_log)
+    session.commit()
+    
+    # Chiude la sessione per rilasciare le connessioni al database
+    session.close()
+
