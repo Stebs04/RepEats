@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from src.database.models import User, UserProfile, Conversation, Message, MealLog
 from src.database.database import get_session
+from sqlalchemy import func
+from datetime import datetime, timezone
 
 """
 Creazione e recupero del profilo dell'utente, con i dati personali e gli obiettivi di fitness.
@@ -44,7 +46,7 @@ def update_user_profile(user_id: int, weight: float, height: float, age: int, ta
         profile.weight = weight
         profile.height = height
         profile.age = age
-        profile.target_weight = target_weight
+        profile.target_weight = target_weight 
         profile.goal_type = goal_type
         session.commit()
     session.close()
@@ -201,4 +203,39 @@ def calculate_daily_macros(user_id: int):
         "proteins": round(proteins, 1),
         "fats": round(fats, 1),
         "carbohydrates": round(carbohydrates, 1)
+    }
+
+def get_todays_macros(user_id: int):
+    """
+    Calcola e restituisce la somma totale dei macronutrienti e delle calorie assunte da un utente nella giornata odierna.
+    Autore: Stefano Bellan (20054330)
+    """
+    # Ottiene un'istanza della sessione del database
+    session = get_session()
+    
+    # Recupera la data odierna nel fuso orario UTC
+    today_date = datetime.now(timezone.utc).date()
+    
+    # Esegue una query per calcolare la somma di calorie, proteine, grassi e carboidrati
+    somma_macro = session.query(
+        func.sum(MealLog.calories),
+        func.sum(MealLog.proteins),
+        func.sum(MealLog.fats),
+        func.sum(MealLog.carbohydrates)
+    ).filter(
+        # Filtra i record associati allo specifico utente
+        MealLog.user_id == user_id,
+        # Filtra i log relativi esclusivamente alla data odierna
+        func.date(MealLog.timestamp) == today_date
+    ).first()
+    
+    # Chiude la sessione per rilasciare le risorse
+    session.close()
+    
+    # Restituisce un dizionario con i totali, gestendo il caso di valori nulli (es. nessun pasto registrato)
+    return {
+        "calories": somma_macro[0] or 0,
+        "proteins": somma_macro[1] or 0,
+        "fats": somma_macro[2] or 0, 
+        "carbohydrates": somma_macro[3] or 0
     }
