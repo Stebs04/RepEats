@@ -21,7 +21,8 @@ from src.database.user_service import (
     save_message,
     get_chat_history,
     save_meal_log,
-    calculate_daily_macros
+    calculate_daily_macros,
+    get_todays_macros
 )
 
 # --- CONFIGURAZIONE INIZIALE ---
@@ -115,121 +116,180 @@ def main() -> None:
     ])
 
     # === TAB 1: NUTRIZIONE (Vision AI) ===
-    # Componente UI principale dedicato al tracciamento e all'analisi nutrizionale multimodale.
-    # Gestisce il ciclo di vita dell'acquisizione dell'asset visivo, il calcolo algoritmico
-    # del fabbisogno quotidiano (BMR/TDEE) e orchestra le transazioni con l'agente LLM 
-    # per la classificazione e la persistenza strutturata dei macro-nutrienti estratti.
-    # Autore: Stefano Bellan (20054330)
+    """
+    Questo segmento gestisce la dashboard nutrizionale, occupandosi della visualizzazione dei target
+    metabolici e dei progressi giornalieri. Gestisce inoltre il caricamento di un'immagine di un pasto e 
+    l'invocazione di un Agente di Intelligenza Artificiale per l'analisi visiva e la classificazione nutrizionale,
+    salvando i risultati ottenuti direttamente nel database.
+    Autore: Stefano Bellan (20054330)
+    """
     with tab_nutrizione:
-        # Renderizza l'intestazione principale della dashboard nutrizionale
+        # Mostra l'intestazione principale per la sezione relativa alla dashboard nutrizionale
         st.header("📊 Dashboard Nutrizionale")
         
-        # Interroga il layer di servizio per calcolare i target metabolici basati sulle metriche utente
+        # Interroga il layer di servizio per calcolare gli obiettivi macro-nutrizionali in base al profilo utente
         daily_targets = calculate_daily_macros(st.session_state['current_user_id'])
+        
+        # Recupera dal database la somma dei macronutrienti e delle calorie consumate nella giornata odierna
+        consumed_today = get_todays_macros(st.session_state['current_user_id'])
+        
+        # Calcola il progresso percentuale delle calorie consumate limitandolo a 1.0 (100%) per la barra della UI
+        cal_progress = min(consumed_today['calories']/ daily_targets['target_calories'] or 1, 1.0)
+        
+        # Calcola il progresso percentuale delle proteine garantendo che non ecceda 1.0 a scopo di visualizzazione
+        prot_progress = min(consumed_today['proteins'] / daily_targets['proteins']or 1, 1.0)
+        
+        # Calcola il progresso percentuale dei grassi, con divisione sicura tramite operatore OR in caso di assenza
+        fat_progress = min(consumed_today['fats'] / daily_targets['fats'] or 1, 1.0)
+        
+        # Calcola il progresso percentuale dei carboidrati bloccando il valore massimo a 1.0 per il componente progress
+        carb_progress = min(consumed_today['carbohydrates'] / daily_targets['carbohydrates'] or 1, 1.0)
 
-        # Ripartisce la UI in un layout a griglia con due colonne di area equivalente
+        # Ripartisce il layout orizzontale definendo due colonne separate su cui disporre i contenuti
         col1, col2 = st.columns(2)
         
+        # Specifica il blocco di codice destinato al rendering per la prima colonna creata
         with col1:
-            # Espone il Total Daily Energy Expenditure (TDEE), o fabbisogno di mantenimento
+            # Mostra una metrica per il TDEE (Fabbisogno Calorico Giornaliero Totale)
             st.metric("Fabbisogno Calorico Giornaliero (TDEE)", f"{daily_targets['tdee']} kcal")
             
+        # Specifica il blocco di codice destinato al rendering per la seconda colonna creata
         with col2:
-            # Espone il target calorico corretto asimmetricamente in dipendenza dalla tipologia di obiettivo
-            st.metric("Obiettivo Calorico Giornaliero", f"{daily_targets['target_calories']} kcal")
-
-        # Inserisce un padding strutturale e un nuovo livello di gerarchia per la sezione dei marconutrienti
+            # Mostra in stile markdown il rapporto tra calorie attuali rispetto a quelle target totali giornaliere
+            st.markdown(f"**Calorie:** {consumed_today['calories']} / {daily_targets['target_calories']} kcal")
+            # Disegna la relativa barra di avanzamento passando il valore in scala precedentemente elaborato
+            st.progress(cal_progress)
+            
+        # Inserisce un divisore visivo orizzontale a livello d'interfaccia 
         st.divider()
+        
+        # Crea un sotto-titolo per la successiva area specifica dei macronutrienti consumati
         st.subheader("I tuoi Macronutrienti")
         
-        # Genera tre slot orizzontali per allocare le proiezioni nutrizionali di base
+        # Alloca tre ulteriori colonne disposte orizzontalmente per distribuire in modo equi-proporzionato i macro
         mcol1, mcol2, mcol3 = st.columns(3)
         
+        # Gestisce i componenti esposti visivamente per la prima di queste 3 colonne
         with mcol1:
-            # Rendering del fabbisogno plastico raccomandato (Proteine)
-            st.metric("Proteine", f"{daily_targets['proteins']} g")
+            # Renderizza le misurazioni assolute per le proteine (consumate vs target)
+            st.markdown(f"**Proteine:** {consumed_today['proteins']} / {daily_targets['proteins']} g")
+            # Implementa visivamente la barra indicante il caricamento del progresso proteico calcolato
+            st.progress(prot_progress)
             
+        # Gestisce i componenti esposti visivamente per la seconda delle 3 colonne
         with mcol2:
-            # Rendering del fabbisogno lipidico raccomandato (Grassi)
-            st.metric("Grassi", f"{daily_targets['fats']} g")
+            # Renderizza le misurazioni assolute per i grassi assunti (consumati vs target)
+            st.markdown(f"**Grassi:** {consumed_today['fats']} / {daily_targets['fats']} g")
+            # Implementa l'indicatore a barra associato alla quota lipidica già ingerita
+            st.progress(fat_progress)
             
+        # Gestisce i componenti esposti visivamente per l'ultima delle 3 colonne specificate
         with mcol3:
-            # Rendering del fabbisogno energetico residuo (Carboidrati)
-            st.metric("Carboidrati", f"{daily_targets['carbohydrates']} g")
+            # Renderizza le misurazioni assolute riferite ai carboidrati assunti
+            st.markdown(f"**Carboidrati:** {consumed_today['carbohydrates']} / {daily_targets['carbohydrates']} g")
+            # Inserisce la progress bar per la quota glicidica odierna consumata limitata all'unità (1.0)
+            st.progress(carb_progress)
         
-        # Instanzia il componente di upload, validando a livello applicativo l'MIME type per mitigare rischi
+        # Attiva e mostra a schermo la componente drag&drop che attende immagini con MIME type strettamente vincolati
         uploaded_file = st.file_uploader("Carica la foto del tuo pasto...", type=["jpg", "jpeg", "png"])
         
-        # Verifica la presenza del buffer binario file in ingresso
+        # Verifica ed innesca la logica solamente nel caso in cui un file valido sia caricato instanziato
         if uploaded_file is not None:
-            # Effettua la deserializzazione dell'immagine avvalendosi di PIL_Image per predisporre l'anteprima
+            # Deserializza l'immagine proveniente dall'utente caricandola in memoria RAM tramite la libreria PIL
             image = Image.open(uploaded_file)
+            
+            # Espone in UI l'anteprima dell'immagine aperta e associata tramite un div responsivo al container
             st.image(image, caption="Anteprima del Pasto", use_container_width=True)
             
-            # Bootstrapping dell'agente reattivo designato al parsing e validazione nutrizionale
+            # Istanzia e predispone il Nutrizionista multi-modale per l'inferenza AI con l'ausilio di Agno
             agent = NutritionistAgent()
             
-            # Definisce il trigger di evento action-oriented per innescare l'inferenza asincrona
+            # Definisce un pulsante utile ad autorizzare manualmente ed istruire il processo d'inferenza dell'analisi
             if st.button("Analizza Pasto"):
-                # Evoca uno spinner di feedback per minimizzare percezioni di blocco applicativo
+                # Applica uno spinner di caricamento visivo utile per la UX bloccando i concetti in attesa del risultato AI
                 with st.spinner("L'Agente AI sta analizzando l'immagine..."):
                     try:
-                        # Predispone un file virtuale sul filesystem host in quanto la dipendenza Agno richiede hard link pass-through
+                        # Si riserva e crea su disco di sistema un file temp di stoccaggio virtuale dove scrivere
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+                            # Preleva dal web-buffer di streamlit lo stream di byte per buttarlo in scrittura fisica su disco locale
                             tmp_file.write(uploaded_file.getvalue())
+                            # Archivia in variabile di sessione temporanea l'hash referenziante il nuovo path del file su disco
                             tmp_path = tmp_file.name
                         
-                        # Invocazione sincrona dell'engine con pattern di costrizione, forzando output strutturati
+                        # Inizia il processo inferenziale invocando asincronamente l'Agente LLM con parametri precisi in base al framework
                         response = agent.run(
-                            "Analizza accuratamente l'immagine del pasto. "
+                            "Analizza accuratamente l'immagine del pasto e restituisci ESCLUSIVAMENTE un oggetto JSON valido per lo schema MealAnalysis. Non aggiungere testo prima o dopo."
                             "DEVI restituire i dati seguendo rigorosamente lo schema MealAnalysis: "
-                            "1. analysis_result: una breve descrizione. "
-                            "2. calories, proteins, carbohydrates, fats: solo numeri (stima media). "
+                            "analysis_result: una breve descrizione. "
+                            "calories, proteins, carbohydrates, fats: solo numeri (stima media). "
                             "NON aggiungere chiacchiere extra, rispondi solo con i dati strutturati.", 
+                            # Cede al prompt di run la string path del file temporaneo castato per il formato oggetto richiesto da 'AgnoImage'
                             images=[AgnoImage(filepath=tmp_path)],
+                            # Implementa coercizione formale all'output esigendo uno stream conformante lo schema del validatore BaseModel
                             response_model=MealAnalysis
                         )
                         
-                        # Estrazione del payload raw di risposta generato dallo schema
+                        # Associa alla variabile un binding sul payload restituito internamente da agent process ultimato
                         raw_content = response.content
 
-                        # Gestisce dinamicamente il fallback text/json qualora avvenga un bypass dell'entity nativa
+                        # Gestisce un controllo dinamico se il framework perde colpi e rilascia la conformazione testuale raw (fallback in stringa)
                         if isinstance(raw_content, str):
                             try:
-                                # Normalizza la stringa epurando artefatti markdown introdotti tipicamente dall'LLM
+                                # Normalizza eventuali stringhe parassitarie emesse in Markdown per prepararsi al casting JSON formale
                                 clean_json = raw_content.replace("```json", "").replace("```", "").strip()
-                                # Marshalling dell'oggetto instanziando il data model Pydantic validato
+                                # Esegue il parsing effettivo del Base Model validandolo tramite Pydantic con input il testo sanificato  
                                 analysis = MealAnalysis.model_validate_json(clean_json)
+                            # Intercetta il sollevamento formale di errori sintattici in codifica che porterebbero a blocco d'applicazione
                             except Exception as e:
-                                # Intercetta malformazioni sintattiche JSON prevenendo il crash kernel dell'applicativo 
+                                # Segnala e notifica esplicitamente d'errore visivo per parsing errato all'utente
                                 st.error(f"Errore nel parsing del JSON: {e}")
+                                # Scrive il blocco malformattato così com'è per scopi da puro troubleshooting lato sviluppatori
                                 st.write("Dati ricevuti:", raw_content)
+                                # Ferma e distrugge le successivi esecuzioni procedurali interrompendo lo script del ciclo interno a Streamlit
                                 st.stop()
+                        # Fallback case opposti ad eccezione stringa: L'implementazione si è attenuta al type model Pydantic di origine
                         else:
-                            # Pass-through in caso di type match sull'oggetto desiderato
+                            # Applica ed accoglie senza sanificazione l'oggetto nativo che soddisfa MealAnalysis BaseModel
                             analysis = raw_content
 
-                        # Generazione UI finali: esposizione della descrizione generalistica
+                        # Mostra e loggia il risultato generato e narrato dall'LLM sfruttando un componente standard informativo
                         st.info(analysis.analysis_result)
 
-                        # Isolamento visivo dei dati tabellari finali estratti dal pasto analizzato
+                        # Architetta nuovamente tre sub-colonne ad uso esclusivo dei tre indicatori derivati a valle del parsing del model AI
                         res_col1, res_col2, res_col3 = st.columns(3)
+                        # Popola il primo segnaposto con la stima calorica generata
                         res_col1.metric("Calorie", f"{analysis.calories} kcal")
+                        # Popola il secondo segnaposto con la stima in grammi alle proteine ingerite
                         res_col2.metric("Proteine", f"{analysis.proteins} g")
+                        # Popola il terzo segnaposto adibito alle indicazioni lipidiche stimate per il pasto inserito
                         res_col3.metric("Grassi", f"{analysis.fats} g")
 
-                        # Serializza il dump ed aggancia permanentemente lo snapshot analisi via ORM al context-user attivo
+                        # Passa tutti i payload estrusi al CRUD layer interfacciante la persistenza tramite engine del database MySQL/SQLite locale ecc
                         save_meal_log(
+                            # Trasmette l'intestatario ID relativo all'account autenticato di sessione ad uso Foreign Key
                             user_id=st.session_state['current_user_id'],
-                            analysis_result=analysis.model_dump_json()
+                            # Converte e fa il dump via format JSON di tutta l'integrità natia generatrice del responso analysis
+                            analysis_result=analysis.model_dump_json(),
+                            # Trascrive specificatamente a database l'asset del modello per le calorie
+                            calories = analysis.calories,
+                            # Trascrive specificatamente le stime ad attributo del modello relative l'ingresso in Grammi proteico
+                            proteins= analysis.proteins,
+                            # Salva per attributo per colonna i grammi dei grassi del pasto
+                            fats = analysis.fats,
+                            # Salva per attributo al modello carboidrati nel table MealLog con reference in foreign key
+                            carbs = analysis.carbohydrates
                         )
+                        # Effettua feedback grafico visualizzando a bandierina la conferma su transazione salva di fine procedura
                         st.success("Analisi salvata con successo!")
 
-                        # Esegue un cleanup esplicito dello swap file in ossequio ai pattern di disk-hygiene
+                        # Esegue Garbage collection manuale esplicita andando a disfare fisicamente il dummy temp.jpg creato sul root
                         os.remove(tmp_path)
+                        # Inizializza un rebuild complessivo dell'intera GUI triggerando la catena dell'architettura di rendering Streamlit
+                        st.rerun()
                         
+                    # Prepara via exception di salvataggio try l'ingabbiamento logiche ad appannaggio di cadute generiche
                     except Exception as e:
-                        # Gestore di sistema di ultima istanza preposto alla cattura di faults di rete e file I/O
+                        # Gestore preposto alla cattura di faults network API Agno o crasi critiche al file system del disco OS lanciandoli con banner custom  
                         st.error(f"Si è verificato un errore critico durante l'analisi: {e}")
 
 
@@ -320,6 +380,7 @@ def main() -> None:
             if st.form_submit_button("Salva Modifiche"):
                 update_user_profile(st.session_state['current_user_id'], weight, height, age, target_weight, goal_type)
                 st.success("Profilo aggiornato!")
+                st.rerun()
 
 if __name__ == "__main__":
     main()
