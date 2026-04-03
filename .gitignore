@@ -18,3 +18,6 @@ __pycache__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+#File di Visual Studio
+.vscode/
