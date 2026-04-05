@@ -11,6 +11,9 @@ from pydantic import BaseModel, Field
 
 # Schema Pydantic che definisce la struttura JSON di output richiesta all'LLM
 class MealAnalysis(BaseModel):
+    # Campo per il nome identificativo del pasto riconosciuto
+    name: str = Field(description="Nome breve ed esplicativo della pietanza o del prodotto.")
+
     # Campo per l'analisi testuale del pasto
     analysis_result: str = Field(description="Breve descrizione del pasto e analisi nutrizionale generale.")
     
