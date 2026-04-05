@@ -63,8 +63,14 @@ class UserProfile(Base):
     weight = Column(Float)  # Memorizzato in chilogrammi (kg).
     height = Column(Float)  # Memorizzato in centimetri (cm).
     
+    # Parametri fisiologici strutturati per l'accuratezza metabolica (TDEE/BMR)
+    gender = Column(String(10), default="uomo") # Sesso biologico ("uomo" / "donna") per offset Mifflin-St Jeor
+    activity_level = Column(Float, default=1.55) # LAF/PAL: fattore numerico per stimare il consumo extra
+    
     #Peso Ideale che l'utente vuole raggiungere
     target_weight = Column(Float)
+    #Tempo (in settimane) entro il quale l'utente vuole raggiungere l'obiettivo
+    target_weeks = Column(Integer, default=12)
     #Tipo di obiettivo che l'utente si è posto
     goal_type = Column(String(50))
     
@@ -147,11 +153,17 @@ class MealLog(Base):
     #Campo per l'analisi
     analysis_result = Column(Text, nullable=False)
 
-    # --- NUOVI CAMPI PER I MACRONUTRIENTI (Valori strutturati) ---
+    # --- NUOVI CAMPI PER I MACRONUTRIENTI E IDENTIFICAZIONE (Valori strutturati) ---
+    #Nome generato per la pietanza analizzata
+    name = Column(String(200), nullable=True)
+    
     calories = Column(Float, nullable=True)
     proteins = Column(Float, nullable=True)
     carbohydrates = Column(Float, nullable=True)
     fats = Column(Float, nullable=True)
+    
+    #Categoria del pasto (es. Colazione, Pranzo, Cena, Spuntino)
+    category = Column(String(50), nullable=True)
 
     #Data e ora dell'analisi
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -37,7 +37,7 @@ def create_user(username: str, email: str):
 
 
 """Dopo aver creato un nuovo utente e un nuovo profilo, bisogna aggiornare i dati inerenti a quell'utente"""
-def update_user_profile(user_id: int, weight: float, height: float, age: int, target_weight: float, goal_type: str):
+def update_user_profile(user_id: int, weight: float, height: float, age: int, gender: str, activity_level: float, target_weight: float, target_weeks: int, goal_type: str):
 
     session = get_session()
     profile = session.query(UserProfile).filter_by(user_id = user_id).first()
@@ -46,7 +46,10 @@ def update_user_profile(user_id: int, weight: float, height: float, age: int, ta
         profile.weight = weight
         profile.height = height
         profile.age = age
+        profile.gender = gender
+        profile.activity_level = activity_level
         profile.target_weight = target_weight 
+        profile.target_weeks = target_weeks
         profile.goal_type = goal_type
         session.commit()
     session.close()
@@ -62,7 +65,10 @@ def get_user_data(user_id: int):
         "weight": user.profile.weight,
         "height": user.profile.height,
         "age": user.profile.age,
+        "gender": user.profile.gender or "uomo",
+        "activity_level": user.profile.activity_level or 1.55,
         "target_weight": user.profile.target_weight,
+        "target_weeks": user.profile.target_weeks or 12,
         "goal_type": user.profile.goal_type
         }
     session.close()
@@ -108,17 +114,19 @@ def get_chat_history(conversation_id: int):
     session.close()
     return history
 
-def save_meal_log(user_id: int, analysis_result: str, calories: float = None, proteins: float = None, carbs: float = None, fats: float = None):
+def save_meal_log(user_id: int, analysis_result: str, category: str = None, name: str = None, calories: float = None, proteins: float = None, carbs: float = None, fats: float = None):
     """
-    Salva il log dell'analisi di un pasto nel database associandolo a uno specifico utente.
+    Salva il log dell'analisi di un pasto nel database associandolo a uno specifico utente e categoria.
 
-    La funzione crea un nuovo record `MealLog` contenente i risultati dell'analisi 
-    e i valori nutrizionali (calorie e macronutrienti) calcolati, per poi persisterlo
-    tramite la sessione del database.
+    La funzione crea un nuovo record `MealLog` contenente i risultati dell'analisi,
+    il nome associativo, la categoria del pasto, e i valori nutrizionali (calorie e macronutrienti) calcolati, 
+    per poi persisterlo tramite la sessione del database.
 
     Args:
         user_id (int): L'ID univoco dell'utente che ha registrato il pasto.
         analysis_result (str): L'esito testuale dell'analisi effettuata sul pasto.
+        category (str, opzionale): Categoria del pasto (es. Colazione, Pranzo). Default a None.
+        name (str, opzionale): Nome identificativo o marchio del prodotto. Default a None.
         calories (float, opzionale): Valore calorico stimato. Default a None.
         proteins (float, opzionale): Grammi stimati di proteine. Default a None.
         carbs (float, opzionale): Grammi stimati di carboidrati. Default a None.
@@ -136,6 +144,8 @@ def save_meal_log(user_id: int, analysis_result: str, calories: float = None, pr
     new_log = MealLog(
         user_id = user_id,
         analysis_result = analysis_result, 
+        category = category,
+        name = name,
         calories = calories,
         proteins = proteins,
         carbohydrates= carbs,
@@ -151,14 +161,19 @@ def save_meal_log(user_id: int, analysis_result: str, calories: float = None, pr
 
 def calculate_daily_macros(user_id: int):
     """
-    Calcola i macro-nutrienti e il fabbisogno calorico giornaliero di un utente 
-    in base alle proprie metriche biometriche e agli obiettivi di fitness.
+    Calcola i macro-nutrienti e il fabbisogno calorico giornaliero completo di un utente 
+    in base alle proprie metriche biometriche (peso, altezza, età e genere) 
+    e ai ritmi metabolici personali tramite formula Mifflin-St Jeor.
+    
+    Adotta un calcolo avanzato che modula dinamicamente grassi e proteine 
+    esclusivamente sul reale TDEE con factoring di attività fisica selezionato.
+    
     Autore: Stefano Bellan (20054330)
     """
-    # Recupera il profilo dell'utente (dati biometrici e obiettivi) dal database
+    # Recupera il profilo dell'utente (dati biometrici, identificativi e obiettivi) dal database
     user_data = get_user_data(user_id)
 
-    # Se mancano i dati fondamentali, restituiamo valori a zero per evitare il crash
+    # Se mancano i dati fondamentali preventivi, restituiamo un pacchetto a zero per ovviare ad errori Null Pointer 
     if not user_data or not user_data['weight'] or not user_data['height'] or not user_data['age']:
         return {
             "tdee": 0,
@@ -168,35 +183,84 @@ def calculate_daily_macros(user_id: int):
             "carbohydrates": 0
         }
     
-    # Calcola il Metabolismo Basale (BMR) utilizzando l'equazione di Mifflin-St Jeor (permette di stimare le calorie consumate a riposo)
-    bmr = (10 * user_data['weight'] + (6.25 * user_data['height']) - (5 * user_data['age']))
+    # Esegue formula basale base indipendente Mifflin-St Jeor = 10*Weight + 6.25*Height - 5*Age
+    bmr_base = (10 * user_data['weight']) + (6.25 * user_data['height']) - (5 * user_data['age'])
     
-    # Calcola il Dispendio Energetico Totale Giornaliero (TDEE) moltiplicando il BMR per un fattore di attività stimato standard (PAL = 1.55, attività moderata)
-    tdee = bmr * 1.55
+    # Applica l'aggiustamento genere specifico richiesto dalla formula di riferimento scientifico
+    if user_data.get('gender', 'uomo') == 'uomo':
+        # Offset per maschi (+5 costante fissa fisiologica)
+        bmr = bmr_base + 5
+    else:
+        # Offset per femmine (-161 costante fissa per incidenza adiposa biologica)
+        bmr = bmr_base - 161
     
-    # Imposta le calorie target inziali pari al livello di mantenimento energetico (TDEE)
-    target_calories = tdee
+    # Determina il LAF (Livello Attività Fisica) moltiplicatore prelevato o fallback default 1.55 (Moderate) 
+    activity_multiplier = float(user_data.get('activity_level', 1.55))
     
-    # Applica un deficit calorico di 500 kcal per facilitare la perdita di grasso corporeo (fase di cut)
-    if user_data['goal_type'] == 'dimagrimento':
-        target_calories = target_calories - 500
-    # Applica un surplus calorico di 300 kcal per facilitare l'ipertrofia e l'aumento di massa muscolare (fase di bulk)
-    elif user_data['goal_type'] == 'massa':
-         target_calories = target_calories + 300
+    # Calcola il Dispendio Energetico Totale Giornaliero (TDEE) moltiplicando il BMR con il LAF dell'utente
+    tdee = bmr * activity_multiplier
+    
+    # Inizializza l'obiettivo attuale dell'utente
+    goal = user_data.get('goal_type', 'mantenimento')
+    
+    # Determina dinamicamente il deficit o surplus giornaliero basato sull'obiettivo di peso in kg e nel tempo impostato
+    # Fisiologia base: 1 kg di grasso corporeo/tessuto metabolico corrisponde a circa 7700 kcal
+    target_weight = user_data.get('target_weight')
+    target_weeks = user_data.get('target_weeks') or 12
+    current_weight = user_data.get('weight')
+    
+    # Se i valori non sono stati impostati usa configurazioni safe default
+    daily_kcal_variation = 0
+    if target_weight and target_weight > 0 and target_weeks > 0:
+        # Differenza totale di peso in kg
+        weight_diff = abs(current_weight - target_weight)
+        # Differenza termica totale in Kcal da perdere/guadagnare in 'target_weeks'
+        total_kcal_variation = weight_diff * 7700
+        # Spalmato su Kcal giornaliere (settimane * 7 giorni)
+        daily_kcal_variation = total_kcal_variation / (target_weeks * 7)
+        
+        # Limite fisiologico di sicurezza (max -1000 deficit o +500 surplus al giorno per non incorrere in malesseri)
+        if goal == 'dimagrimento':
+            daily_kcal_variation = min(daily_kcal_variation, 1000)
+        elif goal == 'massa':
+            daily_kcal_variation = min(daily_kcal_variation, 500)
+    
+    # Scompone i percorsi nutrizionali calcolando parametri flessibili e mirati all'obiettivo
+    if goal == 'dimagrimento':
+        # Deficit dinamico elaborato dal timeframe scelto dall'utente
+        target_calories = tdee - daily_kcal_variation
+        # Aumentato target proteico per preservare massa muscolare in restrizione (2.2g per chilo magro/tot)
+        protein_ratio = 2.2
+        # Fissa i grassi su base bilanciata per omeostasi ormonale standard (0.8g per chilo)
+        fat_ratio = 0.8
+    elif goal == 'massa':
+         # Surplus ragionato calcolato tramite tempo di ipertrofia prefissato
+         target_calories = tdee + daily_kcal_variation
+         # Rapporto proteico ridotto rispetto al cut grazie all'energia in abbondanza per risparmiare aminoacidi (1.8g)
+         protein_ratio = 1.8
+         # Lipidi a rialzo per stimolare profilo ormonale pre-cortisolo e test (1.0g per chilo)
+         fat_ratio = 1.0
+    else:
+        # Mantenimento normocalorico: Calorie Target = Dispendio reale
+        target_calories = tdee
+        # Formule di normomantenimento atletico
+        protein_ratio = 2.0
+        fat_ratio = 1.0
          
-    # Calcola il fabbisogno proteico in base al peso corporeo (fissato a 2.0g per kg per preservare/costruire massa magra)
-    proteins = user_data['weight'] * 2.0
+    # Calcola il fabbisogno proteico totale moltiplicando il peso dell'utente per la sua ratio elaborata
+    proteins = user_data['weight'] * protein_ratio
     
-    # Calcola il fabbisogno lipidico in base al peso corporeo (fissato a 0.9g per kg per un corretto apporto ormonale)
-    fats = user_data['weight'] * 0.9
+    # Calcola il fabbisogno lipidico moltiplicando il peso per l'offset lipidico personalizzato
+    fats = user_data['weight'] * fat_ratio
     
-    # Calcola le calorie rimanenti per i carboidrati decurtando le calorie di proteine (4 kcal/g) e grassi (9 kcal/g)
-    remaining_calories = target_calories - (proteins * 4.0) - (fats * 9.0)
+    # Calcola le calorie residue deputate ai carboidrati sottraendo i macronutrienti plastici decodificati 
+    # (Proteine = 4 kcal/g, Grassi = 9 kcal/g) limitando il floor a 0 per bloccare div negative
+    remaining_calories = max(0, target_calories - (proteins * 4.0) - (fats * 9.0))
     
-    # Converte le calorie rimanenti in grammi di carboidrati (4 kcal per grammo)
+    # Attribuisce il quantitativo glicidico rimanente in grammi dividendolo per la conversione kcalorica dei carbs (4 kcal/g)
     carbohydrates = remaining_calories / 4.0
     
-    # Restituisce il dizionario come payload con i valori arrotondati a 1 cifra decimale per un'esperienza UI pulita
+    # Restituisce il dizionario payload completo di TDEE effettivo arrotondando gentilmente in Float per facilitare stampe Streamlit
     return {
         "tdee": round(tdee, 1),
         "target_calories": round(target_calories, 1),
@@ -239,3 +303,88 @@ def get_todays_macros(user_id: int):
         "fats": somma_macro[2] or 0, 
         "carbohydrates": somma_macro[3] or 0
     }
+
+def get_meals_by_category(user_id: int, category: str):
+    """
+    Recupera tutti i log dei pasti corrispondenti a una specifica categoria per un determinato utente.
+    
+    Questa funzione interroga il database per estrarre lo storico dei pasti (MealLog)
+    filtrandoli per l'identificativo dell'utente e per la categoria desiderata (es. 'Colazione', 'Pranzo', ecc.).
+    I risultati vengono restituiti in ordine cronologico decrescente, dal pasto più recente al più vecchio.
+
+    Args:
+        user_id (int): L'identificativo univoco dell'utente.
+        category (str): La stringa che rappresenta la categoria del pasto da cercare.
+
+    Returns:
+        list: Una lista di oggetti MealLog che corrispondono ai criteri di validazione inseriti.
+
+    Autore: Stefano Bellan (20054330)
+    """
+    # Ottiene un'istanza della sessione per interagire con il database in modo sicuro
+    session = get_session()
+    
+    # Inizializza la query sul modello MealLog e applica i filtri necessari
+    meals = session.query(MealLog).filter(
+        # Verifica la corrispondenza esatta con l'identificativo dell'utente
+        MealLog.user_id == user_id,
+        # Verifica la corrispondenza esatta con la categoria di pasto richiesta
+        MealLog.category == category
+    ).order_by(
+        # Ordina l'intero set di risultati per data/ora in ordine decrescente (timestamp)
+        MealLog.timestamp.desc()
+    ).all() # Esegue materialmente la query restituendo tutti i record trovati come lista
+    
+    # Chiude la sessione di lavoro, rilasciando così le risorse e la connessione al database
+    session.close()
+    
+    # Restituisce la lista di oggetti (pasti) popolata e formattata precedentemente
+    return meals
+
+def delete_meal_log(user_id: int, meal_id: int) -> bool:
+    """
+    Elimina un record specifico relativo a un pasto registrato (MealLog) dal database.
+    
+    Questa funzione interroga il database per trovare un pasto specifico tramite il suo ID
+    e verifica che appartenga effettivamente all'utente specificato per garantire la sicurezza.
+    Se il record esiste e i controlli sono superati, procede con la rimozione permanente,
+    aggiornando lo stato del database.
+
+    Args:
+        user_id (int): L'identificativo univoco dell'utente che richiede la cancellazione.
+        meal_id (int): L'identificativo univoco del log del pasto da eliminare.
+
+    Returns:
+        bool: True se il pasto è stato trovato ed eliminato con successo, False altrimenti.
+
+    Autore: Stefano Bellan (20054330)
+    """
+    # Ottiene un'istanza della sessione per comunicare attivamente con il database
+    session = get_session()
+    
+    # Esegue una query mirata alla tabella MealLog applicando i filtri necessari
+    meal_to_delete = session.query(MealLog).filter(
+        # Filtra i risultati ricercando l'esatta corrispondenza con l'ID del pasto
+        MealLog.id == meal_id,
+        # Filtra i risultati assicurandosi che il proprietario sia l'utente indicato
+        MealLog.user_id == user_id
+    ).first() # Estrae l'unico record atteso, oppure None se inesistente
+    
+    # Valuta se la query precedente ha restituito un oggetto valido
+    if meal_to_delete:
+        # Segnala alla sessione l'intenzione di marcare l'oggetto per l'eliminazione
+        session.delete(meal_to_delete)
+        # Esegue fisicamente la transazione sul database, confermando la cancellazione
+        session.commit()
+        # Chiude la connessione e rilascia la memoria associata alla sessione
+        session.close()
+        # Ritorna valore booleano positivo comunicando il corretto esito dell'azione
+        return True
+    
+    # Nel caso in cui l'oggetto non sia stato trovato, procediamo a liberare le risorse
+    session.close()
+    
+    # Ritorna valore booleano negativo indicando il fallimento della procedura
+    return False
+
+
