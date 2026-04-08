@@ -364,6 +364,10 @@ def main() -> None:
                                     # Applica ed accoglie senza sanificazione l'oggetto nativo che soddisfa MealAnalysis BaseModel
                                     analysis = raw_content
 
+                                if analysis.analysis_result == "ATTENZIONE: L'immagine caricata non sembra contenere cibo rilevabile.":
+                                    st.error("L'agente non ha rilevato cibo in questa immagine. Riprova con una foto valida.")
+                                    st.stop()
+
                                 # Mostra e loggia il risultato generato e narrato dall'LLM sfruttando un componente standard informativo
                                 st.info(analysis.analysis_result)
 
