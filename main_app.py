@@ -412,6 +412,8 @@ def main() -> None:
 
     with tab_allenamento:
         st.header("💪 Personal Trainer AI")
+
+        u_id = st.session_state['current_user_id']
         
         # Recupero dati utente per il contesto dell'agente
         user_data = get_user_data(st.session_state['current_user_id'])
