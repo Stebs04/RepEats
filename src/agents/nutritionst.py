@@ -67,7 +67,8 @@ class NutritionistAgent(Agent):
             # Protezione da jailbreak o topic off-context per evitare derive conversazionali incontrollate
             "Rifiuta gentilmente di rispondere a domande che non riguardano la nutrizione, il fitness o il benessere.",
             # Setup direttivo sul Tone of Voice per un'interazione chiara, rassicurante e aderente a standard clinici
-            "Mantieni un tono professionale, empatico e preciso nei calcoli."
+            "Mantieni un tono professionale, empatico e preciso nei calcoli.",
+            "Se l'immagine non rappresenta in alcun modo un alimento umano o una bevanda, imposta tutti i valori numeri a 0 e nel campo analysis_result scrivi ESATTAMENTE: ATTENZIONE: L'immagine caricata non sembra contenere cibo rilevabile."
         ]
 
         # Invocazione del costruttore del genitore (Agent) passando l'LLM, tool associati e contesti di sicurezza
