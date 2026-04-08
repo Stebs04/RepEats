@@ -1,6 +1,6 @@
 import os
 from agno.agent import Agent
-from agno.models.google import Gemini
+from agno.models.groq import Groq
 
 def get_fitness_knowledge():
     """
@@ -54,7 +54,7 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict):
     ]
 
     return Agent(
-        model=Gemini(id="gemini-2.0-flash"),
+        model=Groq(id="llama-3.3-70b-versatile"),
         instructions=instructions,
         markdown=True,
         description="Agente Fitness esperto con integrazione RAG e Nutrizionale."
