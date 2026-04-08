@@ -286,7 +286,7 @@ def main() -> None:
                 # Conclude l'area di recap pasti stampando una separazione per dividere con la logica uploader AI
                 st.divider()
 
-                # Attiva e mostra a schermo la componente drag&drop che attende immagini con MIME type strettamente vincolati
+               # Attiva e mostra a schermo la componente drag&drop che attende immagini con MIME type strettamente vincolati
                 uploaded_file = st.file_uploader(f"Carica la foto per {categoria}...", type=["jpg", "jpeg", "png"], key=f"upload_{categoria}")
                 
                 # Verifica ed innesca la logica solamente nel caso in cui un file valido sia caricato instanziato
@@ -297,13 +297,21 @@ def main() -> None:
                     # Espone in UI l'anteprima dell'immagine aperta e associata tramite un div responsivo al container
                     st.image(image, caption="Anteprima del Pasto", use_container_width=True)
                     
+                    # --- NUOVA IMPLEMENTAZIONE: Campo Grammatura ---
+                    grammatura = st.number_input(
+                        "⚖️ Inserisci la grammatura (in grammi)", 
+                        min_value=1, max_value=3000, value=100, step=10, 
+                        key=f"grammatura_{categoria}",
+                        help="Inserisci il peso esatto per calcolare correttamente i valori nutrizionali."
+                    )
+                    
                     # Istanzia e predispone il Nutrizionista multi-modale per l'inferenza AI con l'ausilio di Agno
                     agent = NutritionistAgent()
                     
                     # Definisce un pulsante utile ad autorizzare manualmente ed istruire il processo d'inferenza dell'analisi
                     if st.button("Analizza Pasto", key=f"btn_analyze_{categoria}"):
                         # Applica uno spinner di caricamento visivo utile per la UX bloccando i concetti in attesa del risultato AI
-                        with st.spinner("L'Agente AI sta analizzando l'immagine..."):
+                        with st.spinner(f"L'Agente AI sta calcolando i valori per {grammatura}g di prodotto..."):
                             try:
                                 # Si riserva e crea su disco di sistema un file temp di stoccaggio virtuale dove scrivere
                                 with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
@@ -312,17 +320,23 @@ def main() -> None:
                                     # Archivia in variabile di sessione temporanea l'hash referenziante il nuovo path del file su disco
                                     tmp_path = tmp_file.name
                                 
-                                # Inizia il processo inferenziale invocando asincronamente l'Agente LLM con parametri precisi in base al framework
-                                response = agent.run(
-                                    "Analizza accuratamente l'immagine del pasto o il codice a barre (usa gli strumenti a tua disposizione) e restituisci ESCLUSIVAMENTE un oggetto JSON valido per lo schema MealAnalysis. Non aggiungere testo prima o dopo."
+                                # Istruisce l'agente a usare la grammatura
+                                prompt_agente = (
+                                    f"Analizza accuratamente l'immagine del pasto o il codice a barre (usa gli strumenti a tua disposizione). "
+                                    f"IMPORTANTE: L'utente ha indicato che la porzione consumata è di ESATTAMENTE {grammatura} grammi. "
+                                    f"Se usi lo strumento del codice a barre (che restituisce valori per 100g), DEVI FARE LA PROPORZIONE MATEMATICA per ricalcolare i valori su {grammatura}g. "
+                                    "Restituisci ESCLUSIVAMENTE un oggetto JSON valido per lo schema MealAnalysis. Non aggiungere testo prima o dopo. "
                                     "DEVI restituire i dati seguendo rigorosamente lo schema MealAnalysis: "
                                     "name: estrai il nome del prodotto o un nome descrittivo. "
-                                    "analysis_result: una breve descrizione. "
-                                    "calories, proteins, carbohydrates, fats: solo numeri (stima media o dedotti dallo strumento). "
-                                    "NON aggiungere chiacchiere extra, rispondi solo con i dati strutturati.", 
-                                    # Cede al prompt di run la string path del file temporaneo castato per il formato oggetto richiesto da 'AgnoImage'
+                                    f"analysis_result: una breve descrizione. Includi una frase del tipo 'Valori stimati per {grammatura}g'. "
+                                    f"calories, proteins, carbohydrates, fats: solo numeri (i valori finali calcolati per {grammatura}g). "
+                                    "NON aggiungere chiacchiere extra, rispondi solo con i dati strutturati."
+                                )
+                                
+                                # Inizia il processo inferenziale invocando asincronamente l'Agente LLM
+                                response = agent.run(
+                                    prompt_agente, 
                                     images=[AgnoImage(filepath=tmp_path)],
-                                    # Implementa coercizione formale all'output esigendo uno stream conformante lo schema del validatore BaseModel
                                     response_model=MealAnalysis
                                 )
                                 
