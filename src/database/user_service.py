@@ -165,8 +165,9 @@ def calculate_daily_macros(user_id: int):
     in base alle proprie metriche biometriche (peso, altezza, età e genere) 
     e ai ritmi metabolici personali tramite formula Mifflin-St Jeor.
     
-    Adotta un calcolo avanzato che modula dinamicamente grassi e proteine 
-    esclusivamente sul reale TDEE con factoring di attività fisica selezionato.
+    Su richiesta, il calcolo delle calorie target, dei macro e la ripartizione pasti 
+    sono basati ESCLUSIVAMENTE sul TDEE (nessun deficit o surplus applicato), 
+    mantenendo solo le proporzioni dei macro in base all'obiettivo.
     
     Autore: Stefano Bellan (20054330)
     """
@@ -203,64 +204,33 @@ def calculate_daily_macros(user_id: int):
     # Inizializza l'obiettivo attuale dell'utente
     goal = user_data.get('goal_type', 'mantenimento')
     
-    # Determina dinamicamente il deficit o surplus giornaliero basato sull'obiettivo di peso in kg e nel tempo impostato
-    # Fisiologia base: 1 kg di grasso corporeo/tessuto metabolico corrisponde a circa 7700 kcal
-    target_weight = user_data.get('target_weight')
-    target_weeks = user_data.get('target_weeks') or 12
-    current_weight = user_data.get('weight')
+    # Imposta le calorie target in modo che siano SEMPRE rigorosamente uguali al TDEE
+    target_calories = tdee
     
-    # Se i valori non sono stati impostati usa configurazioni safe default
-    daily_kcal_variation = 0
-    if target_weight and target_weight > 0 and target_weeks > 0:
-        # Differenza totale di peso in kg
-        weight_diff = abs(current_weight - target_weight)
-        # Differenza termica totale in Kcal da perdere/guadagnare in 'target_weeks'
-        total_kcal_variation = weight_diff * 7700
-        # Spalmato su Kcal giornaliere (settimane * 7 giorni)
-        daily_kcal_variation = total_kcal_variation / (target_weeks * 7)
-        
-        # Limite fisiologico di sicurezza (max -1000 deficit o +500 surplus al giorno per non incorrere in malesseri)
-        if goal == 'dimagrimento':
-            daily_kcal_variation = min(daily_kcal_variation, 1000)
-        elif goal == 'massa':
-            daily_kcal_variation = min(daily_kcal_variation, 500)
-    
-    # Scompone i percorsi nutrizionali calcolando parametri flessibili e mirati all'obiettivo
+    # Scompone i percorsi nutrizionali utilizzando le percentuali calcolate sul TDEE
     if goal == 'dimagrimento':
-        # Deficit dinamico elaborato dal timeframe scelto dall'utente
-        target_calories = tdee - daily_kcal_variation
-        # Aumentato target proteico per preservare massa muscolare in restrizione (2.2g per chilo magro/tot)
-        protein_ratio = 2.2
-        # Fissa i grassi su base bilanciata per omeostasi ormonale standard (0.8g per chilo)
-        fat_ratio = 0.8
+        # Percentuali per preservare massa muscolare (35% Pro, 25% Fat, 40% Carbs)
+        perc_pro = 0.35
+        perc_fat = 0.25
+        perc_carbs = 0.40
     elif goal == 'massa':
-         # Surplus ragionato calcolato tramite tempo di ipertrofia prefissato
-         target_calories = tdee + daily_kcal_variation
-         # Rapporto proteico ridotto rispetto al cut grazie all'energia in abbondanza per risparmiare aminoacidi (1.8g)
-         protein_ratio = 1.8
-         # Lipidi a rialzo per stimolare profilo ormonale pre-cortisolo e test (1.0g per chilo)
-         fat_ratio = 1.0
+         # Percentuali per la crescita muscolare (25% Pro, 25% Fat, 50% Carbs)
+         perc_pro = 0.25
+         perc_fat = 0.25
+         perc_carbs = 0.50
     else:
-        # Mantenimento normocalorico: Calorie Target = Dispendio reale
-        target_calories = tdee
-        # Formule di normomantenimento atletico
-        protein_ratio = 2.0
-        fat_ratio = 1.0
+        # Formule di normomantenimento atletico e bilanciato (25% Pro, 30% Fat, 45% Carbs)
+        perc_pro = 0.25
+        perc_fat = 0.30
+        perc_carbs = 0.45
          
-    # Calcola il fabbisogno proteico totale moltiplicando il peso dell'utente per la sua ratio elaborata
-    proteins = user_data['weight'] * protein_ratio
+    # Calcolo dei macronutrienti basato ESCLUSIVAMENTE sul TDEE (target_calories)
+    # (Proteine = 4 kcal/g, Grassi = 9 kcal/g, Carboidrati = 4 kcal/g)
+    proteins = (target_calories * perc_pro) / 4.0
+    fats = (target_calories * perc_fat) / 9.0
+    carbohydrates = (target_calories * perc_carbs) / 4.0
     
-    # Calcola il fabbisogno lipidico moltiplicando il peso per l'offset lipidico personalizzato
-    fats = user_data['weight'] * fat_ratio
-    
-    # Calcola le calorie residue deputate ai carboidrati sottraendo i macronutrienti plastici decodificati 
-    # (Proteine = 4 kcal/g, Grassi = 9 kcal/g) limitando il floor a 0 per bloccare div negative
-    remaining_calories = max(0, target_calories - (proteins * 4.0) - (fats * 9.0))
-    
-    # Attribuisce il quantitativo glicidico rimanente in grammi dividendolo per la conversione kcalorica dei carbs (4 kcal/g)
-    carbohydrates = remaining_calories / 4.0
-    
-    # Restituisce il dizionario payload completo di TDEE effettivo arrotondando gentilmente in Float per facilitare stampe Streamlit
+    # Restituisce il dizionario payload: le calorie target saranno ora identiche al TDEE
     return {
         "tdee": round(tdee, 1),
         "target_calories": round(target_calories, 1),
