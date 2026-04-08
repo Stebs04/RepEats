@@ -415,52 +415,51 @@ def main() -> None:
 
 
     with tab_allenamento:
-        
         st.header("💪 Personal Trainer AI")
         
-        # 1. Recupero ID Utente
-        u_id = st.session_state['current_user_id']
+        # Recupero dei dati per l'orchestrazione Multi-Agente
+        user_id = st.session_state['current_user_id']
+        user_data = get_user_data(user_id)
         
-        # 2. Recupero dati per l'orchestrazione Multi-Agente
-        user_data = get_user_data(u_id)
-        consumed_today = get_todays_macros(u_id) # Dati di Stefano
-        daily_targets = calculate_daily_macros(u_id) # Dati di Stefano
+        # Recuperiamo i dati calcolati e registrati nella tab Nutrizione (Lavoro di Stefano)
+        consumed_today = get_todays_macros(user_id)
+        daily_targets = calculate_daily_macros(user_id)
         
         # Recupero conversazioni esistenti
-        conversations = get_user_conversations(u_id)
+        conversations = get_user_conversations(user_id)
         
         if not conversations:
             st.info("Non hai ancora una consulenza attiva.")
             if st.button("Inizia una nuova consulenza"):
-                create_new_conversation(u_id, "Consulenza Fitness")
+                create_new_conversation(user_id, "Consulenza Fitness")
                 st.rerun()
         else:
             active_conv = conversations[0]
-            st.caption(f"Sessione: {active_conv.title}")
+            st.caption(f"Sessione attiva: {active_conv.title}")
 
-            # Visualizzazione cronologia
+            # Visualizzazione cronologia messaggi
             history = get_chat_history(active_conv.id)
             for msg in history:
                 with st.chat_message(msg["role"]):
                     st.write(msg["content"])
 
             # Input dell'utente
-            if prompt := st.chat_input("Chiedi al tuo trainer (es. 'Che esercizi posso fare oggi?')"):
+            if prompt := st.chat_input("Chiedi al tuo trainer (es. 'Che allenamento faccio oggi?')"):
                 with st.chat_message("user"):
                     st.write(prompt)
                 save_message(active_conv.id, "user", prompt)
 
-                # 3. Invocazione dell'Agente con il NUOVO CONTESTO
+                # Invocazione dell'agente con il nuovo contesto integrato
                 from src.agents.fitness_agent import get_fitness_agent
-                # Passiamo user_data, i macro consumati e i target calcolati
                 agent = get_fitness_agent(user_data, consumed_today, daily_targets)
                 
                 with st.chat_message("assistant"):
+                    # Generazione risposta basata su Biometria + Nutrizione + Knowledge Base
                     response = agent.run(prompt, history=history)
                     st.write(response.content)
                     
-                save_message(active_conv.id, "assistant", response.content)
-        
+                save_message(active_conv.id, "assistant", response.content)              
+                
 
     with tab_profilo:
         st.header("Gestione Dati e Misurazioni")
