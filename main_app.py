@@ -34,10 +34,6 @@ def setup_environment() -> None:
     """
     load_dotenv()
     
-    if not os.getenv("GEMINI_API_KEY"):
-        st.error("Errore critico: GEMINI_API_KEY non trovata. Controlla il file .env.")
-        st.stop()
-
     if not os.getenv("GROQ_API_KEY"):
         st.error("Errore critico: GROQ_API_KEY non trovata. Controlla il file .env.")
         st.stop()
