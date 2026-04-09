@@ -358,3 +358,24 @@ def delete_meal_log(user_id: int, meal_id: int) -> bool:
     return False
 
 
+def rename_conversation(conversation_id: int, new_title: str):
+    """
+    Rinomina una conversazione esistente nel database.
+    """
+    session = get_session()
+    conv = session.query(Conversation).filter_by(id=conversation_id).first()
+    if conv:
+        conv.title = new_title
+        session.commit()
+    session.close()
+
+def delete_conversation(conversation_id: int):
+    """
+    Elimina una conversazione e (tramite cascade) tutti i suoi messaggi.
+    """
+    session = get_session()
+    conv = session.query(Conversation).filter_by(id=conversation_id).first()
+    if conv:
+        session.delete(conv)
+        session.commit()
+    session.close()
