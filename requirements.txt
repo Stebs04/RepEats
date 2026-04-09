@@ -20,3 +20,5 @@ groq
 requests
 
 pillow
+
+bcrypt
