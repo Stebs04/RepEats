@@ -22,6 +22,9 @@ class User(Base):
     # Credenziali e dati di base: obbligatori e univoci.
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(100), unique=True, nullable=False)
+
+    #Salviamo l'hash della password (non la password in chiaro!)
+    password_hash = Column(String(255), nullable=False)
     
     # Timestamp di creazione. Viene utilizzata una lambda per assicurare che il valore
     # di datetime.now(timezone.utc) venga calcolato dinamicamente al momento dell'inserimento,

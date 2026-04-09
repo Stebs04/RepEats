@@ -6,6 +6,8 @@ from src.agents.nutritionst import NutritionistAgent
 from PIL import Image
 from agno.models.message import Image as AgnoImage
 from src.agents.nutritionst import MealAnalysis
+import re
+from src.database.user_service import authenticate_user
 
 
 
@@ -69,45 +71,89 @@ def main() -> None:
     setup_environment()
     init_session_state()
 
-    # 3. Costruzione della UI - Sidebar
+    # === 3. Costruzione della UI - Sidebar ===
     with st.sidebar:
-        st.title("🏋️ RepEats")
-        st.markdown("---")
         
-        try:
-            users = get_all_users()
-            user_options = [u.username for u in users] + ["+ Nuovo Utente..."]
-            
-            selected_option = st.selectbox(
-                "Seleziona il tuo profilo", 
-                user_options,
-                index=0 if users else 0
-            )
+        # Layout dell'header della sidebar: Logo e Titolo
+        col_logo, col_titolo = st.columns([1.5,3], vertical_alignment="center")
 
-            if selected_option == "+ Nuovo Utente...":
-                st.subheader("Registra Nuovo Utente")
+        with col_logo:
+            # Risoluzione dinamica del percorso assoluto del logo
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            logo_path = os.path.join(base_dir, "assets", "logo.png")
+            
+            try:
+                st.image(logo_path, use_container_width=True)
+            except Exception:
+                st.warning("⚠️ Logo non trovato.")
+                
+        with col_titolo:
+            st.markdown("<h1 style='margin: 0px; padding: 0px;'>RepEats</h1>", unsafe_allow_html=True)
+            
+        st.markdown("<hr style='margin-top: -25px; margin-bottom: 15px;'>", unsafe_allow_html=True)
+
+        # === Gestione Autenticazione e Sessione ===
+        if not st.session_state.get('current_user_id'):
+            # Utente non autenticato: rendering dei form di login o registrazione
+            scelta = st.radio("Cosa vuoi fare?", ["Accedi", "Registrati"])
+            
+            if scelta == "Registrati":
+                st.subheader("Nuovo Utente")
                 new_username = st.text_input("Username")
                 new_email = st.text_input("Email")
+                new_password = st.text_input("Password", type="password") # Maschera l'input della password
+                
                 if st.button("Crea Account"):
-                    if new_username and new_email:
-                        user = create_user(new_username, new_email)
-                        st.success(f"Utente {user.username} creato!")
-                        st.rerun()
+                    # Validazione formale dell'indirizzo email tramite espressione regolare
+                    email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+                    
+                    # Verifica della completezza dei campi obbligatori
+                    if not new_username or not new_email or not new_password:
+                        st.warning("Compila tutti i campi.")
+                    elif not re.match(email_pattern, new_email):
+                        st.error("Inserisci un'email valida (es. mario@email.com)")
                     else:
-                        st.warning("Inserisci tutti i campi.")
-            else:
-                current_user = next(u for u in users if u.username == selected_option)
-                st.session_state['current_user_id'] = current_user.id
+                        try:
+                            # Persistenza del nuovo utente sul database
+                            user = create_user(new_username, new_email, new_password)
+                            st.success(f"Account {user.username} creato! Ora seleziona 'Accedi'.")
+                        except Exception as e:
+                            # Gestione collisioni su vincoli di unicità (Username o Email duplicati)
+                            st.error("Errore: Username o Email già esistenti.")
+                            
+            elif scelta == "Accedi":
+                st.subheader("Accedi")
+                login_username = st.text_input("Username")
+                login_password = st.text_input("Password", type="password")
+                
+                if st.button("Login"):
+                    if login_username and login_password:
+                        # Verifica delle credenziali ed estrazione del profilo dal layer di persistenza
+                        user = authenticate_user(login_username, login_password)
+                        if user:
+                            # Inizializzazione della sessione globale
+                            st.session_state['current_user_id'] = user.id
+                            st.success(f"Bentornato, {user.username}!")
+                            st.rerun() # Reinizializza il ciclo di vita dell'applicazione
+                        else:
+                            st.error("Username o password non corretti.")
+                    else:
+                        st.warning("Inserisci credenziali valide.")
+        else:
+            # Utente autenticato: recupero profilo corrente e gestione logout
+            users = get_all_users()
+            current_user = next((u for u in users if u.id == st.session_state['current_user_id']), None)
+            if current_user:
                 st.success(f"Loggato come: **{current_user.username}**")
-
-        except Exception as e:
-            st.error("Errore nel caricamento utenti. Hai inizializzato il database?")
-            st.info("Esegui: python src/database/init_db.py")
+                if st.button("Esci (Logout)"):
+                    # Terminazione della sessione e pulizia dello stato utente
+                    st.session_state['current_user_id'] = None
+                    st.rerun()
 
         st.markdown("---")
         st.info("Agenti attivi:\n- 🥗 Nutrizionista\n- 🏋️ Personal Trainer")
 
-    # 4. Costruzione della UI - Area Principale
+    #Costruzione della UI - Area Principale
     st.title("Benvenuto in RepEats")
     
     if not st.session_state['current_user_id']:

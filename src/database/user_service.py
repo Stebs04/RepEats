@@ -3,6 +3,7 @@ from src.database.models import User, UserProfile, Conversation, Message, MealLo
 from src.database.database import get_session
 from sqlalchemy import func
 from datetime import datetime, timezone
+import bcrypt
 
 """
 Creazione e recupero del profilo dell'utente, con i dati personali e gli obiettivi di fitness.
@@ -18,15 +19,25 @@ def get_all_users():
     return users
 
 
-def create_user(username: str, email: str):
-    """Creazione  di un nuovo utente nel DB"""
+def create_user(username: str, email: str, password: str):
+    """Creazione di un nuovo utente nel DB con password hashata"""
     session = get_session()
-    new_user = User(username = username, email = email)
+    
+    # Generiamo un "salt" e l'hash della password
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    
+    # Salviamo la password hashata nel database (decodificata in stringa)
+    new_user = User(
+        username=username, 
+        email=email, 
+        password_hash=hashed_password.decode('utf-8')
+    )
     session.add(new_user)
     session.commit()
 
-    """"A questo punto è necessario creare un profilo vuoto associato al nuovo utente"""
-    profile = UserProfile(user_id = new_user.id)
+    # Creazione profilo vuoto
+    profile = UserProfile(user_id=new_user.id)
     session.add(profile)
     session.commit()
 
@@ -379,3 +390,15 @@ def delete_conversation(conversation_id: int):
         session.delete(conv)
         session.commit()
     session.close()
+
+def authenticate_user(username: str, password: str):
+    """Verifica se l'utente esiste e se la password è corretta"""
+    session = get_session()
+    user = session.query(User).filter_by(username=username).first()
+    session.close()
+    
+    # Se l'utente esiste, controlliamo che la password inserita corrisponda all'hash salvato
+    if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+        return user
+    
+    return None # Ritorna None se il login fallisce
