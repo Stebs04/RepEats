@@ -1,7 +1,8 @@
+# modified by Stefano Bellan 20054330 - Correzione importazioni assolute per esecuzione da radice progetto
 # Importa la funzione factory per ottenere l'istanza dell'engine del database
-from database import get_engine
+from src.database.database import get_engine
 # Importa la classe Base dichiarativa di SQLAlchemy che contiene il registro di tutti i modelli
-from models import Base
+from src.database.models import Base
 
 def init_database():
     """

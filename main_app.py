@@ -11,6 +11,9 @@ from src.database.user_service import authenticate_user
 # modified by Stefano Bellan 20054330 - Aggiunta importazione per intercettare esclusivamente i duplicati
 from sqlalchemy.exc import IntegrityError
 
+# modified by Stefano Bellan 20054330 - Integrazione del modulo per la generazione dello schema database
+from src.database.init_db import init_database
+
 # Importazione dei servizi del database
 from src.database.user_service import (
     get_all_users, 
@@ -40,6 +43,10 @@ def setup_environment() -> None:
     if not os.getenv("GROQ_API_KEY"):
         st.error("Errore critico: GROQ_API_KEY non trovata. Controlla il file .env.")
         st.stop()
+        
+    # modified by Stefano Bellan 20054330 - Invocazione automatica per la costruzione delle tabelle relazionali
+    # Assicura la presenza delle strutture dati prima di consentire le interazioni dell'utente
+    init_database()
 
 def init_session_state() -> None:
     """
