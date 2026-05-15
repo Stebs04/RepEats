@@ -8,7 +8,7 @@ from agno.knowledge.knowledge import Knowledge
 from agno.vectordb.lancedb import LanceDb
 from agno.knowledge.embedder.sentence_transformer import SentenceTransformerEmbedder
 
-# Importiamo l'agente nutrizionista. Fai attenzione alla corretta importazione della classe.
+# Importiamo l'agente nutrizionista.
 from src.agents.nutritionst import NutritionistAgent
 
 def setup_knowledge_base() -> Knowledge:
@@ -113,6 +113,7 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
         "2. FOCUS SULLA DOMANDA: Rispondi esattamente a quello che ti chiede l'utente. Non parlare di calorie o nutrizione a meno che non sia necessario per rispondere alla sua domanda specifica.",
         "3. MUSCOLI INESISTENTI: Se l'utente ti chiede come allenare 'branchie', 'coda' o altri gruppi muscolari che non esistono nell'anatomia umana, fermalo con un avviso simpatico ma chiaro, spiegandogli che non esistono.",
         "4. VINCOLO RAG: Quando ti viene chiesto dei protocolli di allenamento o delle linee guida, DEVI utilizzare attivamente gli strumenti di ricerca nella Knowledge Base. Basa i tuoi consigli ESCLUSIVAMENTE sui frammenti di testo restituiti dal database vettoriale.",
+        "ATTENZIONE CRITICA SUI TOOL: Non stampare mai tag XML come <function> per chiamare gli strumenti. Usa esclusivamente la chiamata nativa invisibile.",
         "5. TONE: Sii motivante, diretto e usa il formato Markdown.",
         "6. ORCHESTRAZIONE MULTI-AGENTE: Se l'utente ti chiede consigli specifici su cosa mangiare, non inventare la risposta ma chiama il tool 'ask_nutritionist' e riporta all'utente il suo parere da esperto."
     ]
