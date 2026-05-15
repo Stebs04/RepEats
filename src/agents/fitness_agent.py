@@ -70,6 +70,7 @@ def ask_nutritionist(query: str) -> str:
 
 # ABBIAMO AGGIUNTO IL PARAMETRO "chat_history"
 # Modified by Stefano Bellan 20054330 - Aggiunta registrazione tool ask_nutritionist e connessione alla TextKnowledgeBase
+# Modified by Stefano Bellan 20054330 - Rimozione istruzioni conflittuali sui tool e abilitazione show_tool_calls per Groq
 def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_history: list):
     """
     Configurazione dell'agente con contesto Multi-Agente, Memoria e integrazione nativa VERO RAG.
@@ -78,11 +79,10 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
     
     target_cal = daily_targets.get('target_calories', 0)
     
-    # CONTESTO TEMPORALE FORTE
+    # Costruzione del contesto temporale
     ora_attuale = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-    # MEMORIA DELLA CHAT
-    # Trasformazione della lista dei messaggi passati in un testo leggibile per l'AI
+    # Ricostruzione della memoria della chat per fornire contesto all'LLM
     storia_testo = "Nessun messaggio precedente."
     if chat_history:
         storia_testo = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in chat_history])
@@ -103,6 +103,7 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
     {storia_testo}
     """
 
+    # Abbiamo rimosso la regola restrittiva sui tag XML per permettere al motore di Agno di elaborare la richiesta nativa
     instructions = [
         user_context,
         "--- MISSIONE ---",
@@ -113,7 +114,6 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
         "2. FOCUS SULLA DOMANDA: Rispondi esattamente a quello che ti chiede l'utente. Non parlare di calorie o nutrizione a meno che non sia necessario per rispondere alla sua domanda specifica.",
         "3. MUSCOLI INESISTENTI: Se l'utente ti chiede come allenare 'branchie', 'coda' o altri gruppi muscolari che non esistono nell'anatomia umana, fermalo con un avviso simpatico ma chiaro, spiegandogli che non esistono.",
         "4. VINCOLO RAG: Quando ti viene chiesto dei protocolli di allenamento o delle linee guida, DEVI utilizzare attivamente gli strumenti di ricerca nella Knowledge Base. Basa i tuoi consigli ESCLUSIVAMENTE sui frammenti di testo restituiti dal database vettoriale.",
-        "ATTENZIONE CRITICA SUI TOOL: Non stampare mai tag XML come <function> per chiamare gli strumenti. Usa esclusivamente la chiamata nativa invisibile.",
         "5. TONE: Sii motivante, diretto e usa il formato Markdown.",
         "6. ORCHESTRAZIONE MULTI-AGENTE: Se l'utente ti chiede consigli specifici su cosa mangiare, non inventare la risposta ma chiama il tool 'ask_nutritionist' e riporta all'utente il suo parere da esperto."
     ]
@@ -121,9 +121,10 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
     return Agent(
         model=Groq(id="llama-3.3-70b-versatile"),
         instructions=instructions,
-        knowledge=kb,               # Oggetto base di conoscenza configurato in precedenza
-        search_knowledge=True,      # Forzo Agno a dotare l'LLM degli strumenti di query vettoriale
+        knowledge=kb,
+        search_knowledge=True,
         tools=[ask_nutritionist],
+        show_tool_calls=True,       # Parametro essenziale per istruire il framework alla cattura pulita dei log JSON
         markdown=True,
         description="Agente Fitness con Memoria, Consapevolezza Temporale e Integrazione RAG su database vettoriale."
     )
