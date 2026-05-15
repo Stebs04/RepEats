@@ -8,9 +8,8 @@ from agno.models.message import Image as AgnoImage
 from src.agents.nutritionst import MealAnalysis
 import re
 from src.database.user_service import authenticate_user
-
-
-
+# modified by Stefano Bellan 20054330 - Aggiunta importazione per intercettare esclusivamente i duplicati
+from sqlalchemy.exc import IntegrityError
 
 # Importazione dei servizi del database
 from src.database.user_service import (
@@ -51,8 +50,6 @@ def init_session_state() -> None:
     
     if 'app_initialized' not in st.session_state:
         st.session_state['app_initialized'] = True
-    
-
 
 # --- ENTRY POINT DELL'APPLICAZIONE ---
 def main() -> None:
@@ -83,7 +80,8 @@ def main() -> None:
             logo_path = os.path.join(base_dir, "assets", "logo.png")
             
             try:
-                st.image(logo_path, use_container_width=True)
+                # modified by Stefano Bellan 20054330 - Aggiornamento API Streamlit da use_container_width a width stretch
+                st.image(logo_path, width="stretch")
             except Exception:
                 st.warning("⚠️ Logo non trovato.")
                 
@@ -117,9 +115,13 @@ def main() -> None:
                             # Persistenza del nuovo utente sul database
                             user = create_user(new_username, new_email, new_password)
                             st.success(f"Account {user.username} creato! Ora seleziona 'Accedi'.")
-                        except Exception as e:
+                        # modified by Stefano Bellan 20054330 - Ristrutturazione cattura eccezioni per separare duplicati da errori di sistema
+                        except IntegrityError:
                             # Gestione collisioni su vincoli di unicità (Username o Email duplicati)
                             st.error("Errore: Username o Email già esistenti.")
+                        except Exception as e:
+                            # Gestione e visualizzazione di errori operativi critici sul database o sul sistema
+                            st.error(f"Errore critico durante la creazione: {e}")
                             
             elif scelta == "Accedi":
                 st.subheader("Accedi")
@@ -169,17 +171,11 @@ def main() -> None:
 
     # === TAB 1: NUTRIZIONE (Vision AI) ===
    
-    # Questo segmento gestisce la dashboard nutrizionale, occupandosi della visualizzazione dei target
-    # metabolici e dei progressi giornalieri. Gestisce inoltre il caricamento di un'immagine di un pasto e 
-    # l'invocazione di un Agente di Intelligenza Artificiale per l'analisi visiva e la classificazione nutrizionale,
-    # salvando i risultati ottenuti direttamente nel database.
-    # Autore: Stefano Bellan (20054330)
-   
     with tab_nutrizione:
         # 1. Recuperiamo i dati dell'utente per controllare se il profilo è completo
         user_data = get_user_data(st.session_state['current_user_id'])
             
-            # Controlliamo se i tre campi fondamentali esistono (non sono None)
+        # Controlliamo se i tre campi fondamentali esistono (non sono None)
         profile_complete = user_data.get('weight') and user_data.get('height') and user_data.get('age')
 
         if not profile_complete:
@@ -261,9 +257,7 @@ def main() -> None:
             # Cicla dinamicamente attraverso tutte le categorie di pasto definite e configurate precedentemente
             for categoria, icona in categorie_icone.items():
                 
-                # Invoca il servizio a database per recuperare esclusivamente i log della categoria per l'utente odierno o tutti i log della categoria?
-                # get_meals_by_category restituisce tutti i pasti della categoria per l'utente, non sono filtrati per data odierna nella funzione, ma consideriamo l'intera iterazione come richiesto
-                # Nota: se servisse un filtro per data, si potrebbe fare a DB, ma in questa iterazione usiamo direttamente i log recuperati da DB
+                # Invoca il servizio a database per recuperare esclusivamente i log della categoria per l'utente odierno
                 log_pasti_categoria = get_meals_by_category(st.session_state['current_user_id'], categoria)
                 
                 # Somma in modo aggregato i valori calorici considerando i record presenti per la categoria ed evitando errori di None Type
@@ -352,8 +346,9 @@ def main() -> None:
                         # Deserializza l'immagine proveniente dall'utente caricandola in memoria RAM tramite la libreria PIL
                         image = Image.open(uploaded_file)
                         
+                        # modified by Stefano Bellan 20054330 - Aggiornamento API Streamlit da use_container_width a width stretch
                         # Espone in UI l'anteprima dell'immagine aperta e associata tramite un div responsivo al container
-                        st.image(image, caption="Anteprima del Pasto", use_container_width=True)
+                        st.image(image, caption="Anteprima del Pasto", width="stretch")
                         
                         # --- NUOVA IMPLEMENTAZIONE: Campo Grammatura ---
                         grammatura = st.number_input(
@@ -471,7 +466,6 @@ def main() -> None:
                                     # Gestore preposto alla cattura di faults network API Agno o crasi critiche al file system del disco OS lanciandoli con banner custom  
                                     st.error(f"Si è verificato un errore critico durante l'analisi: {e}")
 
-
     with tab_allenamento:
         # Recuperiamo i dati dell'utente per controllare se il profilo è completo
         user_data = get_user_data(st.session_state['current_user_id'])
@@ -501,8 +495,9 @@ def main() -> None:
             with col_storia:
                 st.subheader("Cronologia")
                 
+                # modified by Stefano Bellan 20054330 - Aggiornamento API Streamlit da use_container_width a width stretch
                 # Bottone per Nuova Chat Manuale
-                if st.button("➕ Nuova Chat", use_container_width=True):
+                if st.button("➕ Nuova Chat", width="stretch"):
                     from datetime import datetime
                     titolo_data = f"Chat del {datetime.now().strftime('%d/%m %H:%M')}"
                     nuova_conv = create_new_conversation(user_id, titolo_data)
@@ -550,13 +545,15 @@ def main() -> None:
                             
                             col_btn1, col_btn2 = st.columns(2)
                             with col_btn1:
-                                if st.button("✏️ Salva", use_container_width=True):
+                                # modified by Stefano Bellan 20054330 - Aggiornamento API Streamlit da use_container_width a width stretch
+                                if st.button("✏️ Salva", width="stretch"):
                                     rename_conversation(st.session_state['active_conv_id'], nuovo_nome)
                                     st.rerun()
                                     
                             with col_btn2:
+                                # modified by Stefano Bellan 20054330 - Aggiornamento API Streamlit da use_container_width a width stretch
                                 # Tasto rosso (type="primary" in un tema standard, o comunque risalta)
-                                if st.button("🗑️ Elimina", type="primary", use_container_width=True):
+                                if st.button("🗑️ Elimina", type="primary", width="stretch"):
                                     delete_conversation(st.session_state['active_conv_id'])
                                     st.session_state['active_conv_id'] = None # Ritorna allo stato di riposo (Idle)
                                     st.rerun()
@@ -605,8 +602,6 @@ def main() -> None:
                         save_message(active_conv.id, "assistant", response.content) 
                         st.rerun()
                     
-                
-
     with tab_profilo:
         st.header("Gestione Dati e Misurazioni")
         user_data = get_user_data(st.session_state['current_user_id'])

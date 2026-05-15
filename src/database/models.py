@@ -1,7 +1,8 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
-from datetime import datetime, timezone
+# modified by Stefano Bellan 20054330 - Rimozione importazione timezone per compatibilità SQLite
+from datetime import datetime
 
 # Classe base dichiarativa da cui ereditano tutti i modelli ORM.
 # Fornisce il mapping automatico tra le classi Python e le tabelle del database.
@@ -26,10 +27,11 @@ class User(Base):
     #Salviamo l'hash della password (non la password in chiaro!)
     password_hash = Column(String(255), nullable=False)
     
+    # modified by Stefano Bellan 20054330 - Risoluzione incompatibilità datetimes con SQLite
     # Timestamp di creazione. Viene utilizzata una lambda per assicurare che il valore
-    # di datetime.now(timezone.utc) venga calcolato dinamicamente al momento dell'inserimento,
+    # di datetime.now() venga calcolato dinamicamente al momento dell'inserimento,
     # anziché al momento del caricamento del modulo.
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now())
 
     # Relazione 1-a-1: collega l'utente al suo profilo dettagliato.
     # uselist=False indica a SQLAlchemy di caricare una singola istanza (non una collezione).
@@ -38,7 +40,7 @@ class User(Base):
     # Relazione 1-a-N: collega l'utente a tutte le sue cronologie di conversazione.
     conversations = relationship("Conversation", back_populates="user")
 
-  # NUOVA RELAZIONE: collega l'utente ai suoi pasti registrati
+    # NUOVA RELAZIONE: collega l'utente ai suoi pasti registrati
     meal_logs = relationship("MealLog", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
@@ -98,7 +100,9 @@ class Conversation(Base):
     
     # Metadati descrittivi visibili nell'interfaccia utente.
     title = Column(String(200), default="Nuova Conversazione")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    # modified by Stefano Bellan 20054330 - Risoluzione incompatibilità datetimes con SQLite
+    created_at = Column(DateTime, default=lambda: datetime.now())
 
     # Relazione definita verso il modello genitore.
     user = relationship("User", back_populates="conversations")
@@ -130,13 +134,12 @@ class Message(Base):
     # Payload effettivo, supporta lunga persistenza del testo tramite column Text.
     content = Column(Text, nullable=False)
     
+    # modified by Stefano Bellan 20054330 - Risoluzione incompatibilità datetimes con SQLite
     # Registrazione temporale accurata dell'interazione.
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime, default=lambda: datetime.now())
 
     # Definizione inversa della correlazione ORM con l'oggetto Conversation.
     conversation = relationship("Conversation", back_populates="messages")
-
-    
     
 class MealLog(Base):
     """
@@ -168,8 +171,9 @@ class MealLog(Base):
     #Categoria del pasto (es. Colazione, Pranzo, Cena, Spuntino)
     category = Column(String(50), nullable=True)
 
+    # modified by Stefano Bellan 20054330 - Risoluzione incompatibilità datetimes con SQLite
     #Data e ora dell'analisi
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = Column(DateTime, default=lambda: datetime.now())
 
     #Relazione inversa verso User
     user = relationship("User", back_populates="meal_logs")
