@@ -3,6 +3,8 @@ from datetime import datetime
 from agno.agent import Agent
 from agno.models.groq import Groq
 
+from agno.team import Team
+
 # Importazione dei componenti nativi di Agno per la gestione dell'architettura RAG
 from agno.knowledge.knowledge import Knowledge
 from agno.vectordb.lancedb import LanceDb
@@ -114,13 +116,13 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
         "5. TONE: Sii motivante, diretto e usa il formato Markdown."
     ]
 
-    # Implementazione nativa del pattern Orchestrator sfruttando il parametro team del framework.
+     # Implementazione nativa del pattern Orchestrator sfruttando il parametro members del framework.
     # L'engine LLM gestirà autonomamente il routing verso i sub-agenti registrati.
-    return Agent(
+    return Team(
         model=Groq(id="llama-3.3-70b-versatile"),
-        team=[pt_agent, nutrizionista],
+        members=[pt_agent, nutrizionista],
         instructions=instructions,
-        show_tool_call=True,
         markdown=True,
         description="Agente Orchestratore con Memoria, Consapevolezza Temporale e Delega Multi-Agente."
-    )    
+    )
+        
