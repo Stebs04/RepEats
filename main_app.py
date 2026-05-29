@@ -170,9 +170,9 @@ def main() -> None:
         return
 
     # Creazione delle schede
-    tab_nutrizione, tab_allenamento, tab_profilo = st.tabs([
-        "🥗 Nutrizione (Agente)", 
-        "💪 Allenamento (Agente)", 
+    tab_nutrizione, tab_chat_ai, tab_profilo = st.tabs([
+        "🥗 Tracker Pasti (Visione AI)", 
+        "💬 Chat Team AI (Trainer & Nutrizionista)", 
         "👤 Profilo Utente"
     ])
 
@@ -473,15 +473,16 @@ def main() -> None:
                                     # Gestore preposto alla cattura di faults network API Agno o crasi critiche al file system del disco OS lanciandoli con banner custom  
                                     st.error(f"Si è verificato un errore critico durante l'analisi: {e}")
 
-    with tab_allenamento:
+    with tab_chat_ai:
         # Recuperiamo i dati dell'utente per controllare se il profilo è completo
         user_data = get_user_data(st.session_state['current_user_id'])
         profile_complete = user_data.get('weight') and user_data.get('height') and user_data.get('age')
 
         if not profile_complete:
-            st.warning("⚠️ **Ehi, frena un attimo!** ✋\n\nIl Personal Trainer AI ha bisogno di conoscere le tue misure per farti allenare in sicurezza. Vai nella scheda **👤 Profilo Utente** e inserisci i tuoi dati fisici per iniziare.")
+            st.warning("⚠️ **Ehi, frena un attimo!** ✋\n\nIl Team AI ha bisogno di conoscere le tue misure per poterti consigliare in sicurezza. Vai nella scheda **👤 Profilo Utente** e inserisci i tuoi dati fisici per iniziare.")
         else:
-            st.header("💪 Personal Trainer AI")
+            st.header("💬 Coach AI Multi-Agente")
+            st.markdown("Fai una domanda al tuo team! L'**Orchestratore** analizzerà la richiesta e deciderà in autonomia se consultare il **Personal Trainer** o il **Nutrizionista** (o entrambi!).")
             
             # Recupero dei dati per l'orchestrazione
             user_id = st.session_state['current_user_id']
@@ -566,8 +567,8 @@ def main() -> None:
                                     st.rerun()
 
             with col_chat:
-            # Troviamo la conversazione in modo SICURO: aggiungiamo ", None" alla fine.
-            # Così, se non trova la chat (es. l'hai appena cancellata), non va in crash ma restituisce None.
+                # Troviamo la conversazione in modo SICURO: aggiungiamo ", None" alla fine.
+                # Così, se non trova la chat (es. l'hai appena cancellata), non va in crash ma restituisce None.
                 active_conv = next((c for c in conversations if c.id == st.session_state['active_conv_id']), None)
 
                 # GESTIONE DELLO SCHERMO A DESTRA (Idle o Chat)
@@ -577,7 +578,7 @@ def main() -> None:
                     st.session_state['active_conv_id'] = None 
                     
                     # --- STATO DI RIPOSO (IDLE) ---
-                    st.info("👋 **Benvenuto nel tuo spazio di allenamento AI!**\n\nNessuna chat selezionata. Puoi selezionare una conversazione precedente dalla cronologia a sinistra oppure cliccare su **'➕ Nuova Chat'** per iniziare una nuova consulenza.")
+                    st.info("👋 **Benvenuto nel tuo spazio di consulenza unificato!**\n\nQui puoi discutere dei tuoi allenamenti, chiedere consigli nutrizionali o farti creare un piano combinato. Clicca su **'➕ Nuova Chat'** a sinistra per iniziare.")
                     
                 else:
                     # --- STATO CHAT ATTIVA ---
@@ -592,21 +593,32 @@ def main() -> None:
                             st.write(msg["content"])
 
                     # Input dell'utente
-                    if prompt := st.chat_input("Chiedi al tuo trainer (Usa Maiusc+Invio per andare a capo nel testo)"):
+                    if prompt := st.chat_input("Chiedi al Team (es. 'Cosa mangio oggi?', 'Fammi una scheda gambe'):"):
                         
                         with chat_container.chat_message("user"):
                             st.write(prompt)
                         save_message(active_conv.id, "user", prompt)
 
                         from src.agents.fitness_agent import get_fitness_agent
+                        # L'Orchestratore viene creato con tutto il contesto necessario
                         agent = get_fitness_agent(user_data, consumed_today, daily_targets, history)
                         
                         with chat_container.chat_message("assistant"):
-                            with st.spinner("L'AI sta analizzando la tua richiesta..."):
-                                response = agent.run(prompt)
-                                st.write(response.content)
+                            with st.spinner("L'Orchestratore sta delegando la tua richiesta agli specialisti..."):
+                                try:
+                                    response = agent.run(prompt)
+                                    # Estrazione sicura del contenuto: response.content potrebbe essere None in modalità route
+                                    response_text = response.content
+                                    if not response_text and hasattr(response, 'member_responses') and response.member_responses:
+                                        response_text = response.member_responses[-1].content
+                                    if not response_text:
+                                        response_text = "Mi dispiace, non sono riuscito a elaborare la tua richiesta. Riprova."
+                                    st.write(response_text)
+                                except Exception as e:
+                                    response_text = f"Si è verificato un errore durante l'elaborazione: {e}"
+                                    st.error(response_text)
                             
-                        save_message(active_conv.id, "assistant", response.content) 
+                        save_message(active_conv.id, "assistant", response_text) 
                         st.rerun()
                     
     with tab_profilo:
