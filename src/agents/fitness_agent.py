@@ -79,16 +79,23 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
     # Isolamento delle logiche di dominio istanziando i due agenti specializzati.
     # Assegnazione dell'istanza RAG esclusivamente al modulo fitness. In questo modo evitiamo 
     # che la vector search venga inquinata da query non pertinenti come quelle alimentari.
+    
+    # Ristrutturiamo il prompt del Personal Trainer per renderlo un estrattore rigido.
+    # e blocchiamo la creatività del modello costringendolo a usare i dati caricati.
     pt_agent = Agent(
         name="PersonalTrainer",
         role="Specialista in protocolli di allenamento e ipertrofia",
-        model=Groq(id="llama-3.3-70b-versatile"),
+        model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
         knowledge=kb,
         search_knowledge=True,
         instructions=[
             "Sei il Personal Trainer di RepEats.",
-            "Usa SEMPRE la knowledge base per fornire linee guida e protocolli di allenamento.",
-            "Non inventare esercizi fuori dai protocolli, affidati ai documenti vettorializzati."
+            "REGOLA CRITICA E ASSOLUTA: Per rispondere a qualsiasi domanda su protocolli, serie, ripetizioni o tempi di recupero, DEVI obbligatoriamente cercare nella tua knowledge base prima di formulare la risposta.",
+            "NON usare la tua conoscenza pregressa per i protocolli di allenamento.",
+            "Estrai ESATTAMENTE i dati dal database (es. numero di serie, ripetizioni, secondi di recupero) e riportali all'utente.",
+            "Se l'utente fa una domanda su un protocollo che non trovi nella knowledge base, rispondi che non hai protocolli ufficiali a riguardo.",
+            "Sii motivante ma estremamente conciso e diretto. Non dilungarti.",
+            "ATTENZIONE: Quando usi lo strumento di ricerca (tool calling), NON stampare tag come <function=...>. Restituisci esclusivamente la chiamata JSON nativa con gli argomenti ben formattati."
         ]
     )
 
@@ -99,30 +106,32 @@ def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_h
     nutrizionista.instructions.extend([
         "Stai operando in una chat come consulente.",
         "Rispondi in modo discorsivo e professionale.",
-        "ASSOLUTAMENTE NON usare il formato JSON, restituisci solo testo normale in Markdown."
+        "ASSOLUTAMENTE NON usare il formato JSON, restituisci solo testo normale in Markdown.",
+        "Non parlare mai in terza persona. Parla direttamente con l'utente dandogli del 'tu'."
     ])
     
     # Rimozione della regola restrittiva sui tag XML per permettere al motore di Agno di elaborare la richiesta nativa
+    
+    # Rifattorizzazione delle istruzioni dell'orchestratore per impedire loop di delega e riassunti non richiesti.
+    # Lo declassiamo a "Passacarte intelligente" in modo che non sovrascriva il lavoro degli specialisti.
     instructions = [
         user_context,
         "--- MISSIONE ---",
-        "Sei l'Orchestratore principale di RepEats. Interagisci con l'utente, capisci il suo intento e coordini il team delegando i task.",
+        "Sei l'Orchestratore principale di RepEats. Il tuo UNICO compito è analizzare la richiesta dell'utente e decidere a chi inoltrarla.",
         
         "--- REGOLE D'ORO ---",
-        "1. MEMORIA: Tieni sempre a mente la 'CRONOLOGIA DELLA CONVERSAZIONE' qui sopra.",
-        "2. DELEGA MULTI-AGENTE: Se l'utente chiede un protocollo o consigli di allenamento, DELEGA la richiesta al 'PersonalTrainer'. Se chiede pareri su cibo, dieta o integratori, DELEGA al 'Nutrizionista'.",
-        "3. MUSCOLI INESISTENTI: Se l'utente ti chiede come allenare 'branchie', 'coda' o altri gruppi muscolari che non esistono nell'anatomia umana, fermalo con un avviso simpatico ma chiaro, spiegandogli che non esistono.",
-        "4. SINTESI: Raccogli le risposte dei tuoi sub-agenti e offri una risposta finale unica, coesa e naturale all'utente.",
-        "5. TONE: Sii motivante, diretto e usa il formato Markdown."
+        "1. DELEGA NETTA E SILENZIOSA: Se la domanda è su allenamento/protocolli, delega al 'PersonalTrainer'. Se è su cibo/macro, delega al 'Nutrizionista'.",
+        "2. NESSUNA SINTESI: Quando un tuo sub-agente ti restituisce la risposta, passala all'utente ESATTAMENTE come l'hai ricevuta. NON aggiungere riassunti, non fare conclusioni e non usare formule come 'Sintesi delle risposte'.",
+        "3. MUSCOLI INESISTENTI (GUARDRAIL DI SICUREZZA): Se l'utente ti chiede come allenare 'branchie', 'coda' o altre parti anatomiche non umane, bloccalo immediatamente. RISPONDI DIRETTAMENTE TU con una SOLA frase simpatica dicendo che non esistono. In questo caso NON DELEGARE a nessuno e interrompi subito l'elaborazione.",
+        "4. MEMORIA: Tieni sempre a mente la 'CRONOLOGIA DELLA CONVERSAZIONE' qui sopra."
     ]
 
-     # Implementazione nativa del pattern Orchestrator sfruttando il parametro members del framework.
+    # Implementazione nativa del pattern Orchestrator sfruttando il parametro members del framework.
     # L'engine LLM gestirà autonomamente il routing verso i sub-agenti registrati.
     return Team(
-        model=Groq(id="llama-3.3-70b-versatile"),
+        model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
         members=[pt_agent, nutrizionista],
         instructions=instructions,
         markdown=True,
         description="Agente Orchestratore con Memoria, Consapevolezza Temporale e Delega Multi-Agente."
     )
-        
