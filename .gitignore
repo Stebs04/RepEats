@@ -21,3 +21,10 @@ __pycache__/
 
 #File di Visual Studio
 .vscode/
+src/database/lancedb_vectors/protocolli_allenamento.lance/_transactions/0-caef53e0-2a23-4b9d-9503-fed64f3f1bcc.txn
+src/database/lancedb_vectors/protocolli_allenamento.lance/_versions/18446744073709551614.manifest
+src/database/lancedb_vectors/__manifest/_transactions/0-d4b6d4a9-33c8-4587-ae3c-a6c1e3f640eb.txn
+src/database/lancedb_vectors/__manifest/_versions/18446744073709551614.manifest
+src/database/lancedb_vectors/protocolli_allenamento.lance/_transactions/0-aa41f4e1-edb6-4ec1-813c-b3d29250c2de.txn
+src/database/lancedb_vectors/__manifest/_versions/latest_version_hint.json
+src/database/lancedb_vectors/protocolli_allenamento.lance/_versions/latest_version_hint.json
