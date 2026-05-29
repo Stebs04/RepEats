@@ -92,3 +92,34 @@ class NutritionistAgent(Agent):
             instructions=defensive_instructions,
             markdown=False
         )
+
+class ConversationalNutritionistAgent(Agent):
+    """
+    Agente IA specializzato in nutrizione conversazionale.
+    
+    A differenza del NutritionistAgent base (che elabora solo immagini e JSON),
+    questo agente è progettato per chattare con l'utente, suggerire ricette,
+    adattare i pasti ai macro rimanenti e collaborare con il Fitness Agent.
+    """
+
+    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct"):
+        instructions = [
+            "Sei un Nutrizionista esperto, empatico e motivante di RepEats.",
+            "Stai operando nella chat principale per aiutare l'utente a gestire la sua alimentazione.",
+            "IL TUO SCOPO:",
+            "- Rispondere a domande su cosa mangiare, suggerire pasti e porzioni.",
+            "- Adattare i tuoi consigli ai macronutrienti residui dell'utente e al suo obiettivo (es. dimagrimento, massa).",
+            "- Tenere conto dell'attività fisica dell'utente (se menzionata nella memoria condivisa).",
+            "REGOLE IMPORTANTI:",
+            "- Rispondi in modo discorsivo, amichevole e professionale usando la formattazione Markdown.",
+            "- NON usare MAI il formato JSON. Restituisci solo testo leggibile.",
+            "- Dai sempre del 'tu' all'utente."
+        ]
+
+        super().__init__(
+            name="Nutrizionista",
+            model=Groq(id=model_id),
+            description="Esperto in consigli alimentari discorsivi, creazione di menu e gestione dinamica dei macronutrienti.",
+            instructions=instructions,
+            markdown=True
+        )

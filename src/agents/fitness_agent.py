@@ -11,7 +11,7 @@ from agno.vectordb.lancedb import LanceDb
 from agno.knowledge.embedder.sentence_transformer import SentenceTransformerEmbedder
 
 # Importiamo l'agente nutrizionista.
-from src.agents.nutritionst import NutritionistAgent
+from src.agents.nutritionst import ConversationalNutritionistAgent
 
 def setup_knowledge_base() -> Knowledge:
     """
@@ -46,92 +46,78 @@ def setup_knowledge_base() -> Knowledge:
 # Modified by Stefano Bellan 20054330 - Implementazione orchestrazione multi agente
 def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_history: list):
     """
-    Configurazione dell'agente con contesto Multi-Agente, Memoria e integrazione nativa VERO RAG.
+    Configurazione dell'agente con contesto Multi-Agente, Memoria e collaborazione.
     """
+
     kb = setup_knowledge_base()
-
+    
     target_cal = daily_targets.get('target_calories', 0)
-
-    #Costruzione del contesto temporale
     ora_attuale = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-    #Ricostruzione della memoria della chat per fornire contesto all'LLM
+    # Ricostruzione della memoria della chat per fornire contesto condiviso all'Orchestratore e agli Agenti
     storia_testo = "Nessun messaggio precedente."
     if chat_history:
         storia_testo = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in chat_history])
 
+    # Questo blocco rappresenta la MEMORIA CONDIVISA. Entrambi gli agenti vi avranno accesso tramite l'Orchestratore.
     user_context = f"""
-    DATI BIOMETRICI E OBIETTIVI UTENTE:
+    --- MEMORIA CONDIVISA E CONTESTO UTENTE ---
+    DATI BIOMETRICI E OBIETTIVI:
     - Età: {user_data.get('age')} anni | Peso: {user_data.get('weight')} kg
     - Obiettivo: {user_data.get('goal_type')}
     
-    NUTRIZIONE ODIERNA (Menzionala SOLO se ti viene chiesto esplicitamente o se è un pericolo evidente):
+    NUTRIZIONE ODIERNA (Da usare per bilanciare pasti e allenamenti):
     - Calorie assunte: {macros['calories']} / {target_cal} kcal
+    - Proteine: {macros['proteins']}g | Carboidrati: {macros['carbohydrates']}g | Grassi: {macros['fats']}g
     
-    CONTESTO TEMPORALE ATTUALE:
+    CONTESTO TEMPORALE:
     - Data e ora: {ora_attuale}
-    - IMPORTANTE: Modula le tue risposte in base all'orario. Se è sera/notte, sconsiglia workout pesanti e proponi stretching. Se è mattina o pomeriggio, puoi spingere sull'intensità.
 
-    CRONOLOGIA DELLA CONVERSAZIONE (Ricorda di cosa avete appena parlato):
+    CRONOLOGIA RECENTE DELLA CONVERSAZIONE:
     {storia_testo}
+    -------------------------------------------
     """
 
-    # Isolamento delle logiche di dominio istanziando i due agenti specializzati.
-    # Assegnazione dell'istanza RAG esclusivamente al modulo fitness. In questo modo evitiamo 
-    # che la vector search venga inquinata da query non pertinenti come quelle alimentari.
-    
-    # Ristrutturiamo il prompt del Personal Trainer per renderlo un estrattore rigido.
-    # e blocchiamo la creatività del modello costringendolo a usare i dati caricati.
+    # Fitness Agent
     pt_agent = Agent(
         name="PersonalTrainer",
-        role="Specialista in protocolli di allenamento e ipertrofia",
+        role="Specialista in fitness, protocolli di allenamento e motivazione",
         model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
         knowledge=kb,
         search_knowledge=True,
         instructions=[
             "Sei il Personal Trainer di RepEats.",
-            "REGOLA CRITICA E ASSOLUTA: Per rispondere a qualsiasi domanda su protocolli, serie, ripetizioni o tempi di recupero, DEVI obbligatoriamente cercare nella tua knowledge base prima di formulare la risposta.",
-            "NON usare la tua conoscenza pregressa per i protocolli di allenamento.",
-            "Estrai ESATTAMENTE i dati dal database (es. numero di serie, ripetizioni, secondi di recupero) e riportali all'utente.",
-            "Se l'utente fa una domanda su un protocollo che non trovi nella knowledge base, rispondi che non hai protocolli ufficiali a riguardo.",
-            "Sii motivante ma estremamente conciso e diretto. Non dilungarti.",
-            "ATTENZIONE: Quando usi lo strumento di ricerca (tool calling), NON stampare tag come <function=...>. Restituisci esclusivamente la chiamata JSON nativa con gli argomenti ben formattati."
-        ]
+            "Rispondi a domande su allenamenti, progressioni, recupero e forma fisica in modo discorsivo ed empatico.",
+            "Quando ti vengono chiesti protocolli specifici (es. Ipertrofia, Forza), DEVI obbligatoriamente cercare nella knowledge base e usare quei dati.",
+            "Usa la MEMORIA CONDIVISA per contestualizzare i tuoi consigli. Se l'utente ha mangiato poche calorie oggi e vuole fare un allenamento pesante, suggeriscigli di mangiare prima o di fare un allenamento più leggero.",
+            "Spiega gli esercizi se richiesto, sii motivante e adatta i tuoi suggerimenti in tempo reale."
+        ],
+        markdown=True
     )
 
-    # Adattamento dell'agente nutrizionista già esistente per lavorare in un contesto conversazionale di team
-    nutrizionista = NutritionistAgent()
-    nutrizionista.name = "Nutrizionista"
-    nutrizionista.role = "Specialista in nutrizione e macro"
-    nutrizionista.instructions.extend([
-        "Stai operando in una chat come consulente.",
-        "Rispondi in modo discorsivo e professionale.",
-        "ASSOLUTAMENTE NON usare il formato JSON, restituisci solo testo normale in Markdown.",
-        "Non parlare mai in terza persona. Parla direttamente con l'utente dandogli del 'tu'."
-    ])
-    
-    # Rimozione della regola restrittiva sui tag XML per permettere al motore di Agno di elaborare la richiesta nativa
-    
-    # Rifattorizzazione delle istruzioni dell'orchestratore per impedire loop di delega e riassunti non richiesti.
-    # Lo declassiamo a "Passacarte intelligente" in modo che non sovrascriva il lavoro degli specialisti.
+    # Nutritionist Agent
+    nutrizionista_chat = ConversationalNutritionistAgent()
+
+    #Orchestratore centrale
     instructions = [
         user_context,
-        "--- MISSIONE ---",
-        "Sei l'Orchestratore principale di RepEats. Il tuo UNICO compito è analizzare la richiesta dell'utente e decidere a chi inoltrarla.",
+        "--- MISSIONE DELL'ORCHESTRATORE ---",
+        "Sei l'Orchestratore principale di RepEats. Il tuo scopo è analizzare l'intento dell'utente e coordinare il Team.",
         
-        "--- REGOLE D'ORO ---",
-        "1. DELEGA NETTA E SILENZIOSA: Se la domanda è su allenamento/protocolli, delega al 'PersonalTrainer'. Se è su cibo/macro, delega al 'Nutrizionista'.",
-        "2. NESSUNA SINTESI: Quando un tuo sub-agente ti restituisce la risposta, passala all'utente ESATTAMENTE come l'hai ricevuta. NON aggiungere riassunti, non fare conclusioni e non usare formule come 'Sintesi delle risposte'.",
-        "3. MUSCOLI INESISTENTI (GUARDRAIL DI SICUREZZA): Se l'utente ti chiede come allenare 'branchie', 'coda' o altre parti anatomiche non umane, bloccalo immediatamente. RISPONDI DIRETTAMENTE TU con una SOLA frase simpatica dicendo che non esistono. In questo caso NON DELEGARE a nessuno e interrompi subito l'elaborazione.",
-        "4. MEMORIA: Tieni sempre a mente la 'CRONOLOGIA DELLA CONVERSAZIONE' qui sopra."
+        "--- REGOLE DI DELEGA ---",
+        "1. Domande su allenamento, esercizi, recupero muscolare -> delega al 'PersonalTrainer'.",
+        "2. Domande su cosa mangiare, ricette, macro, fame -> delega al 'Nutrizionista'.",
+        "3. Domande MISTE (es. 'Cosa mangio prima di allenare il petto?') -> delega a chi ritieni più opportuno o consenti a entrambi di intervenire.",
+        "4. Non modificare, non riassumere e non commentare le risposte dei tuoi sub-agenti. Passa all'utente la loro risposta esatta.",
+        "5. GUARDRAIL DI SICUREZZA: Se l'utente chiede come allenare parti del corpo inesistenti (es. 'branchie', 'ali'), rispondi tu direttamente con ironia e NON delegare."
     ]
 
-    # Implementazione nativa del pattern Orchestrator sfruttando il parametro members del framework.
-    # L'engine LLM gestirà autonomamente il routing verso i sub-agenti registrati.
     return Team(
         model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
-        members=[pt_agent, nutrizionista],
+        members=[pt_agent, nutrizionista_chat],
         instructions=instructions,
         markdown=True,
-        description="Agente Orchestratore con Memoria, Consapevolezza Temporale e Delega Multi-Agente."
+        description="Orchestratore Multi-Agente con Memoria Condivisa tra Fitness e Nutrizione."
     )
+
+
