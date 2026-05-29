@@ -605,10 +605,20 @@ def main() -> None:
                         
                         with chat_container.chat_message("assistant"):
                             with st.spinner("L'Orchestratore sta delegando la tua richiesta agli specialisti..."):
-                                response = agent.run(prompt)
-                                st.write(response.content)
+                                try:
+                                    response = agent.run(prompt)
+                                    # Estrazione sicura del contenuto: response.content potrebbe essere None in modalità route
+                                    response_text = response.content
+                                    if not response_text and hasattr(response, 'member_responses') and response.member_responses:
+                                        response_text = response.member_responses[-1].content
+                                    if not response_text:
+                                        response_text = "Mi dispiace, non sono riuscito a elaborare la tua richiesta. Riprova."
+                                    st.write(response_text)
+                                except Exception as e:
+                                    response_text = f"Si è verificato un errore durante l'elaborazione: {e}"
+                                    st.error(response_text)
                             
-                        save_message(active_conv.id, "assistant", response.content) 
+                        save_message(active_conv.id, "assistant", response_text) 
                         st.rerun()
                     
     with tab_profilo:
