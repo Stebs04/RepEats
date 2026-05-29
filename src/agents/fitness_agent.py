@@ -42,7 +42,6 @@ def setup_knowledge_base() -> Knowledge:
 
 # Created by Timothy Giolito
 # Modified by Stefano Bellan 20054330 - Implementazione orchestrazione multi agente
-
 def get_fitness_agent(user_data: dict, macros: dict, daily_targets: dict, chat_history: list):
     """
     Configurazione dell'agente con contesto Multi-Agente, Memoria e integrazione nativa VERO RAG.
