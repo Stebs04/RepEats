@@ -4,79 +4,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>RepEats - Dashboard</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
-    function renderMeals(meals) {
-        const container = document.getElementById('mealsContainer');
-        container.innerHTML = '';
-        const categories = ['Colazione', 'Pranzo', 'Cena', 'Spuntino'];
-        
-        categories.forEach(cat => {
-            const catMeals = meals[cat] || [];
-            let totalCals = 0, totalPro = 0, totalCarb = 0, totalFat = 0;
-            catMeals.forEach(m => {
-                totalCals += m.calories || 0;
-                totalPro += m.proteins || 0;
-                totalCarb += m.carbs || 0;
-                totalFat += m.fats || 0;
-            });
-            
-            const div = document.createElement('div');
-            div.className = 'glass-panel rounded-xl overflow-hidden';
-            
-            // Header (Accordion Toggle)
-            const header = document.createElement('div');
-            header.className = 'p-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors';
-            header.innerHTML = `
-                <div class="flex flex-col">
-                    <span class="font-bold text-on-surface text-[18px]">${cat}</span>
-                    <span class="text-sm text-on-surface-variant">${Math.round(totalCals)} kcal</span>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="hidden md:flex gap-4 text-xs text-on-surface-variant">
-                        <span>PRO: <span class="text-on-surface">${Math.round(totalPro)}g</span></span>
-                        <span>CARB: <span class="text-on-surface">${Math.round(totalCarb)}g</span></span>
-                        <span>FAT: <span class="text-on-surface">${Math.round(totalFat)}g</span></span>
-                    </div>
-                    <span class="material-symbols-outlined transform transition-transform duration-300" id="icon-${cat}">expand_more</span>
-                </div>
-            `;
-            
-            // Content (List of foods)
-            const content = document.createElement('div');
-            content.id = `content-${cat}`;
-            content.className = 'px-4 pb-4 hidden flex-col gap-2 border-t border-white/10 pt-3';
-            
-            if (catMeals.length === 0) {
-                content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
-            } else {
-                catMeals.forEach(m => {
-                    content.innerHTML += `
-                        <div class="flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5">
-                            <span class="font-body-md text-on-surface text-sm max-w-[50%] truncate">${m.name}</span>
-                            <div class="flex gap-3 text-xs text-on-surface-variant">
-                                <span>${Math.round(m.calories)} kcal</span>
-                                <span>P:${Math.round(m.proteins)}</span>
-                                <span>C:${Math.round(m.carbs)}</span>
-                                <span>F:${Math.round(m.fats)}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-            
-            header.onclick = () => {
-                content.classList.toggle('hidden');
-                content.classList.toggle('flex');
-                document.getElementById(`icon-${cat}`).classList.toggle('rotate-180');
-            };
-            
-            div.appendChild(header);
-            div.appendChild(content);
-            container.appendChild(div);
-        });
-    }
-
-</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
@@ -176,77 +104,6 @@
             }
         }
     
-    function renderMeals(meals) {
-        const container = document.getElementById('mealsContainer');
-        container.innerHTML = '';
-        const categories = ['Colazione', 'Pranzo', 'Cena', 'Spuntino'];
-        
-        categories.forEach(cat => {
-            const catMeals = meals[cat] || [];
-            let totalCals = 0, totalPro = 0, totalCarb = 0, totalFat = 0;
-            catMeals.forEach(m => {
-                totalCals += m.calories || 0;
-                totalPro += m.proteins || 0;
-                totalCarb += m.carbs || 0;
-                totalFat += m.fats || 0;
-            });
-            
-            const div = document.createElement('div');
-            div.className = 'glass-panel rounded-xl overflow-hidden';
-            
-            // Header (Accordion Toggle)
-            const header = document.createElement('div');
-            header.className = 'p-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors';
-            header.innerHTML = `
-                <div class="flex flex-col">
-                    <span class="font-bold text-on-surface text-[18px]">${cat}</span>
-                    <span class="text-sm text-on-surface-variant">${Math.round(totalCals)} kcal</span>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="hidden md:flex gap-4 text-xs text-on-surface-variant">
-                        <span>PRO: <span class="text-on-surface">${Math.round(totalPro)}g</span></span>
-                        <span>CARB: <span class="text-on-surface">${Math.round(totalCarb)}g</span></span>
-                        <span>FAT: <span class="text-on-surface">${Math.round(totalFat)}g</span></span>
-                    </div>
-                    <span class="material-symbols-outlined transform transition-transform duration-300" id="icon-${cat}">expand_more</span>
-                </div>
-            `;
-            
-            // Content (List of foods)
-            const content = document.createElement('div');
-            content.id = `content-${cat}`;
-            content.className = 'px-4 pb-4 hidden flex-col gap-2 border-t border-white/10 pt-3';
-            
-            if (catMeals.length === 0) {
-                content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
-            } else {
-                catMeals.forEach(m => {
-                    content.innerHTML += `
-                        <div class="flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5">
-                            <span class="font-body-md text-on-surface text-sm max-w-[50%] truncate">${m.name}</span>
-                            <div class="flex gap-3 text-xs text-on-surface-variant">
-                                <span>${Math.round(m.calories)} kcal</span>
-                                <span>P:${Math.round(m.proteins)}</span>
-                                <span>C:${Math.round(m.carbs)}</span>
-                                <span>F:${Math.round(m.fats)}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-            
-            header.onclick = () => {
-                content.classList.toggle('hidden');
-                content.classList.toggle('flex');
-                document.getElementById(`icon-${cat}`).classList.toggle('rotate-180');
-            };
-            
-            div.appendChild(header);
-            div.appendChild(content);
-            container.appendChild(div);
-        });
-    }
-
 </script>
 <style>
         .glass-card {
@@ -255,6 +112,14 @@
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-top-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Alias per compatibilità con i componenti condivisi */
+        .glass-panel {
+            background-color: rgba(24, 24, 24, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
         
         .progress-ring-circle {
@@ -437,6 +302,17 @@
 </div>
 </div>
 </div>
+<!-- Meals Breakdown Section -->
+<section class="mt-lg">
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-md flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary-fixed">restaurant</span> I Tuoi Pasti
+    </h2>
+    <div id="mealsContainer" class="flex flex-col gap-sm">
+        <!-- JS will populate accordions here -->
+    </div>
+</section>
+<!-- Spacer for FAB & Bottom Nav -->
+<div class="h-24 md:h-12 w-full"></div>
 </main>
 <!-- BottomNavBar (Mobile Only) -->
 <!-- Standard BottomNavBar -->
@@ -506,6 +382,9 @@
                     setProgress('carbCircle', data.today.carbohydrates, data.targets.target_carbohydrates);
                     setProgress('fatCircle', data.today.fats, data.targets.target_fats);
                 }, 300);
+
+                // Rendiamo i pasti per categoria
+                if (data.meals) renderMeals(data.meals);
             }
         } catch(e) {
             console.error("Errore nel caricamento dei dati dashboard:", e);
@@ -560,17 +439,37 @@
                 content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
             } else {
                 catMeals.forEach(m => {
-                    content.innerHTML += `
-                        <div class="flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5">
-                            <span class="font-body-md text-on-surface text-sm max-w-[50%] truncate">${m.name}</span>
+                    // Creiamo la riga con createElement per poter aggiungere l'event listener sul bottone delete
+                    const row = document.createElement('div');
+                    row.id = `meal-row-${m.id}`;
+                    row.className = 'flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5 group transition-all hover:border-error/30';
+                    row.innerHTML = `
+                        <span class="font-body-md text-on-surface text-sm max-w-[45%] truncate">${m.name}</span>
+                        <div class="flex items-center gap-3">
                             <div class="flex gap-3 text-xs text-on-surface-variant">
                                 <span>${Math.round(m.calories)} kcal</span>
                                 <span>P:${Math.round(m.proteins)}</span>
                                 <span>C:${Math.round(m.carbs)}</span>
                                 <span>F:${Math.round(m.fats)}</span>
                             </div>
+                            <button
+                                class="delete-meal-btn w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-all opacity-0 group-hover:opacity-100 active:scale-90"
+                                title="Elimina pasto"
+                                data-meal-id="${m.id}"
+                            >
+                                <span class="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
                         </div>
                     `;
+
+                    // Event listener sul bottone delete
+                    const deleteBtn = row.querySelector('.delete-meal-btn');
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Non aprire/chiudere l'accordion
+                        deleteMeal(m.id, row);
+                    });
+
+                    content.appendChild(row);
                 });
             }
             
@@ -584,6 +483,40 @@
             div.appendChild(content);
             container.appendChild(div);
         });
+    }
+
+    async function deleteMeal(mealId, rowElement) {
+        // Animazione di fade-out ottimistica (prima di chiamare l'API)
+        rowElement.style.transition = 'opacity 0.25s, transform 0.25s';
+        rowElement.style.opacity = '0.4';
+        rowElement.style.transform = 'translateX(8px)';
+
+        try {
+            const res = await fetch(`/api/dashboard/meal/${mealId}?user_id=${userId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                // Rimuovi la riga con animazione completata
+                rowElement.style.opacity = '0';
+                rowElement.style.transform = 'translateX(16px)';
+                setTimeout(() => {
+                    rowElement.remove();
+                    // Ricarica i dati per aggiornare i totali (cerchi e header categoria)
+                    loadDashboardData();
+                }, 250);
+            } else {
+                // Ripristina se c'è stato un errore
+                rowElement.style.opacity = '1';
+                rowElement.style.transform = 'none';
+                const data = await res.json();
+                console.error('Errore eliminazione pasto:', data.detail);
+            }
+        } catch(e) {
+            rowElement.style.opacity = '1';
+            rowElement.style.transform = 'none';
+            console.error('Errore di rete:', e);
+        }
     }
 
 </script>

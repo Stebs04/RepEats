@@ -101,6 +101,10 @@ class Conversation(Base):
     # Metadati descrittivi visibili nell'interfaccia utente.
     title = Column(String(200), default="Nuova Conversazione")
     
+    # Tipo di agente associato alla conversazione: 'nutritionist' o 'coach'.
+    # Permette di filtrare le sessioni in base alla pagina corrente.
+    chat_type = Column(String(50), default="nutritionist", nullable=False)
+    
     # modified by Stefano Bellan 20054330 - Risoluzione incompatibilità datetimes con SQLite
     created_at = Column(DateTime, default=lambda: datetime.now())
 

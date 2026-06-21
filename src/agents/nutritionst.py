@@ -140,4 +140,57 @@ class ConversationalNutritionistAgent(Agent):
             description="Esperto in consigli alimentari discorsivi, creazione di menu e gestione dinamica dei macronutrienti.",
             instructions=instructions,
             markdown=True
-        )
+        )
+
+
+class VisionNutritionistAgent(Agent):
+    """
+    Agente Vision dedicato alla fase dell'analisi immagini.
+    
+    A differenza di NutritionistAgent (che tenta output JSON strutturato),
+    questo agente risponde in TESTO LIBERO dopo aver visto l'immagine
+    e chiamato i tool necessari (es. barcode lookup).
+    
+    Questo risolve il conflitto Groq: vision + tool calling + structured output
+    non possono coesistere in una singola chiamata API. Separando le due fasi,
+    ogni agente fa una sola cosa alla volta.
+    
+    Autore: Stefano Bellan (20054330)
+    """
+
+    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct"):
+        vision_instructions = [
+            "Sei un Nutrizionista esperto di RepEats specializzato nell'analisi di immagini alimentari.",
+            "Il tuo compito è identificare il contenuto dell'immagine e raccogliere i dati nutrizionali.",
+
+            "--- SE VEDI UN CODICE A BARRE ---",
+            "1. Leggi il numero del codice a barre dall'immagine.",
+            "2. Usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode con quel numero.",
+            "3a. SE il tool restituisce valori nutrizionali validi: usa quei dati e ricalcola per la grammatura.",
+            "3b. SE il tool dice 'non trovato' o non ha valori: guarda l'etichetta nell'immagine per identificare il prodotto e stima i valori nutrizionali dal nome/categoria.",
+            "4. Calcola i valori proporzionali per la grammatura indicata dall'utente.",
+            "5. Riporta chiaramente: nome prodotto, calorie, proteine, carboidrati, grassi.",
+
+            "--- SE VEDI DEL CIBO ---",
+            "1. Identifica il piatto o l'alimento.",
+            "2. Stima i valori nutrizionali medi per la grammatura indicata.",
+            "3. Riporta chiaramente: nome alimento, calorie stimate, proteine, carboidrati, grassi.",
+
+            "--- IMPORTANTE: NON RESTITUIRE MAI TUTTI ZERO ---",
+            "Se non riesci a trovare dati esatti, STIMA sempre i valori basandoti sulla categoria di alimento.",
+            "Esempio: se vedi 'Pesto Barilla' e il barcode non è nel database, stima ~500kcal/100g, 5g pro, 5g carb, 50g grassi.",
+
+            "--- FORMATO RISPOSTA ---",
+            "Rispondi con testo naturale in italiano. NON restituire JSON.",
+            "Includi sempre: nome del prodotto, calorie, proteine, carboidrati, grassi (con unità di misura).",
+            "Esempio: 'Ho trovato: Pasta Barilla. Per 80g: 284 kcal, 10g proteine, 57g carboidrati, 1.3g grassi.'",
+            "Se hai stimato i valori perché il barcode non era nel database, specificalo: 'Valori stimati per [nome prodotto]:'",
+        ]
+
+        super().__init__(
+            model=Groq(id=model_id),
+            description="Agente Vision per identificazione alimenti e raccolta dati nutrizionali tramite immagini e barcode.",
+            tools=[get_product_info_by_barcode],
+            instructions=vision_instructions,
+            markdown=False,
+        )

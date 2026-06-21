@@ -133,7 +133,7 @@
         }
     </script>
 </head>
-<body class="bg-background text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container pb-24 md:pb-8 pt-16 min-h-screen flex flex-col relative overflow-x-hidden">
+<body class="bg-background text-on-background min-h-screen flex flex-col font-sans selection:bg-primary-container selection:text-on-primary-container">
 <!-- Standard TopAppBar -->
 <header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
 <div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
@@ -158,20 +158,50 @@
 <!-- TopAppBar (Shared Component) -->
 
 <!-- Main Canvas -->
-<main class="flex-grow flex flex-col w-full max-w-4xl mx-auto px-container-margin mt-gutter gap-lg relative z-10">
+<main class="flex-1 w-full max-w-7xl mx-auto pt-20 md:pt-28 px-container-margin md:px-xl pb-28 md:pb-12 flex flex-col gap-6 overflow-hidden relative">
 <!-- Motivational AI Chat -->
-<section class="glass-panel rounded-xl p-md flex flex-col gap-sm relative overflow-hidden">
-<div class="flex justify-between items-center"><span class="text-on-surface font-bold">Coach Chat</span><button onclick="toggleSidebar()" class="text-on-surface-variant hover:text-primary-fixed"><span class="material-symbols-outlined">history</span></button></div>
+<section class="flex-1 flex flex-col glass-panel rounded-xl md:rounded-2xl border-t border-t-white/10 overflow-hidden relative z-10">
+<div class="bg-surface-container-low/50 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary-container to-tertiary-container flex items-center justify-center p-[2px]">
+<div class="w-full h-full bg-background rounded-full flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-primary-container text-[20px]">fitness_center</span>
+</div>
+</div>
+<div>
+<h1 class="font-body-md text-body-md font-bold text-on-surface flex items-center gap-2">
+                        Coach <span class="w-2 h-2 rounded-full bg-primary-container drop-shadow-[0_0_4px_rgba(57,255,20,0.8)]"></span>
+</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">AI Fitness Coach</p>
+</div>
+<button onclick="toggleSidebar()" class="ml-auto text-on-surface-variant hover:text-primary-container"><span class="material-symbols-outlined">history</span></button>
+</div>
+
 <!-- Decorative gradient mesh -->
 <div class="absolute -top-24 -right-24 w-48 h-48 bg-tertiary-container/10 rounded-full blur-3xl pointer-events-none"></div>
-<div id="chatHistory" class="flex flex-col gap-sm max-h-[300px] overflow-y-auto hide-scrollbar"></div>
+
+<div id="chatHistory" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar relative"></div>
+
+<!-- Input Section -->
+<div class="p-4 bg-background/50 backdrop-blur-xl border-t border-white/5 flex flex-col gap-3">
+<!-- Quick-chip suggestions -->
+<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+  <button onclick="sendQuickMessage('Crea una scheda di allenamento per la settimana in base al mio obiettivo')" class="shrink-0 bg-surface-container border border-white/10 hover:border-primary-container/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
+    <span class="material-symbols-outlined text-[14px] text-primary-container">fitness_center</span> Scheda settimanale
+  </button>
+  <button onclick="sendQuickMessage('Quali esercizi mi consigli per oggi in base ai miei macro attuali?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-primary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
+    <span class="material-symbols-outlined text-[14px] text-primary-fixed">bolt</span> Allenamento oggi
+  </button>
+  <button onclick="sendQuickMessage('Dammi consigli su stretching e recupero muscolare')" class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-container/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
+    <span class="material-symbols-outlined text-[14px] text-tertiary-container">self_improvement</span> Recovery
+  </button>
 </div>
 <!-- Quick Input -->
-<div class="mt-xs relative group">
-<input id="chatInput" class="w-full bg-surface-container-highest/50 border border-white/10 rounded-full py-2 px-4 font-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-tertiary-container/50 focus:ring-1 focus:ring-tertiary-container/50 transition-all" placeholder="Rispondi al coach..." type="text"/>
-<button id="sendBtn" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-tertiary-container transition-colors">
+<div class="relative flex items-center">
+<input id="chatInput" class="w-full bg-surface-container-high/50 border border-white/10 text-on-surface rounded-full py-3 pl-4 pr-12 focus:outline-none focus:border-tertiary-container focus:ring-1 focus:ring-tertiary-container transition-all font-body-md text-body-md placeholder:text-on-surface-variant/50" placeholder="Chiedi al Coach..." type="text"/>
+<button id="sendBtn" class="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full bg-tertiary-container/10 hover:bg-tertiary-container/20 text-tertiary-container transition-colors">
 <span class="material-symbols-outlined text-[20px]" data-icon="send">send</span>
 </button>
+</div>
 </div>
 </section>
 <!-- Focus Oggi Widget -->
@@ -370,19 +400,87 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
+    // ---- Parser Markdown completo ----
+    function parseMarkdown(text) {
+        const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        let lines = text.split('\n');
+        let html = '';
+        let i = 0;
+        while (i < lines.length) {
+            let line = lines[i];
+            // Tabelle markdown
+            if (/^\|.+\|/.test(line)) {
+                let tableLines = [];
+                while (i < lines.length && /^\|/.test(lines[i])) { tableLines.push(lines[i]); i++; }
+                html += '<div class="overflow-x-auto my-2"><table class="w-full text-sm border-collapse">';
+                tableLines.forEach((tl, ti) => {
+                    if (/^\|[-:\s|]+\|$/.test(tl)) return;
+                    const cells = tl.split('|').filter((_,idx,arr) => idx > 0 && idx < arr.length - 1);
+                    const tag = ti === 0 ? 'th' : 'td';
+                    const rowClass = ti === 0 ? 'bg-primary-container/10' : (ti % 2 === 0 ? 'bg-surface-container/30' : '');
+                    html += `<tr class="${rowClass}">`;
+                    cells.forEach(c => { html += `<${tag} class="px-3 py-2 border border-white/10 text-left font-${tag==='th'?'bold':'normal'} text-on-surface">${inlineMarkdown(c.trim())}</${tag}>`; });
+                    html += '</tr>';
+                });
+                html += '</table></div>';
+                continue;
+            }
+            // Lista puntata
+            if (/^[-*+]\s/.test(line)) {
+                html += '<ul class="list-none my-2 flex flex-col gap-1">';
+                while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^[-*+]\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-primary-container mt-1 text-[10px]">&#9679;</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++;
+                }
+                html += '</ul>';
+                continue;
+            }
+            // Lista numerata
+            if (/^\d+\.\s/.test(line)) {
+                html += '<ol class="list-none my-2 flex flex-col gap-1">';
+                let num = 1;
+                while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^\d+\.\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-primary-fixed font-bold min-w-[20px]">${num}.</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++; num++;
+                }
+                html += '</ol>';
+                continue;
+            }
+            // Heading
+            if (/^###\s/.test(line)) { html += `<h3 class="font-bold text-primary-fixed text-[15px] mt-3 mb-1">${inlineMarkdown(esc(line.replace(/^###\s/, '')))}</h3>`; i++; continue; }
+            if (/^##\s/.test(line)) { html += `<h2 class="font-bold text-primary-container text-[17px] mt-4 mb-1">${inlineMarkdown(esc(line.replace(/^##\s/, '')))}</h2>`; i++; continue; }
+            if (/^#\s/.test(line)) { html += `<h1 class="font-bold text-on-surface text-[19px] mt-4 mb-2">${inlineMarkdown(esc(line.replace(/^#\s/, '')))}</h1>`; i++; continue; }
+            // Riga vuota
+            if (line.trim() === '') { html += '<div class="h-2"></div>'; i++; continue; }
+            // Paragrafo
+            html += `<p class="leading-relaxed">${inlineMarkdown(esc(line))}</p>`;
+            i++;
+        }
+        return html;
+    }
+
+    function inlineMarkdown(text) {
+        return text
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code class="bg-surface-container-highest px-1 rounded text-primary-container text-[13px]">$1</code>');
+    }
+
     function appendBotMessage(text) {
-        const formattedText = text.replace(/\n/g, '<br>');
-        const html = `
-            <div class="flex items-start gap-gutter w-full">
-                <div class="relative shrink-0">
-                    <img class="w-12 h-12 rounded-full object-cover border border-tertiary-container/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlrUM8QRyxwPtdV3pN_Kb5BiTYpvQSSocTfT5tRFUEiSUQORP2qoU9ypgPgjSK3Chd0s_1xWLnqfPNDfvIhlemquidz2lpTVGTgzI_SkDQf1t5dx2SLdhbFbN36MIZg7p3awk6ZAS40QnaHMjUrQWD-3n5x_cLX5Vdc_XCGBRvlfWIehYaIj4vQj-iMnEBG7EyxkGE0cxMgz0GKcbia22JimrHgYWkdIB51T7ovid9T9Rr93a5DbTosoRL-5Tl9_QECFQz-ar-lQax"/>
-                </div>
-                <div class="bg-surface-variant/50 rounded-2xl rounded-tl-none p-sm border border-white/5">
-                    <p class="font-body-md text-on-surface">${formattedText}</p>
-                </div>
+        const botDiv = document.createElement('div');
+        botDiv.className = 'flex items-start gap-gutter w-full';
+        botDiv.innerHTML = `
+            <div class="relative shrink-0">
+                <img class="w-12 h-12 rounded-full object-cover border border-tertiary-container/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlrUM8QRyxwPtdV3pN_Kb5BiTYpvQSSocTfT5tRFUEiSUQORP2qoU9ypgPgjSK3Chd0s_1xWLnqfPNDfvIhlemquidz2lpTVGTgzI_SkDQf1t5dx2SLdhbFbN36MIZg7p3awk6ZAS40QnaHMjUrQWD-3n5x_cLX5Vdc_XCGBRvlfWIehYaIj4vQj-iMnEBG7EyxkGE0cxMgz0GKcbia22JimrHgYWkdIB51T7ovid9T9Rr93a5DbTosoRL-5Tl9_QECFQz-ar-lQax"/>
+            </div>
+            <div class="bg-surface-variant/50 rounded-2xl rounded-tl-none p-sm border border-white/5 text-on-surface font-body-md">
+                ${parseMarkdown(text)}
             </div>
         `;
-        chatHistory.insertAdjacentHTML('beforeend', html);
+        chatHistory.appendChild(botDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
@@ -424,7 +522,8 @@
                 body: JSON.stringify({
                     user_id: parseInt(userId),
                     conversation_id: currentConversationId,
-                    message: "Al Coach: " + message // trucco per forzare l'orchestratore verso il fitness agent
+                    message: "Al Coach: " + message, // trucco per forzare l'orchestratore verso il fitness agent
+                    chat_type: "coach"
                 })
             });
 
@@ -450,5 +549,125 @@
             sendMessage();
         }
     });
+
+    // ---- Chat Sidebar Logic ----
+    function toggleSidebar() {
+        const sidebar = document.getElementById('chatSidebar');
+        if (sidebar.classList.contains('hidden')) {
+            sidebar.classList.remove('hidden');
+            setTimeout(() => { sidebar.classList.remove('translate-x-full'); }, 10);
+            loadSessions();
+        } else {
+            sidebar.classList.add('translate-x-full');
+            setTimeout(() => { sidebar.classList.add('hidden'); }, 300);
+        }
+    }
+
+    async function loadSessions() {
+        const list = document.getElementById('sessionList');
+        list.innerHTML = '<span class="text-on-surface-variant text-sm">Caricamento...</span>';
+        try {
+            const res = await fetch(`/api/chat/sessions?user_id=${userId}&chat_type=coach`);
+            if (res.ok) {
+                const data = await res.json();
+                list.innerHTML = '';
+                if (data.sessions.length === 0) {
+                    list.innerHTML = '<span class="text-on-surface-variant text-sm">Nessuna chat passata.</span>';
+                    return;
+                }
+                data.sessions.slice().reverse().forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = 'glass-panel p-2 rounded-lg flex flex-col gap-1 border border-white/5 hover:border-primary-container/30 cursor-pointer group relative';
+
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'flex justify-between items-center';
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = 'text-sm text-on-surface truncate pr-6';
+                    titleSpan.innerText = s.title;
+                    titleSpan.onclick = () => loadChat(s.id);
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
+
+                    const renameBtn = document.createElement('button');
+                    renameBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-tertiary-container hover:text-tertiary-fixed">edit</span>';
+                    renameBtn.onclick = (e) => { e.stopPropagation(); renameSession(s.id, s.title); };
+
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error hover:text-error-container">delete</span>';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+
+                    actionsDiv.appendChild(renameBtn);
+                    actionsDiv.appendChild(delBtn);
+                    titleDiv.appendChild(titleSpan);
+                    titleDiv.appendChild(actionsDiv);
+                    div.appendChild(titleDiv);
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'text-[10px] text-on-surface-variant opacity-50';
+                    dateSpan.innerText = new Date(s.created_at).toLocaleString();
+                    div.appendChild(dateSpan);
+
+                    list.appendChild(div);
+                });
+            }
+        } catch(e) {
+            console.error(e);
+            list.innerHTML = '<span class="text-error text-sm">Errore.</span>';
+        }
+    }
+
+    async function loadChat(id) {
+        try {
+            const res = await fetch(`/api/chat/session/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                currentConversationId = id;
+                chatHistory.innerHTML = '';
+                data.history.forEach(m => {
+                    if (m.role === 'user') appendUserMessage(m.content);
+                    else appendBotMessage(m.content);
+                });
+                toggleSidebar();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function deleteSession(id) {
+        if (!confirm('Vuoi davvero eliminare questa chat?')) return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                if (currentConversationId === id) startNewChat();
+                loadSessions();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function renameSession(id, oldTitle) {
+        const newTitle = prompt('Nuovo titolo:', oldTitle);
+        if (!newTitle || newTitle.trim() === '') return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            });
+            if (res.ok) loadSessions();
+        } catch(e) { console.error(e); }
+    }
+
+    function startNewChat() {
+        currentConversationId = null;
+        chatHistory.innerHTML = '';
+        const sidebar = document.getElementById('chatSidebar');
+        if (!sidebar.classList.contains('hidden')) toggleSidebar();
+    }
+
+    function sendQuickMessage(text) {
+        chatInput.value = text;
+        sendMessage();
+    }
 </script>
 </body></html>

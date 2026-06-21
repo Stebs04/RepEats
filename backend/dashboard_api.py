@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros
+from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros, delete_meal_log
 
 router = APIRouter()
 
@@ -51,6 +51,25 @@ def get_dashboard_stats(user_id: int = Query(...)):
             "today": macros_odierni,
             "targets": target_macros
         }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/meal/{meal_id}")
+def delete_meal(meal_id: int, user_id: int = Query(...)):
+    """
+    Elimina un pasto specifico dal database.
+    Richiede user_id come query param per sicurezza (ownership check nel DB service).
+    """
+    try:
+        success = delete_meal_log(user_id=user_id, meal_id=meal_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Pasto non trovato o non autorizzato")
+        return {"message": "Pasto eliminato con successo"}
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

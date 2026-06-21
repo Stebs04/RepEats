@@ -86,20 +86,23 @@ def get_user_data(user_id: int):
     return data
 
 
-def get_user_conversations(user_id: int):
+def get_user_conversations(user_id: int, chat_type: str = None):
 
-    """Recupero di tutte le conversazioni associate a un utente specifico"""
+    """Recupero di tutte le conversazioni associate a un utente specifico, filtrando opzionalmente per tipo di agente."""
     session = get_session()
-    convs = session.query(Conversation).filter_by(user_id=user_id).order_by(Conversation.created_at.desc()).all()
+    query = session.query(Conversation).filter_by(user_id=user_id)
+    if chat_type:
+        query = query.filter(Conversation.chat_type == chat_type)
+    convs = query.order_by(Conversation.created_at.desc()).all()
     session.close()
     return convs
 
 
-def create_new_conversation(user_id: int, title: str = "Nuova conversazione"):
+def create_new_conversation(user_id: int, title: str = "Nuova conversazione", chat_type: str = "nutritionist"):
 
-    """Crea una nuova sessione per ogni chat"""
+    """Crea una nuova sessione per ogni chat, associata al tipo di agente specificato"""
     session = get_session()
-    new_conv = Conversation(user_id=user_id, title=title)
+    new_conv = Conversation(user_id=user_id, title=title, chat_type=chat_type)
     session.add(new_conv)
     session.commit()
     session.refresh(new_conv)

@@ -236,21 +236,20 @@
 </h1>
 <p class="font-label-sm text-label-sm text-on-surface-variant">AI Nutritionist</p>
 </div>
-</div>
 <button onclick="toggleSidebar()" class="ml-auto text-on-surface-variant hover:text-primary-fixed"><span class="material-symbols-outlined">history</span></button>
 </div>
 <div id="chatContainer" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar relative"></div>
 <div class="p-4 bg-background/50 backdrop-blur-xl border-t border-white/5 flex flex-col gap-3">
 <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-<button class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
+<button onclick="sendQuickMessage('Quanti macronutrienti mi mancano oggi? Cosa potrei mangiare per completare il fabbisogno?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
 <span class="material-symbols-outlined text-[14px] text-tertiary-fixed">calculate</span>
                         Calcola macronutrienti
                     </button>
-<button class="shrink-0 bg-surface-container border border-white/10 hover:border-primary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
+<button onclick="sendQuickMessage('Cosa potrei mangiare a cena stasera in base ai macro che mi mancano?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-primary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
 <span class="material-symbols-outlined text-[14px] text-primary-fixed">restaurant_menu</span>
                         Idee per cena
                     </button>
-<button class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
+<button onclick="sendQuickMessage('Quanta acqua dovrei bere oggi in base al mio peso e ai miei obiettivi?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
 <span class="material-symbols-outlined text-[14px] text-tertiary-fixed">water_drop</span>
                         Idratazione
                     </button>
@@ -332,19 +331,114 @@
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    // ---- Parser Markdown completo ----
+    function parseMarkdown(text) {
+        // Escape HTML di sicurezza
+        const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        let lines = text.split('\n');
+        let html = '';
+        let i = 0;
+
+        while (i < lines.length) {
+            let line = lines[i];
+
+            // Tabelle markdown: rilevato quando troviamo una riga con |...|...
+            if (/^\|.+\|/.test(line)) {
+                let tableLines = [];
+                while (i < lines.length && /^\|/.test(lines[i])) {
+                    tableLines.push(lines[i]);
+                    i++;
+                }
+                html += '<div class="overflow-x-auto my-2"><table class="w-full text-sm border-collapse">';
+                tableLines.forEach((tl, ti) => {
+                    // riga separatore (es. |---|---|)
+                    if (/^\|[-:\s|]+\|$/.test(tl)) return;
+                    const cells = tl.split('|').filter((_,idx,arr) => idx > 0 && idx < arr.length - 1);
+                    const tag = ti === 0 ? 'th' : 'td';
+                    const rowClass = ti === 0
+                        ? 'bg-surface-container-high/60'
+                        : (ti % 2 === 0 ? 'bg-surface-container/30' : '');
+                    html += `<tr class="${rowClass}">`;
+                    cells.forEach(c => {
+                        html += `<${tag} class="px-3 py-2 border border-white/10 text-left font-${tag==='th'?'bold':'normal'} text-on-surface">${inlineMarkdown(c.trim())}</${tag}>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</table></div>';
+                continue;
+            }
+
+            // Lista puntata (-, *, +)
+            if (/^[-*+]\s/.test(line)) {
+                html += '<ul class="list-none my-2 flex flex-col gap-1">';
+                while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^[-*+]\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-tertiary-fixed mt-1 text-[10px]">&#9679;</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++;
+                }
+                html += '</ul>';
+                continue;
+            }
+
+            // Lista numerata
+            if (/^\d+\.\s/.test(line)) {
+                html += '<ol class="list-none my-2 flex flex-col gap-1" start="1">';
+                let num = 1;
+                while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^\d+\.\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-primary-fixed font-bold min-w-[20px]">${num}.</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++;
+                    num++;
+                }
+                html += '</ol>';
+                continue;
+            }
+
+            // Heading ##
+            if (/^###\s/.test(line)) {
+                html += `<h3 class="font-bold text-primary-fixed text-[16px] mt-3 mb-1">${inlineMarkdown(esc(line.replace(/^###\s/, '')))}</h3>`;
+                i++; continue;
+            }
+            if (/^##\s/.test(line)) {
+                html += `<h2 class="font-bold text-tertiary-fixed text-[18px] mt-4 mb-1">${inlineMarkdown(esc(line.replace(/^##\s/, '')))}</h2>`;
+                i++; continue;
+            }
+            if (/^#\s/.test(line)) {
+                html += `<h1 class="font-bold text-on-surface text-[20px] mt-4 mb-2">${inlineMarkdown(esc(line.replace(/^#\s/, '')))}</h1>`;
+                i++; continue;
+            }
+
+            // Riga vuota = spazio
+            if (line.trim() === '') {
+                html += '<div class="h-2"></div>';
+                i++; continue;
+            }
+
+            // Paragrafo normale
+            html += `<p class="leading-relaxed">${inlineMarkdown(esc(line))}</p>`;
+            i++;
+        }
+        return html;
+    }
+
+    function inlineMarkdown(text) {
+        // Gestisce bold, italic, codice inline (in sequenza per evitare conflitti)
+        return text
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code class="bg-surface-container-highest px-1 rounded text-primary-fixed text-[13px]">$1</code>');
+    }
+
     // Funzione per aggiungere la nuvoletta di Lumina (azzurra, a sinistra)
-    
     function appendBotMessage(text) {
-        // Simple markdown for bold and newlines
-        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        formattedText = formattedText.replace(/\n/g, '<br>');
-        
         const container = document.getElementById('chatContainer') || document.getElementById('chatHistory');
         const botDiv = document.createElement('div');
         botDiv.className = "flex flex-col gap-1 w-[85%] md:w-2/3";
         botDiv.innerHTML = `
             <div class="glass-panel rounded-2xl rounded-tl-none p-4 text-on-surface font-body-md text-body-md relative overflow-hidden border border-tertiary-fixed/20 shadow-[0_4px_24px_-8px_rgba(0,246,246,0.15)]">
-                ${formattedText}
+                ${parseMarkdown(text)}
             </div>
         `;
         container.appendChild(botDiv);
@@ -392,7 +486,8 @@
                 body: JSON.stringify({
                     user_id: parseInt(userId),
                     conversation_id: currentConversationId,
-                    message: message
+                    message: message,
+                    chat_type: "nutritionist"
                 })
             });
 
@@ -424,6 +519,126 @@
 
     // Scanner Alimenti (Vision AI) rimosso dal main block perché gestito nel modal a fondo pagina
 
+    // ---- Chat Sidebar Logic ----
+    function toggleSidebar() {
+        const sidebar = document.getElementById('chatSidebar');
+        if (sidebar.classList.contains('hidden')) {
+            sidebar.classList.remove('hidden');
+            setTimeout(() => { sidebar.classList.remove('translate-x-full'); }, 10);
+            loadSessions();
+        } else {
+            sidebar.classList.add('translate-x-full');
+            setTimeout(() => { sidebar.classList.add('hidden'); }, 300);
+        }
+    }
+
+    async function loadSessions() {
+        const list = document.getElementById('sessionList');
+        list.innerHTML = '<span class="text-on-surface-variant text-sm">Caricamento...</span>';
+        try {
+            const res = await fetch(`/api/chat/sessions?user_id=${userId}&chat_type=nutritionist`);
+            if (res.ok) {
+                const data = await res.json();
+                list.innerHTML = '';
+                if (data.sessions.length === 0) {
+                    list.innerHTML = '<span class="text-on-surface-variant text-sm">Nessuna chat passata.</span>';
+                    return;
+                }
+                data.sessions.slice().reverse().forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = 'glass-panel p-2 rounded-lg flex flex-col gap-1 border border-white/5 hover:border-primary-container/30 cursor-pointer group relative';
+
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'flex justify-between items-center';
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = 'text-sm text-on-surface truncate pr-6';
+                    titleSpan.innerText = s.title;
+                    titleSpan.onclick = () => loadChat(s.id);
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
+
+                    const renameBtn = document.createElement('button');
+                    renameBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-tertiary-container hover:text-tertiary-fixed">edit</span>';
+                    renameBtn.onclick = (e) => { e.stopPropagation(); renameSession(s.id, s.title); };
+
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error hover:text-error-container">delete</span>';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+
+                    actionsDiv.appendChild(renameBtn);
+                    actionsDiv.appendChild(delBtn);
+                    titleDiv.appendChild(titleSpan);
+                    titleDiv.appendChild(actionsDiv);
+                    div.appendChild(titleDiv);
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'text-[10px] text-on-surface-variant opacity-50';
+                    dateSpan.innerText = new Date(s.created_at).toLocaleString();
+                    div.appendChild(dateSpan);
+
+                    list.appendChild(div);
+                });
+            }
+        } catch(e) {
+            console.error(e);
+            list.innerHTML = '<span class="text-error text-sm">Errore.</span>';
+        }
+    }
+
+    async function loadChat(id) {
+        try {
+            const res = await fetch(`/api/chat/session/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                currentConversationId = id;
+                chatContainer.innerHTML = '';
+                data.history.forEach(m => {
+                    if (m.role === 'user') appendUserMessage(m.content);
+                    else appendBotMessage(m.content);
+                });
+                toggleSidebar();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function deleteSession(id) {
+        if (!confirm('Vuoi davvero eliminare questa chat?')) return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                if (currentConversationId === id) startNewChat();
+                loadSessions();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function renameSession(id, oldTitle) {
+        const newTitle = prompt('Nuovo titolo:', oldTitle);
+        if (!newTitle || newTitle.trim() === '') return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            });
+            if (res.ok) loadSessions();
+        } catch(e) { console.error(e); }
+    }
+
+    function startNewChat() {
+        currentConversationId = null;
+        chatContainer.innerHTML = '';
+        const sidebar = document.getElementById('chatSidebar');
+        if (!sidebar.classList.contains('hidden')) toggleSidebar();
+    }
+
+    // Funzione per i quick-chip buttons
+    function sendQuickMessage(text) {
+        chatInput.value = text;
+        sendMessage();
+    }
 
 </script>
 
@@ -511,21 +726,31 @@
                 
                 const meal = data.data;
                 
-                // Se l'agente non ha rilevato nulla e ha restituito tutti zero, mostriamo l'errore
-                if (meal.name === "" && meal.calories === 0) {
-                    appendBotMessage("L'agente non ha rilevato cibo in questa immagine. Riprova con una foto valida o controlla il modello AI.");
+                // Controlla se i valori sono tutti zero (caso degenere)
+                const tuttiZero = meal.calories === 0 && meal.proteins === 0 && meal.carbohydrates === 0 && meal.fats === 0;
+                if (tuttiZero && (meal.name === "" || meal.name === "Prodotto non identificato")) {
+                    appendBotMessage("⚠️ Non sono riuscito a identificare l'alimento in questa immagine. Prova con una foto più chiara o inquadra meglio il codice a barre.");
                     return;
                 }
 
-                let msg = `Ho analizzato il tuo pasto (${cat}): **${meal.name}**.\n\n`;
-                if (meal.analysis_result && meal.analysis_result !== "") {
-                    msg += `${meal.analysis_result}\n\n`;
+                // Determina se i valori sono stati trovati dal barcode o stimati
+                const analysis = meal.analysis_result || "";
+                const isStimato = analysis.toLowerCase().includes("stim") || tuttiZero;
+                const badge = isStimato ? " *(valori stimati)*" : " *(dati OpenFoodFacts)*";
+
+                let msg = `Ho analizzato il tuo pasto (${cat}): **${meal.name}**${isStimato ? badge : ''}.\n\n`;
+                if (analysis && analysis !== "") {
+                    msg += `${analysis}\n\n`;
                 }
                 msg += `🔥 Calorie: **${Math.round(meal.calories)} kcal**\n`;
                 msg += `🥩 Proteine: **${Math.round(meal.proteins)}g**\n`;
                 msg += `🍞 Carboidrati: **${Math.round(meal.carbohydrates)}g**\n`;
                 msg += `🥑 Grassi: **${Math.round(meal.fats)}g**\n\n`;
-                msg += `L'ho salvato automaticamente nei tuoi macros di oggi! 💪`;
+                if (tuttiZero) {
+                    msg += `⚠️ Non ho trovato valori nutrizionali precisi. Il pasto è stato salvato con valori a 0 — puoi correggere manualmente nella dashboard.`;
+                } else {
+                    msg += `L'ho salvato automaticamente nei tuoi macros di oggi! 💪`;
+                }
                 
                 appendBotMessage(msg);
             } else {
