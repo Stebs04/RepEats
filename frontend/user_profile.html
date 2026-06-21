@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="it"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RepEats - Profilo Utente</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#e5e2e1",
+                        "secondary": "#ffb59c",
+                        "on-secondary-fixed": "#390c00",
+                        "secondary-container": "#fa5c1c",
+                        "surface-container-lowest": "#0e0e0e",
+                        "tertiary-container": "#00f6f6",
+                        "surface-dim": "#131313",
+                        "inverse-primary": "#106e00",
+                        "primary-fixed-dim": "#2ae500",
+                        "background": "#131313",
+                        "outline": "#85967c",
+                        "primary-fixed": "#79ff5b",
+                        "on-tertiary-fixed-variant": "#004f4f",
+                        "surface-bright": "#393939",
+                        "on-primary-container": "#107100",
+                        "on-surface-variant": "#baccb0",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "surface-tint": "#2ae500",
+                        "surface-container": "#201f1f",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed-variant": "#095300",
+                        "error-container": "#93000a",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error": "#690005",
+                        "surface-variant": "#353534",
+                        "secondary-fixed": "#ffdbcf",
+                        "on-secondary-fixed-variant": "#832700",
+                        "on-background": "#e5e2e1",
+                        "inverse-surface": "#e5e2e1",
+                        "on-secondary": "#5c1900",
+                        "outline-variant": "#3c4b35",
+                        "tertiary": "#e6fffe",
+                        "tertiary-fixed": "#00fbfb",
+                        "on-tertiary": "#003737",
+                        "on-primary": "#053900",
+                        "on-tertiary-container": "#006d6d",
+                        "secondary-fixed-dim": "#ffb59c",
+                        "primary-container": "#39ff14",
+                        "error": "#ffb4ab",
+                        "surface": "#131313",
+                        "on-primary-fixed": "#022100",
+                        "on-secondary-container": "#511500",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#00dddd",
+                        "primary": "#efffe3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "xl": "64px",
+                        "lg": "40px",
+                        "gutter": "16px",
+                        "container-margin": "20px",
+                        "md": "24px",
+                        "base": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-xl-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-xl": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "stat-value": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-xl-mobile": ["36px", { "lineHeight": "42px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "stat-value": ["28px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #121212;
+            color: #e5e2e1;
+        }
+        
+        .glass-card {
+            background-color: rgba(24, 24, 24, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+        }
+        
+        .progress-line {
+            fill: none;
+            stroke: #39ff14;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            filter: drop-shadow(0px 4px 8px rgba(57, 255, 20, 0.4));
+            animation: drawLine 2s ease-out forwards;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+        }
+
+        @keyframes drawLine {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #39ff14;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #39ff14;
+        }
+        
+        .toggle-checkbox {
+            right: 0;
+            z-index: 1;
+            border-color: #e2e8f0;
+            transition: all 0.3s;
+        }
+        
+        .toggle-label {
+            background-color: #4a5568;
+            transition: all 0.3s;
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen pb-32">
+<!-- Standard TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
+<div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
+<img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
+<span class="font-display-xl-mobile text-display-xl-mobile font-black tracking-tighter text-primary-container hidden md:inline-block">RepEats</span>
+</div>
+<nav class="hidden md:flex gap-lg items-center">
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span> Home
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span> Nutrition
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span> Coach
+</a>
+</nav>
+<div class="flex items-center gap-sm">
+<img alt="User profile avatar" class="h-8 w-8 rounded-full border border-surface-variant object-cover ml-xs cursor-pointer" onclick="window.location.href='user_profile.html'" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5kAAYmdLyOnNBt-APBd6mu56bs7uY3nqxfxpz1Ugtp3R2UBS5LmBsml2iK0LRAo-NNa9qV0Ona2PercJerC5UgzlKljyLEaxhbZVJWhv-voZfv-rmATye6sPNy1Ys7BhpKNs6ibvywH3gtOjedrrLiSSiE-N7xijRT8NBiaUno7-IhrFt0KXrO2dC2kpW8iZU493uJ7Reugib2CV8boGLyHvP-Cm0t-3Jg0g5a9w8Hezme6LSibT910KDQQVRG7H8F4B6xnaALXR_"/>
+</div>
+</header>
+<!-- TopAppBar (from JSON) -->
+
+<!-- Main Content -->
+<main class="pt-24 px-container-margin md:px-lg max-w-4xl mx-auto space-y-md md:space-y-lg">
+<!-- Profile Header -->
+<section class="glass-card rounded-xl p-md flex items-center gap-md">
+<div class="relative w-24 h-24 rounded-full border-2 border-primary-container p-1 neon-glow">
+<img class="w-full h-full object-cover rounded-full" data-alt="A highly detailed close-up portrait of a fitness enthusiast with a confident expression, set against a dark, moody background with subtle neon green rim lighting to match the tech-forward, high-performance aesthetic. Professional photography, sharp focus, 8k resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaRozVqxzrNhDg8WrLy84B3gSB1AyEpbGGBcJqOidXEkv91-IqLlMATjgR9UJJEQDxA8Lo5epIXsTFBpPSokBy-fvJPgkTmrOuQ-MGTn1mczSWfOnM9y---F5POqRPAPu_GSRfyB-GUF4v3cMNWwYCcoSfNaKBQisJoVHWYxy9GIpcKKbkD7uqlNA3_HGamZ9QVuTIjtSrydKtwSauhia5ZGEtnV2X5vbdXWbtqocARg_DNB7qDBgSyELQVS6D-HGy0GU8JDHljlsR"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h1 class="font-headline-md text-headline-md text-on-surface">Alex Mercer</h1>
+<span class="bg-primary-container/20 text-primary-container font-label-sm text-label-sm px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">star</span> Premium
+                    </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Level 42 Cyber-Athlete</p>
+</div>
+</section>
+<section class="glass-card rounded-xl p-md space-y-4">
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Dati Fisiologici</h2>
+    
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Età</label>
+            <input type="number" id="age" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Altezza (cm)</label>
+            <input type="number" id="height" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Peso (kg)</label>
+            <input type="number" step="0.1" id="weight" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Sesso</label>
+            <select id="gender" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
+                <option value="uomo">Uomo</option>
+                <option value="donna">Donna</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Livello di Attività</label>
+        <select id="activity" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
+            <option value="1.2">Sedentario (Poco o nessun esercizio)</option>
+            <option value="1.375">Leggero (1-3 gg a settimana)</option>
+            <option value="1.55">Moderato (3-5 gg a settimana)</option>
+            <option value="1.725">Attivo (6-7 gg a settimana)</option>
+            <option value="1.9">Molto Attivo (Lavoro fisico/doppio allenamento)</option>
+        </select>
+    </div>
+</section>
+
+<section class="glass-card rounded-xl p-md space-y-4">
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Obiettivo Nutrizionale</h2>
+    
+    <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tipo Obiettivo</label>
+            <select id="goalType" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
+                <option value="dimagrimento">Dimagrimento</option>
+                <option value="mantenimento">Mantenimento</option>
+                <option value="massa">Massa Muscolare</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Peso Desiderato (kg)</label>
+            <input type="number" step="0.1" id="targetWeight" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tempo (Settimane)</label>
+            <input type="number" id="targetWeeks" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+        </div>
+    </div>
+    
+    <button id="saveBtn" class="w-full mt-6 bg-primary-container text-on-primary-container font-bold py-3 rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined">save</span> Salva Dati e Ricalcola Dieta
+    </button>
+</section>
+
+<section class="pt-8 pb-12 flex flex-col items-center gap-4">
+    <button id="logoutBtn" class="w-full max-w-sm glass-card rounded-xl p-4 flex items-center justify-center gap-2 text-error font-body-lg text-body-lg hover:bg-error/10 transition-colors border-error/20">
+        <span class="material-symbols-outlined">logout</span>
+        Logout
+    </button>
+</section>
+</main>
+<!-- BottomNavBar (from JSON) -->
+<!-- Standard BottomNavBar -->
+<!-- Standard BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span>
+<span class="font-label-sm text-label-sm mt-1">Nutrition</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-label-sm text-label-sm mt-1">Coach</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="user_profile.html">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+
+<script>
+    const userId = localStorage.getItem('repEats_userId');
+    if (!userId) {
+        window.location.href = '/login.html';
+    }
+
+    // Nomi utente (si potrebbe prendere dinamicamente anche questo)
+    const usernameDisplay = document.querySelector('h1');
+    if(localStorage.getItem('repEats_username')){
+        usernameDisplay.innerText = localStorage.getItem('repEats_username');
+    }
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.clear();
+        window.location.href = '/login.html';
+    });
+
+    // Carica dati del profilo
+    async function loadProfile() {
+        try {
+            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            if (res.ok) {
+                const json = await res.json();
+                const data = json.data;
+                if (data.age) document.getElementById('age').value = data.age;
+                if (data.height) document.getElementById('height').value = data.height;
+                if (data.weight) document.getElementById('weight').value = data.weight;
+                if (data.gender) document.getElementById('gender').value = data.gender;
+                if (data.activity_level) document.getElementById('activity').value = data.activity_level;
+                
+                if (data.target_weight) document.getElementById('targetWeight').value = data.target_weight;
+                if (data.target_weeks) document.getElementById('targetWeeks').value = data.target_weeks;
+                if (data.goal_type) document.getElementById('goalType').value = data.goal_type;
+            }
+        } catch (e) {
+            console.error("Errore caricamento profilo", e);
+        }
+    }
+
+    // Salva dati del profilo
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const payload = {
+            user_id: parseInt(userId),
+            age: parseInt(document.getElementById('age').value) || 0,
+            height: parseFloat(document.getElementById('height').value) || 0,
+            weight: parseFloat(document.getElementById('weight').value) || 0,
+            gender: document.getElementById('gender').value,
+            activity_level: parseFloat(document.getElementById('activity').value) || 1.2,
+            target_weight: parseFloat(document.getElementById('targetWeight').value) || 0,
+            target_weeks: parseInt(document.getElementById('targetWeeks').value) || 0,
+            goal_type: document.getElementById('goalType').value
+        };
+
+        const btn = document.getElementById('saveBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin">refresh</span> Salvataggio...`;
+
+        try {
+            const res = await fetch('/api/profile/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Salvato!`;
+                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            } else {
+                alert("Errore nel salvataggio del profilo.");
+                btn.innerHTML = originalText;
+            }
+        } catch (e) {
+            alert("Errore di rete.");
+            btn.innerHTML = originalText;
+        }
+    });
+
+    // Inizializza
+    loadProfile();
+
+</script>
+</body></html>

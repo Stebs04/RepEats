@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="it"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RepEats - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    function renderMeals(meals) {
+        const container = document.getElementById('mealsContainer');
+        container.innerHTML = '';
+        const categories = ['Colazione', 'Pranzo', 'Cena', 'Spuntino'];
+        
+        categories.forEach(cat => {
+            const catMeals = meals[cat] || [];
+            let totalCals = 0, totalPro = 0, totalCarb = 0, totalFat = 0;
+            catMeals.forEach(m => {
+                totalCals += m.calories || 0;
+                totalPro += m.proteins || 0;
+                totalCarb += m.carbs || 0;
+                totalFat += m.fats || 0;
+            });
+            
+            const div = document.createElement('div');
+            div.className = 'glass-panel rounded-xl overflow-hidden';
+            
+            // Header (Accordion Toggle)
+            const header = document.createElement('div');
+            header.className = 'p-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors';
+            header.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-on-surface text-[18px]">${cat}</span>
+                    <span class="text-sm text-on-surface-variant">${Math.round(totalCals)} kcal</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex gap-4 text-xs text-on-surface-variant">
+                        <span>PRO: <span class="text-on-surface">${Math.round(totalPro)}g</span></span>
+                        <span>CARB: <span class="text-on-surface">${Math.round(totalCarb)}g</span></span>
+                        <span>FAT: <span class="text-on-surface">${Math.round(totalFat)}g</span></span>
+                    </div>
+                    <span class="material-symbols-outlined transform transition-transform duration-300" id="icon-${cat}">expand_more</span>
+                </div>
+            `;
+            
+            // Content (List of foods)
+            const content = document.createElement('div');
+            content.id = `content-${cat}`;
+            content.className = 'px-4 pb-4 hidden flex-col gap-2 border-t border-white/10 pt-3';
+            
+            if (catMeals.length === 0) {
+                content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
+            } else {
+                catMeals.forEach(m => {
+                    content.innerHTML += `
+                        <div class="flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5">
+                            <span class="font-body-md text-on-surface text-sm max-w-[50%] truncate">${m.name}</span>
+                            <div class="flex gap-3 text-xs text-on-surface-variant">
+                                <span>${Math.round(m.calories)} kcal</span>
+                                <span>P:${Math.round(m.proteins)}</span>
+                                <span>C:${Math.round(m.carbs)}</span>
+                                <span>F:${Math.round(m.fats)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            header.onclick = () => {
+                content.classList.toggle('hidden');
+                content.classList.toggle('flex');
+                document.getElementById(`icon-${cat}`).classList.toggle('rotate-180');
+            };
+            
+            div.appendChild(header);
+            div.appendChild(content);
+            container.appendChild(div);
+        });
+    }
+
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#e5e2e1",
+                        "secondary": "#ffb59c",
+                        "on-secondary-fixed": "#390c00",
+                        "secondary-container": "#fa5c1c",
+                        "surface-container-lowest": "#0e0e0e",
+                        "tertiary-container": "#00f6f6",
+                        "surface-dim": "#131313",
+                        "inverse-primary": "#106e00",
+                        "primary-fixed-dim": "#2ae500",
+                        "background": "#131313",
+                        "outline": "#85967c",
+                        "primary-fixed": "#79ff5b",
+                        "on-tertiary-fixed-variant": "#004f4f",
+                        "surface-bright": "#393939",
+                        "on-primary-container": "#107100",
+                        "on-surface-variant": "#baccb0",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "surface-tint": "#2ae500",
+                        "surface-container": "#201f1f",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed-variant": "#095300",
+                        "error-container": "#93000a",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error": "#690005",
+                        "surface-variant": "#353534",
+                        "secondary-fixed": "#ffdbcf",
+                        "on-secondary-fixed-variant": "#832700",
+                        "on-background": "#e5e2e1",
+                        "inverse-surface": "#e5e2e1",
+                        "on-secondary": "#5c1900",
+                        "outline-variant": "#3c4b35",
+                        "tertiary": "#e6fffe",
+                        "tertiary-fixed": "#00fbfb",
+                        "on-tertiary": "#003737",
+                        "on-primary": "#053900",
+                        "on-tertiary-container": "#006d6d",
+                        "secondary-fixed-dim": "#ffb59c",
+                        "primary-container": "#39ff14",
+                        "error": "#ffb4ab",
+                        "surface": "#131313",
+                        "on-primary-fixed": "#022100",
+                        "on-secondary-container": "#511500",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#00dddd",
+                        "primary": "#efffe3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "xl": "64px",
+                        "lg": "40px",
+                        "gutter": "16px",
+                        "container-margin": "20px",
+                        "md": "24px",
+                        "base": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-xl-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-xl": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "stat-value": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-xl-mobile": ["36px", { "lineHeight": "42px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "stat-value": ["28px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    
+    function renderMeals(meals) {
+        const container = document.getElementById('mealsContainer');
+        container.innerHTML = '';
+        const categories = ['Colazione', 'Pranzo', 'Cena', 'Spuntino'];
+        
+        categories.forEach(cat => {
+            const catMeals = meals[cat] || [];
+            let totalCals = 0, totalPro = 0, totalCarb = 0, totalFat = 0;
+            catMeals.forEach(m => {
+                totalCals += m.calories || 0;
+                totalPro += m.proteins || 0;
+                totalCarb += m.carbs || 0;
+                totalFat += m.fats || 0;
+            });
+            
+            const div = document.createElement('div');
+            div.className = 'glass-panel rounded-xl overflow-hidden';
+            
+            // Header (Accordion Toggle)
+            const header = document.createElement('div');
+            header.className = 'p-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors';
+            header.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-on-surface text-[18px]">${cat}</span>
+                    <span class="text-sm text-on-surface-variant">${Math.round(totalCals)} kcal</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex gap-4 text-xs text-on-surface-variant">
+                        <span>PRO: <span class="text-on-surface">${Math.round(totalPro)}g</span></span>
+                        <span>CARB: <span class="text-on-surface">${Math.round(totalCarb)}g</span></span>
+                        <span>FAT: <span class="text-on-surface">${Math.round(totalFat)}g</span></span>
+                    </div>
+                    <span class="material-symbols-outlined transform transition-transform duration-300" id="icon-${cat}">expand_more</span>
+                </div>
+            `;
+            
+            // Content (List of foods)
+            const content = document.createElement('div');
+            content.id = `content-${cat}`;
+            content.className = 'px-4 pb-4 hidden flex-col gap-2 border-t border-white/10 pt-3';
+            
+            if (catMeals.length === 0) {
+                content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
+            } else {
+                catMeals.forEach(m => {
+                    content.innerHTML += `
+                        <div class="flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5">
+                            <span class="font-body-md text-on-surface text-sm max-w-[50%] truncate">${m.name}</span>
+                            <div class="flex gap-3 text-xs text-on-surface-variant">
+                                <span>${Math.round(m.calories)} kcal</span>
+                                <span>P:${Math.round(m.proteins)}</span>
+                                <span>C:${Math.round(m.carbs)}</span>
+                                <span>F:${Math.round(m.fats)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            header.onclick = () => {
+                content.classList.toggle('hidden');
+                content.classList.toggle('flex');
+                document.getElementById(`icon-${cat}`).classList.toggle('rotate-180');
+            };
+            
+            div.appendChild(header);
+            div.appendChild(content);
+            container.appendChild(div);
+        });
+    }
+
+</script>
+<style>
+        .glass-card {
+            background-color: rgba(24, 24, 24, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.5s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        .ai-mesh-bg {
+            background: radial-gradient(circle at 50% 50%, rgba(0, 246, 246, 0.15), transparent 70%),
+                        radial-gradient(circle at 100% 0%, rgba(57, 255, 20, 0.1), transparent 50%);
+            animation: pulse-mesh 8s infinite alternate;
+        }
+        
+        @keyframes pulse-mesh {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-sans antialiased pb-24 md:pb-0">
+<!-- Standard TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
+<div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
+<img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
+<span class="font-display-xl-mobile text-display-xl-mobile font-black tracking-tighter text-primary-container hidden md:inline-block">RepEats</span>
+</div>
+<nav class="hidden md:flex gap-lg items-center">
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span> Home
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span> Nutrition
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span> Coach
+</a>
+</nav>
+<div class="flex items-center gap-sm">
+<img alt="User profile avatar" class="h-8 w-8 rounded-full border border-surface-variant object-cover ml-xs cursor-pointer" onclick="window.location.href='user_profile.html'" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5kAAYmdLyOnNBt-APBd6mu56bs7uY3nqxfxpz1Ugtp3R2UBS5LmBsml2iK0LRAo-NNa9qV0Ona2PercJerC5UgzlKljyLEaxhbZVJWhv-voZfv-rmATye6sPNy1Ys7BhpKNs6ibvywH3gtOjedrrLiSSiE-N7xijRT8NBiaUno7-IhrFt0KXrO2dC2kpW8iZU493uJ7Reugib2CV8boGLyHvP-Cm0t-3Jg0g5a9w8Hezme6LSibT910KDQQVRG7H8F4B6xnaALXR_"/>
+</div>
+</header>
+<!-- TopAppBar -->
+
+<!-- Main Content -->
+<main class="flex-grow pt-[88px] px-container-margin md:px-lg max-w-7xl mx-auto w-full">
+<!-- Greeting -->
+<div class="mb-lg">
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Bentornato, Alex.</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Pronto per distruggere i tuoi obiettivi oggi?</p>
+</div>
+<!-- Rings Section (Bento Grid Area 1) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
+<!-- Calories Ring -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
+<div class="absolute inset-0 bg-primary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+<h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Calorie</h3>
+<div class="relative w-32 h-32">
+<svg class="w-full h-full" viewbox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle id="calCircle" class="text-primary-container progress-ring-circle stroke-current shadow-[0_0_15px_rgba(57,255,20,0.5)]" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(57,255,20,0.8));"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span id="calOggi" class="font-stat-value text-stat-value text-on-surface">0</span>
+<span id="calTarget" class="font-label-sm text-label-sm text-on-surface-variant">/ 0</span>
+</div>
+</div>
+</div>
+<!-- Protein Ring -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
+<div class="absolute inset-0 bg-tertiary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+<h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Proteine</h3>
+<div class="relative w-32 h-32">
+<svg class="w-full h-full" viewbox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle id="proCircle" class="text-tertiary-container progress-ring-circle stroke-current shadow-[0_0_15px_rgba(0,246,246,0.5)]" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(0,246,246,0.8));"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span id="proOggi" class="font-stat-value text-stat-value text-on-surface">0g</span>
+<span id="proTarget" class="font-label-sm text-label-sm text-on-surface-variant">/ 0g</span>
+</div>
+</div>
+</div>
+<!-- Carbs/Fat Split -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
+<div class="absolute inset-0 bg-secondary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+<h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Carbo / Grassi</h3>
+<div class="relative w-32 h-32">
+<svg class="w-full h-full" viewbox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<!-- Carbs Arc -->
+<circle id="carbCircle" class="text-secondary-container progress-ring-circle stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(250,92,28,0.8));"></circle>
+<!-- Fats Arc (offset for demo) -->
+<circle id="fatCircle" class="text-secondary progress-ring-circle stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(255,181,156,0.8)); transform-origin: 50% 50%; transform: rotate(20deg);" transform="rotate(45 50 50)"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center gap-1">
+<div class="flex items-center gap-1 text-secondary-container">
+<span class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_5px_currentColor]"></span>
+<span id="carbsOggi" class="font-label-sm text-label-sm">0g</span>
+</div>
+<div class="flex items-center gap-1 text-secondary">
+<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_5px_currentColor]"></span>
+<span id="fatsOggi" class="font-label-sm text-label-sm">0g</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Cards Section (Bento Grid Area 2) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-md mb-xl" id="actionCards" style="display:none;">
+<!-- Workout Card -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col justify-between ai-mesh-bg relative">
+<div class="p-md relative z-10 flex-grow">
+<div class="flex justify-between items-start mb-sm">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-container/15 text-primary-container font-label-sm text-label-sm border border-primary-container/30">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+                            Giorno 3: Ipertrofia
+                        </span>
+<span class="material-symbols-outlined text-on-surface-variant">more_horiz</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Spinta Piana &amp; Tricipiti</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Focus sul sovraccarico progressivo. L'AI ha regolato i carichi in base al tuo recupero di ieri.</p>
+<div class="flex gap-md mb-md">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-container">timer</span>
+<span class="font-label-sm text-label-sm text-on-surface">65 MIN</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container">local_fire_department</span>
+<span class="font-label-sm text-label-sm text-on-surface">ALTA INTENSITÀ</span>
+</div>
+</div>
+</div>
+<div class="p-md bg-surface-container/40 border-t border-white/5 relative z-10">
+<button class="w-full bg-primary-container text-black font-body-md text-body-md font-bold py-3 rounded-lg hover:bg-primary-fixed transition-colors shadow-[0_0_15px_rgba(57,255,20,0.3)] active:scale-95 duration-200">
+                        INIZIA ALLENAMENTO
+                    </button>
+</div>
+</div>
+<!-- Next Meal Card -->
+<div class="glass-card rounded-xl overflow-hidden flex flex-col">
+<div class="h-40 w-full relative">
+<img alt="Next meal preview" class="w-full h-full object-cover opacity-80" data-alt="A highly stylized, top-down shot of a high-protein modern fitness meal on a sleek dark slate plate. Grilled chicken breast, bright green steamed broccoli, and a small portion of quinoa. Lighting is moody and cinematic, emphasizing the vibrant greens and textures against a black background. Minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDd98e5UfP1Wr0KVWAc_GcuwN0Q0-OoS71QtdaeMtyMiePyuYylZquQhtnSlI56hdsmvM2v5U90MxnpIpAfmd8RUw4lup654YmS_YRvu1Xio5LgsKXwn-H_oTHVXBmigpEB4D84uxSwcpMQOkxwPyrS454IVueEePhfQEm5Zh8axkf6brwDa2w1k7yq3fmr_tbOVymR78-tV-JljdHcWytoW0t1itBX3slCGfx-ZEPjkkK2r-BzHBsZqL0jQogvyM3JXk5oqEERSiiL"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-highest to-transparent"></div>
+<div class="absolute bottom-4 left-4">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-low/80 backdrop-blur text-on-surface font-label-sm text-label-sm border border-white/10">
+<span class="material-symbols-outlined text-[14px]">restaurant</span>
+                            Prossimo Pasto
+                        </span>
+</div>
+</div>
+<div class="p-md flex-grow flex flex-col justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Pollo alla Piastra &amp; Quinoa</h2>
+<div class="flex gap-4 mt-sm bg-surface-container-low p-3 rounded-lg border border-white/5">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">CALORIE</span>
+<span class="font-body-md text-body-md text-primary-fixed font-bold">450</span>
+</div>
+<div class="w-px bg-white/10"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">PRO</span>
+<span class="font-body-md text-body-md text-tertiary-container font-bold">45g</span>
+</div>
+<div class="w-px bg-white/10"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">CARB</span>
+<span class="font-body-md text-body-md text-secondary-container font-bold">35g</span>
+</div>
+<div class="w-px bg-white/10"></div>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">FAT</span>
+<span class="font-body-md text-body-md text-secondary font-bold">12g</span>
+</div>
+</div>
+</div>
+<button class="mt-md w-full bg-transparent border border-tertiary-container/50 text-tertiary-container font-body-md text-body-md font-bold py-3 rounded-lg hover:bg-tertiary-container/10 transition-colors shadow-[0_0_10px_rgba(0,246,246,0.1)] hover:shadow-[0_0_15px_rgba(0,246,246,0.3)] active:scale-95 duration-200">
+                        DETTAGLI E RICETTA
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<!-- Standard BottomNavBar -->
+<!-- Standard BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span>
+<span class="font-label-sm text-label-sm mt-1">Nutrition</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-label-sm text-label-sm mt-1">Coach</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="user_profile.html">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<script>
+    const userId = localStorage.getItem('repEats_userId');
+    if (!userId) {
+        window.location.href = '/login.html';
+    }
+
+    // Nomi utente (si potrebbe prendere dinamicamente anche questo)
+    const usernameDisplay = document.querySelector('h1');
+    if(localStorage.getItem('repEats_username')){
+        usernameDisplay.innerText = `Bentornato, ${localStorage.getItem('repEats_username')}.`;
+    }
+
+    // Funzione per impostare il livello dei cerchi (0 = pieno, 251.2 = vuoto)
+    function setProgress(circleId, value, max) {
+        const circle = document.getElementById(circleId);
+        if (!circle) return;
+        const circumference = 251.2;
+        // Evitiamo valori sopra il max per non rompere il cerchio
+        let percentage = Math.min(value / max, 1);
+        if (isNaN(percentage)) percentage = 0;
+        const offset = circumference - (percentage * circumference);
+        circle.style.strokeDashoffset = offset;
+    }
+
+    async function loadDashboardData() {
+        try {
+            const res = await fetch(`/api/dashboard/stats?user_id=${userId}`);
+            if (res.ok) {
+                const data = await res.json();
+                
+                // Aggiorniamo i testi
+                document.getElementById('calOggi').innerText = Math.round(data.today.calories);
+                document.getElementById('calTarget').innerText = `/ ${Math.round(data.targets.target_calories)}`;
+                
+                document.getElementById('proOggi').innerText = `${Math.round(data.today.proteins)}g`;
+                document.getElementById('proTarget').innerText = `/ ${Math.round(data.targets.target_proteins)}g`;
+
+                document.getElementById('carbsOggi').innerText = `${Math.round(data.today.carbohydrates)}g`;
+                document.getElementById('fatsOggi').innerText = `${Math.round(data.today.fats)}g`;
+
+                // Animiamo i cerchi con un piccolo delay per l'effetto wow
+                setTimeout(() => {
+                    setProgress('calCircle', data.today.calories, data.targets.target_calories);
+                    setProgress('proCircle', data.today.proteins, data.targets.target_proteins);
+                    setProgress('carbCircle', data.today.carbohydrates, data.targets.target_carbohydrates);
+                    setProgress('fatCircle', data.today.fats, data.targets.target_fats);
+                }, 300);
+            }
+        } catch(e) {
+            console.error("Errore nel caricamento dei dati dashboard:", e);
+        }
+    }
+
+    // Avvia caricamento
+    loadDashboardData();
+
+    function renderMeals(meals) {
+        const container = document.getElementById('mealsContainer');
+        container.innerHTML = '';
+        const categories = ['Colazione', 'Pranzo', 'Cena', 'Spuntino'];
+        
+        categories.forEach(cat => {
+            const catMeals = meals[cat] || [];
+            let totalCals = 0, totalPro = 0, totalCarb = 0, totalFat = 0;
+            catMeals.forEach(m => {
+                totalCals += m.calories || 0;
+                totalPro += m.proteins || 0;
+                totalCarb += m.carbs || 0;
+                totalFat += m.fats || 0;
+            });
+            
+            const div = document.createElement('div');
+            div.className = 'glass-panel rounded-xl overflow-hidden';
+            
+            // Header (Accordion Toggle)
+            const header = document.createElement('div');
+            header.className = 'p-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors';
+            header.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-on-surface text-[18px]">${cat}</span>
+                    <span class="text-sm text-on-surface-variant">${Math.round(totalCals)} kcal</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex gap-4 text-xs text-on-surface-variant">
+                        <span>PRO: <span class="text-on-surface">${Math.round(totalPro)}g</span></span>
+                        <span>CARB: <span class="text-on-surface">${Math.round(totalCarb)}g</span></span>
+                        <span>FAT: <span class="text-on-surface">${Math.round(totalFat)}g</span></span>
+                    </div>
+                    <span class="material-symbols-outlined transform transition-transform duration-300" id="icon-${cat}">expand_more</span>
+                </div>
+            `;
+            
+            // Content (List of foods)
+            const content = document.createElement('div');
+            content.id = `content-${cat}`;
+            content.className = 'px-4 pb-4 hidden flex-col gap-2 border-t border-white/10 pt-3';
+            
+            if (catMeals.length === 0) {
+                content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
+            } else {
+                catMeals.forEach(m => {
+                    content.innerHTML += `
+                        <div class="flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5">
+                            <span class="font-body-md text-on-surface text-sm max-w-[50%] truncate">${m.name}</span>
+                            <div class="flex gap-3 text-xs text-on-surface-variant">
+                                <span>${Math.round(m.calories)} kcal</span>
+                                <span>P:${Math.round(m.proteins)}</span>
+                                <span>C:${Math.round(m.carbs)}</span>
+                                <span>F:${Math.round(m.fats)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            header.onclick = () => {
+                content.classList.toggle('hidden');
+                content.classList.toggle('flex');
+                document.getElementById(`icon-${cat}`).classList.toggle('rotate-180');
+            };
+            
+            div.appendChild(header);
+            div.appendChild(content);
+            container.appendChild(div);
+        });
+    }
+
+</script>
+</body></html>
