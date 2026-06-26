@@ -73,7 +73,27 @@ def build_user_context(user_data: dict, macros: dict, daily_targets: dict, chat_
         Stringa formattata con il contesto utente completo.
     """
     target_cal = daily_targets.get('target_calories', 0)
-    ora_attuale = datetime.now().strftime("%d/%m/%Y %H:%M")
+    now = datetime.now()
+    ora_attuale = now.strftime("%d/%m/%Y %H:%M")
+    current_hour = now.hour
+
+    # Calcolo della percentuale di calorie assunte rispetto al target
+    cal_consumed = macros.get('calories', 0)
+    cal_progress_pct = round((cal_consumed / target_cal * 100), 1) if target_cal > 0 else 0
+
+    # Fascia oraria e range di intake atteso (percentuale del fabbisogno giornaliero)
+    if current_hour < 12:
+        fascia_oraria = "Mattina (06:00-12:00)"
+        expected_range = "25-35%"
+    elif current_hour < 15:
+        fascia_oraria = "Primo pomeriggio (12:00-15:00)"
+        expected_range = "50-65%"
+    elif current_hour < 18:
+        fascia_oraria = "Tardo pomeriggio (15:00-18:00)"
+        expected_range = "60-75%"
+    else:
+        fascia_oraria = "Sera (18:00-22:00)"
+        expected_range = "80-100%"
 
     # Ricostruzione della memoria della chat per fornire contesto condiviso all'Orchestratore e agli Agenti
     storia_testo = "Nessun messaggio precedente."
@@ -88,10 +108,16 @@ DATI BIOMETRICI:
 - Obiettivo: {user_data.get('goal_type')}
 
 NUTRIZIONE ODIERNA:
-- Calorie assunte: {macros['calories']} / {target_cal} kcal
+- Calorie assunte: {macros['calories']} / {target_cal} kcal ({cal_progress_pct}% del fabbisogno)
 - Proteine: {macros['proteins']}g
 - Carboidrati: {macros['carbohydrates']}g
 - Grassi: {macros['fats']}g
+
+ANALISI TEMPORALE INTAKE CALORICO:
+- Fascia oraria corrente: {fascia_oraria}
+- Range di intake atteso per questa fascia: {expected_range} del fabbisogno giornaliero
+- Intake attuale: {cal_progress_pct}%
+- NOTA: È NORMALE non aver raggiunto il 100% del fabbisogno se non è ancora sera. Valuta l'intake rispetto al range atteso, NON rispetto al totale giornaliero.
 
 DATA E ORA CORRENTE: {ora_attuale}
 
