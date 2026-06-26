@@ -23,7 +23,7 @@ from src.database.user_service import (
     rename_conversation,
     delete_conversation
 )
-from src.agents.fitness_agent import get_fitness_agent
+from src.orchestrator import get_orchestrator
 
 router = APIRouter()
 
@@ -56,7 +56,7 @@ def send_chat_message(request: ChatMessageRequest):
         save_message(conv_id, "user", request.message)
 
         history = get_chat_history(conv_id)
-        team_agent = get_fitness_agent(user_data, macros_odierni, daily_targets, history)
+        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, history, request.chat_type)
 
         response = team_agent.run(request.message)
         

@@ -599,9 +599,9 @@ def main() -> None:
                             st.write(prompt)
                         save_message(active_conv.id, "user", prompt)
 
-                        from src.agents.fitness_agent import get_fitness_agent
+                        from src.orchestrator import get_orchestrator
                         # L'Orchestratore viene creato con tutto il contesto necessario
-                        agent = get_fitness_agent(user_data, consumed_today, daily_targets, history)
+                        agent = get_orchestrator(user_data, consumed_today, daily_targets, history)
                         
                         with chat_container.chat_message("assistant"):
                             with st.spinner("L'Orchestratore sta delegando la tua richiesta agli specialisti..."):
