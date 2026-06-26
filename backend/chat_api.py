@@ -213,7 +213,7 @@ def get_sessions(user_id: int, chat_type: Optional[str] = None):
 def get_session_history(conversation_id: int):
     try:
         history = get_chat_history(conversation_id)
-        return {"history": [{"role": m.role, "content": m.content} for m in history]}
+        return {"history": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
