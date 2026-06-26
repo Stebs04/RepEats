@@ -87,6 +87,11 @@
                 </div>
             </div>
 
+            <div class="flex items-center">
+                <input type="checkbox" id="rememberMe" class="w-4 h-4 text-primary bg-surface-container border-surface-variant rounded focus:ring-primary focus:ring-2">
+                <label for="rememberMe" class="ml-2 text-sm font-semibold text-on-surface-variant">Ricordami (1 settimana)</label>
+            </div>
+
             <button type="submit" 
                     class="w-full bg-primary text-on-primary font-bold rounded-xl py-3 mt-6 hover:bg-primary-fixed-dim transition-all shadow-[0_0_15px_rgba(57,255,20,0.3)] hover:shadow-[0_0_25px_rgba(57,255,20,0.5)]">
                 Accedi
@@ -108,6 +113,7 @@
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
 
             try {
                 const response = await fetch('/api/auth/login', {
@@ -119,9 +125,20 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Login con successo! Salviamo il nome utente e andiamo alla dashboard
-                    localStorage.setItem('repEats_username', data.username);
-                    localStorage.setItem('repEats_userId', data.user_id);
+                    // Login con successo! Salviamo i dati a seconda dell'opzione ricordami
+                    if (rememberMe) {
+                        localStorage.setItem('repEats_username', data.username);
+                        localStorage.setItem('repEats_userId', data.user_id);
+                        localStorage.setItem('repEats_expires', Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        sessionStorage.removeItem('repEats_username');
+                        sessionStorage.removeItem('repEats_userId');
+                    } else {
+                        sessionStorage.setItem('repEats_username', data.username);
+                        sessionStorage.setItem('repEats_userId', data.user_id);
+                        localStorage.removeItem('repEats_username');
+                        localStorage.removeItem('repEats_userId');
+                        localStorage.removeItem('repEats_expires');
+                    }
                     window.location.href = '/dashboard.html';
                 } else {
                     // Errore nel login

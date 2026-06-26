@@ -38,8 +38,8 @@ def health_check():
 
 @app.get("/")
 def read_root():
-    """Reindirizza la root dell'applicazione alla dashboard principale."""
-    return RedirectResponse(url="/dashboard.html")
+    """Reindirizza la root dell'applicazione alla logica di smistamento frontend."""
+    return RedirectResponse(url="/index.html")
 
 # Montaggio della sottodirectory per l'erogazione dei file statici se presente nel file system
 if os.path.exists(FRONTEND_DIR):

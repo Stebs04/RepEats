@@ -293,20 +293,35 @@
 </nav>
 
 <script>
-    const userId = localStorage.getItem('repEats_userId');
+    let userId = sessionStorage.getItem('repEats_userId');
+    let username = sessionStorage.getItem('repEats_username');
+    if (!userId) {
+        userId = localStorage.getItem('repEats_userId');
+        username = localStorage.getItem('repEats_username');
+        const expires = localStorage.getItem('repEats_expires');
+        if (userId && expires && Date.now() > parseInt(expires)) {
+            localStorage.removeItem('repEats_userId');
+            localStorage.removeItem('repEats_username');
+            localStorage.removeItem('repEats_expires');
+            userId = null;
+            username = null;
+        }
+    }
+
     if (!userId) {
         window.location.href = '/login.html';
     }
 
     // Nomi utente (si potrebbe prendere dinamicamente anche questo)
     const usernameDisplay = document.querySelector('h1');
-    if(localStorage.getItem('repEats_username')){
-        usernameDisplay.innerText = localStorage.getItem('repEats_username');
+    if (username) {
+        usernameDisplay.innerText = username;
     }
 
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.clear();
+        sessionStorage.clear();
         window.location.href = '/login.html';
     });
 

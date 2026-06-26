@@ -380,7 +380,18 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 <script>
-    const userId = localStorage.getItem('repEats_userId');
+    let userId = sessionStorage.getItem('repEats_userId');
+    if (!userId) {
+        userId = localStorage.getItem('repEats_userId');
+        const expires = localStorage.getItem('repEats_expires');
+        if (userId && expires && Date.now() > parseInt(expires)) {
+            localStorage.removeItem('repEats_userId');
+            localStorage.removeItem('repEats_username');
+            localStorage.removeItem('repEats_expires');
+            userId = null;
+        }
+    }
+
     if (!userId) {
         window.location.href = '/login.html';
     }
