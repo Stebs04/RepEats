@@ -669,6 +669,48 @@
         sendMessage();
     }
 
+    function showScannerResult(html, isWarning) {
+        // Hide loading, show result
+        document.getElementById('scannerLoading').classList.add('hidden');
+        document.getElementById('scannerLoading').classList.remove('flex');
+        document.getElementById('scannerForm').classList.add('hidden');
+        
+        const resultDiv = document.getElementById('scannerResult');
+        const resultContent = document.getElementById('scannerResultContent');
+        const progressBar = document.getElementById('scannerResultProgress');
+        const checkIcon = resultDiv.querySelector('.material-symbols-outlined');
+        
+        // Set icon based on result type
+        if (isWarning) {
+            checkIcon.textContent = 'warning';
+            checkIcon.classList.remove('text-tertiary-fixed');
+            checkIcon.classList.add('text-yellow-400');
+        } else {
+            checkIcon.textContent = 'check_circle';
+            checkIcon.classList.remove('text-yellow-400');
+            checkIcon.classList.add('text-tertiary-fixed');
+        }
+        
+        resultContent.innerHTML = html;
+        resultDiv.classList.remove('hidden');
+        resultDiv.classList.add('flex');
+        
+        // Reset and animate progress bar
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '100%';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                progressBar.style.transition = 'width 4s linear';
+                progressBar.style.width = '0%';
+            });
+        });
+        
+        // Auto-close after 4 seconds
+        scannerAutoCloseTimer = setTimeout(() => {
+            closeScannerModal();
+        }, 4000);
+    }
+
 </script>
 
 <!-- Scanner Modal -->
@@ -701,6 +743,15 @@
             <p class="text-on-surface text-center font-bold">Lumina sta analizzando il tuo pasto...</p>
             <p class="text-sm text-on-surface-variant text-center">Riconoscimento ingredienti e calcolo macro in corso</p>
         </div>
+
+        <div id="scannerResult" class="hidden flex-col items-center justify-center py-4 gap-3">
+            <span class="material-symbols-outlined text-tertiary-fixed text-[48px]">check_circle</span>
+            <div id="scannerResultContent" class="text-on-surface text-sm w-full"></div>
+            <div class="w-full bg-tertiary-fixed/20 rounded-full h-1 mt-2 overflow-hidden">
+                <div id="scannerResultProgress" class="bg-tertiary-fixed h-full rounded-full" style="width: 100%; transition: width 4s linear;"></div>
+            </div>
+            <p class="text-xs text-on-surface-variant">Si chiuderà automaticamente...</p>
+        </div>
     </div>
 </div>
 
@@ -721,8 +772,19 @@
         }
     });
 
+    let scannerAutoCloseTimer = null;
+
     function closeScannerModal() {
+        if (scannerAutoCloseTimer) {
+            clearTimeout(scannerAutoCloseTimer);
+            scannerAutoCloseTimer = null;
+        }
         document.getElementById('scannerModal').classList.add('hidden');
+        document.getElementById('scannerForm').classList.remove('hidden');
+        document.getElementById('scannerLoading').classList.add('hidden');
+        document.getElementById('scannerLoading').classList.remove('flex');
+        document.getElementById('scannerResult').classList.add('hidden');
+        document.getElementById('scannerResult').classList.remove('flex');
         document.getElementById('imageInput').value = '';
         selectedImageFile = null;
     }
@@ -751,37 +813,56 @@
             
             if(res.ok) {
                 const data = await res.json();
-                closeScannerModal();
                 
                 const meal = data.data;
                 
                 // Controlla se i valori sono tutti zero (caso degenere)
                 const tuttiZero = meal.calories === 0 && meal.proteins === 0 && meal.carbohydrates === 0 && meal.fats === 0;
                 if (tuttiZero && (meal.name === "" || meal.name === "Prodotto non identificato")) {
-                    appendBotMessage("⚠️ Non sono riuscito a identificare l'alimento in questa immagine. Prova con una foto più chiara o inquadra meglio il codice a barre.");
+                    // Caso non identificato: mostra errore nel modal e chiudi dopo 3s
+                    showScannerResult(`
+                        <div class="text-center">
+                            <p class="text-base font-bold text-yellow-400 mb-2">⚠️ Alimento non identificato</p>
+                            <p class="text-on-surface-variant">Prova con una foto più chiara o inquadra meglio il codice a barre.</p>
+                        </div>
+                    `, true);
                     return;
                 }
 
                 // Determina se i valori sono stati trovati dal barcode o stimati
                 const analysis = meal.analysis_result || "";
                 const isStimato = analysis.toLowerCase().includes("stim") || tuttiZero;
-                const badge = isStimato ? " *(valori stimati)*" : " *(dati OpenFoodFacts)*";
+                const badge = isStimato ? '<span class="text-xs text-on-surface-variant italic">(valori stimati)</span>' : '<span class="text-xs text-tertiary-fixed italic">(dati OpenFoodFacts)</span>';
 
-                let msg = `Ho analizzato il tuo pasto (${cat}): **${meal.name}**${isStimato ? badge : ''}.\n\n`;
-                if (analysis && analysis !== "") {
-                    msg += `${analysis}\n\n`;
-                }
-                msg += `🔥 Calorie: **${Math.round(meal.calories)} kcal**\n`;
-                msg += `🥩 Proteine: **${Math.round(meal.proteins)}g**\n`;
-                msg += `🍞 Carboidrati: **${Math.round(meal.carbohydrates)}g**\n`;
-                msg += `🥑 Grassi: **${Math.round(meal.fats)}g**\n\n`;
-                if (tuttiZero) {
-                    msg += `⚠️ Non ho trovato valori nutrizionali precisi. Il pasto è stato salvato con valori a 0 — puoi correggere manualmente nella dashboard.`;
-                } else {
-                    msg += `L'ho salvato automaticamente nei tuoi macros di oggi! 💪`;
-                }
-                
-                appendBotMessage(msg);
+                let resultHTML = `
+                    <div class="text-center mb-3">
+                        <p class="text-base font-bold text-on-surface">${meal.name}</p>
+                        <p class="text-xs text-on-surface-variant">${cat} ${badge}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-orange-400">🔥 ${Math.round(meal.calories)}</p>
+                            <p class="text-xs text-on-surface-variant">kcal</p>
+                        </div>
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-red-400">🥩 ${Math.round(meal.proteins)}g</p>
+                            <p class="text-xs text-on-surface-variant">Proteine</p>
+                        </div>
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-yellow-400">🍞 ${Math.round(meal.carbohydrates)}g</p>
+                            <p class="text-xs text-on-surface-variant">Carboidrati</p>
+                        </div>
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-green-400">🥑 ${Math.round(meal.fats)}g</p>
+                            <p class="text-xs text-on-surface-variant">Grassi</p>
+                        </div>
+                    </div>
+                    <p class="text-center text-sm mt-3 ${tuttiZero ? 'text-yellow-400' : 'text-tertiary-fixed'} font-medium">
+                        ${tuttiZero ? '⚠️ Valori a 0 — correggili nella dashboard' : '✅ Salvato nei tuoi macros di oggi! 💪'}
+                    </p>
+                `;
+
+                showScannerResult(resultHTML, tuttiZero);
             } else {
                 alert("Errore durante l'analisi.");
                 closeScannerModal();
