@@ -111,9 +111,22 @@
             const errorBox = document.getElementById('errorMessage');
             errorBox.classList.add('hidden');
             
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const rememberMe = document.getElementById('rememberMe').checked;
+
+            if (!username || !password) {
+                errorBox.textContent = "Tutti i campi sono obbligatori.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$/;
+            if (!passwordRegex.test(password)) {
+                errorBox.textContent = "La password deve contenere almeno 8 caratteri: 1 maiuscola, 1 minuscola, 1 numero e 1 carattere speciale.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/auth/login', {

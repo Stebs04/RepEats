@@ -119,9 +119,29 @@
             errorBox.classList.add('hidden');
             successBox.classList.add('hidden');
             
-            const username = document.getElementById('username').value;
-            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+
+            if (!username || !email || !password) {
+                errorBox.textContent = "Tutti i campi sono obbligatori.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                errorBox.textContent = "Inserisci un indirizzo email valido.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
+
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$/;
+            if (!passwordRegex.test(password)) {
+                errorBox.textContent = "La password deve contenere almeno 8 caratteri: 1 maiuscola, 1 minuscola, 1 numero e 1 carattere speciale.";
+                errorBox.classList.remove('hidden');
+                return;
+            }
 
             try {
                 const response = await fetch('/api/auth/register', {

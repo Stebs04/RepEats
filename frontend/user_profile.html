@@ -406,6 +406,12 @@
 
         const btn = document.getElementById('saveBtn');
         const originalText = btn.innerHTML;
+
+        if (!payload.age || !payload.height || !payload.weight || !payload.target_weight || !payload.target_weeks) {
+            alert("Tutti i campi numerici devono essere compilati con valori maggiori di zero.");
+            return;
+        }
+
         btn.innerHTML = `<span class="material-symbols-outlined animate-spin">refresh</span> Salvataggio...`;
 
         try {
