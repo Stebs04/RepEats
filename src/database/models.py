@@ -78,6 +78,9 @@ class UserProfile(Base):
     target_weeks = Column(Integer, default=12)
     #Tipo di obiettivo che l'utente si è posto
     goal_type = Column(String(50))
+    #Preferenze per le schede di allenamento generate
+    workout_duration = Column(Integer, default=60)
+    workout_preference = Column(String(100), default="Ipertrofia")
     
     # Back-reference alla proprietà profile di User. 
     # Mantiene coerenza nella navigazione bidirezionale in memoria.

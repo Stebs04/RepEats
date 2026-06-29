@@ -263,6 +263,32 @@
     </button>
 </section>
 
+<section class="glass-card rounded-xl p-md space-y-4 mt-4">
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Preferenze Allenamento</h2>
+    
+    <div class="grid grid-cols-2 gap-4">
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Durata (Minuti)</label>
+            <select id="workoutDuration" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
+                <option value="30">30 minuti (Veloce)</option>
+                <option value="60">1 ora (Standard)</option>
+                <option value="90">1.5 ore (Intenso)</option>
+                <option value="120">2 ore (Avanzato)</option>
+            </select>
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tipo Preferito</label>
+            <select id="workoutPreference" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
+                <option value="Ipertrofia">Ipertrofia (Massa)</option>
+                <option value="Forza">Forza (Powerlifting)</option>
+                <option value="Resistenza">Resistenza (Cardio/Endurance)</option>
+                <option value="HIIT">HIIT (Brucia Grassi)</option>
+                <option value="Calisthenics">Calisthenics (Corpo Libero)</option>
+            </select>
+        </div>
+    </div>
+</section>
+
 <section class="pt-8 pb-12 flex flex-col items-center gap-4">
     <button id="logoutBtn" class="w-full max-w-sm glass-card rounded-xl p-4 flex items-center justify-center gap-2 text-error font-body-lg text-body-lg hover:bg-error/10 transition-colors border-error/20">
         <span class="material-symbols-outlined">logout</span>
@@ -342,6 +368,8 @@
                 if (data.target_weight) document.getElementById('targetWeight').value = data.target_weight;
                 if (data.target_weeks) document.getElementById('targetWeeks').value = data.target_weeks;
                 if (data.goal_type) document.getElementById('goalType').value = data.goal_type;
+                if (data.workout_duration) document.getElementById('workoutDuration').value = data.workout_duration;
+                if (data.workout_preference) document.getElementById('workoutPreference').value = data.workout_preference;
             }
         } catch (e) {
             console.error("Errore caricamento profilo", e);
@@ -359,7 +387,9 @@
             activity_level: parseFloat(document.getElementById('activity').value) || 1.2,
             target_weight: parseFloat(document.getElementById('targetWeight').value) || 0,
             target_weeks: parseInt(document.getElementById('targetWeeks').value) || 0,
-            goal_type: document.getElementById('goalType').value
+            goal_type: document.getElementById('goalType').value,
+            workout_duration: parseInt(document.getElementById('workoutDuration').value) || 60,
+            workout_preference: document.getElementById('workoutPreference').value || 'Ipertrofia'
         };
 
         const btn = document.getElementById('saveBtn');

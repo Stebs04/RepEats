@@ -14,6 +14,8 @@ class ProfileUpdate(BaseModel):
     target_weight: float
     target_weeks: int
     goal_type: str
+    workout_duration: int
+    workout_preference: str
 
 @router.post("/update")
 def update_profile(data: ProfileUpdate):
@@ -27,7 +29,9 @@ def update_profile(data: ProfileUpdate):
             activity_level=data.activity_level,
             target_weight=data.target_weight,
             target_weeks=data.target_weeks,
-            goal_type=data.goal_type
+            goal_type=data.goal_type,
+            workout_duration=data.workout_duration,
+            workout_preference=data.workout_preference
         )
         return {"message": "Profilo aggiornato con successo"}
     except Exception as e:

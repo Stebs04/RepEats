@@ -106,6 +106,8 @@ DATI BIOMETRICI:
 - Età: {user_data.get('age')} anni
 - Peso: {user_data.get('weight')} kg
 - Obiettivo: {user_data.get('goal_type')}
+- Tempo a disposizione per allenamento: {user_data.get('workout_duration', 60)} minuti
+- Tipo di allenamento preferito: {user_data.get('workout_preference', 'Ipertrofia')}
 
 NUTRIZIONE ODIERNA:
 - Calorie assunte: {macros['calories']} / {target_cal} kcal ({cal_progress_pct}% del fabbisogno)
