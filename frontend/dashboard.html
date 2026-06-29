@@ -336,13 +336,17 @@
 </a>
 </nav>
 <script>
+    // --- AUTH GUARD: Blocca l'esecuzione se l'utente non è autenticato ---
     let userId = sessionStorage.getItem('repEats_userId');
     let username = sessionStorage.getItem('repEats_username');
+
+    // Fallback a localStorage (per "Ricordami")
     if (!userId) {
         userId = localStorage.getItem('repEats_userId');
         username = localStorage.getItem('repEats_username');
         const expires = localStorage.getItem('repEats_expires');
-        if (userId && expires && Date.now() > parseInt(expires)) {
+        if (expires && Date.now() > parseInt(expires)) {
+            // Sessione scaduta: puliamo tutto
             localStorage.removeItem('repEats_userId');
             localStorage.removeItem('repEats_username');
             localStorage.removeItem('repEats_expires');
@@ -352,7 +356,10 @@
     }
 
     if (!userId) {
-        window.location.href = '/login.html';
+        window.location.replace('/login.html');
+        // Ferma completamente l'esecuzione dello script per evitare
+        // che il resto del codice (API call, rendering) venga eseguito
+        throw new Error('AUTH_REDIRECT');
     }
 
     // Nomi utente (si potrebbe prendere dinamicamente anche questo)

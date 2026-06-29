@@ -71,16 +71,22 @@ def get_user_data(user_id: int):
     """Recupera il profilo completo dell'utente specificato"""
     session = get_session()
     user = session.query(User).filter_by(id=user_id).first()
+
+    if not user:
+        session.close()
+        return None
+
+    profile = user.profile
     data = {
         "username": user.username,
-        "weight": user.profile.weight,
-        "height": user.profile.height,
-        "age": user.profile.age,
-        "gender": user.profile.gender or "uomo",
-        "activity_level": user.profile.activity_level or 1.55,
-        "target_weight": user.profile.target_weight,
-        "target_weeks": user.profile.target_weeks or 12,
-        "goal_type": user.profile.goal_type
+        "weight": profile.weight if profile else None,
+        "height": profile.height if profile else None,
+        "age": profile.age if profile else None,
+        "gender": (profile.gender if profile else None) or "uomo",
+        "activity_level": (profile.activity_level if profile else None) or 1.55,
+        "target_weight": profile.target_weight if profile else None,
+        "target_weeks": (profile.target_weeks if profile else None) or 12,
+        "goal_type": profile.goal_type if profile else None
         }
     session.close()
     return data
@@ -195,7 +201,10 @@ def calculate_daily_macros(user_id: int):
             "target_calories": 0,
             "proteins": 0,
             "fats": 0,
-            "carbohydrates": 0
+            "carbohydrates": 0,
+            "target_proteins": 0,
+            "target_fats": 0,
+            "target_carbohydrates": 0
         }
     
     # Esegue formula basale base indipendente Mifflin-St Jeor = 10*Weight + 6.25*Height - 5*Age
@@ -250,7 +259,11 @@ def calculate_daily_macros(user_id: int):
         "target_calories": round(target_calories, 1),
         "proteins": round(proteins, 1),
         "fats": round(fats, 1),
-        "carbohydrates": round(carbohydrates, 1)
+        "carbohydrates": round(carbohydrates, 1),
+        # Alias con prefisso target_ per compatibilità con il frontend dashboard
+        "target_proteins": round(proteins, 1),
+        "target_fats": round(fats, 1),
+        "target_carbohydrates": round(carbohydrates, 1)
     }
 
 def get_todays_macros(user_id: int):

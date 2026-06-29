@@ -39,10 +39,12 @@ def health_check():
 @app.get("/")
 def read_root():
     """Reindirizza la root dell'applicazione alla logica di smistamento frontend."""
-    return RedirectResponse(url="/index.html")
+    return RedirectResponse(url="/index.html", status_code=302)
 
 # Montaggio della sottodirectory per l'erogazione dei file statici se presente nel file system
+# NOTA: html=False per evitare che index.html venga servito come fallback per tutte le rotte,
+# il che poteva causare conflitti con la logica di autenticazione nelle pagine.
 if os.path.exists(FRONTEND_DIR):
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=False), name="frontend")
 else:
     print("ATTENZIONE: Cartella 'frontend' non trovata!")

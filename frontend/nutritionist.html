@@ -307,7 +307,7 @@
     if (!userId) {
         userId = localStorage.getItem('repEats_userId');
         const expires = localStorage.getItem('repEats_expires');
-        if (userId && expires && Date.now() > parseInt(expires)) {
+        if (expires && Date.now() > parseInt(expires)) {
             localStorage.removeItem('repEats_userId');
             localStorage.removeItem('repEats_username');
             localStorage.removeItem('repEats_expires');
@@ -316,7 +316,8 @@
     }
 
     if (!userId) {
-        window.location.href = '/login.html';
+        window.location.replace('/login.html');
+        throw new Error('AUTH_REDIRECT');
     }
 
     const chatContainer = document.getElementById('chatContainer');

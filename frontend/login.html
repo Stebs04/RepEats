@@ -125,21 +125,24 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Login con successo! Salviamo i dati a seconda dell'opzione ricordami
+                    // Salviamo SEMPRE in localStorage per persistenza tra i tab
+                    localStorage.setItem('repEats_username', data.username);
+                    localStorage.setItem('repEats_userId', data.user_id);
+
                     if (rememberMe) {
-                        localStorage.setItem('repEats_username', data.username);
-                        localStorage.setItem('repEats_userId', data.user_id);
+                        // "Ricordami" attivo: scadenza 7 giorni
                         localStorage.setItem('repEats_expires', Date.now() + 7 * 24 * 60 * 60 * 1000);
-                        sessionStorage.removeItem('repEats_username');
-                        sessionStorage.removeItem('repEats_userId');
                     } else {
-                        sessionStorage.setItem('repEats_username', data.username);
-                        sessionStorage.setItem('repEats_userId', data.user_id);
-                        localStorage.removeItem('repEats_username');
-                        localStorage.removeItem('repEats_userId');
-                        localStorage.removeItem('repEats_expires');
+                        // Senza "Ricordami": scadenza 24 ore (sessione ragionevole)
+                        localStorage.setItem('repEats_expires', Date.now() + 24 * 60 * 60 * 1000);
                     }
-                    window.location.href = '/dashboard.html';
+
+                    // Salviamo anche in sessionStorage per compatibilità immediata
+                    sessionStorage.setItem('repEats_username', data.username);
+                    sessionStorage.setItem('repEats_userId', data.user_id);
+
+                    // Usiamo replace per non aggiungere la pagina di login alla history
+                    window.location.replace('/dashboard.html');
                 } else {
                     // Errore nel login
                     errorBox.textContent = data.detail || "Errore durante il login";
