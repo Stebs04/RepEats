@@ -332,6 +332,20 @@
         throw new Error('AUTH_REDIRECT');
     }
 
+    // Controllo completamento profilo obbligatorio
+    async function checkProfileGuard() {
+        try {
+            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (!json.data.age || json.data.age === 0 || !json.data.weight || json.data.weight === 0) {
+                    window.location.replace('dashboard.html');
+                }
+            }
+        } catch(e) {}
+    }
+    checkProfileGuard();
+
     const chatContainer = document.getElementById('chatContainer');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');

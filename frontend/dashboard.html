@@ -314,6 +314,106 @@
 <!-- Spacer for FAB & Bottom Nav -->
 <div class="h-24 md:h-12 w-full"></div>
 </main>
+
+<!-- Profile Completion Modal -->
+<div id="profileModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="glass-card rounded-2xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border border-primary-container/30 shadow-[0_0_30px_rgba(57,255,20,0.2)]">
+        <h2 class="font-headline-lg text-headline-lg text-primary-container mb-2">Completiamo il tuo profilo</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant mb-6">Per offrirti la migliore esperienza e generare il tuo piano personalizzato, abbiamo bisogno di alcuni dati.</p>
+        
+        <div class="space-y-6">
+            <!-- Dati Fisiologici -->
+            <div>
+                <h3 class="font-headline-md text-headline-md text-on-surface mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-secondary">vital_signs</span> Dati Fisiologici</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Età</label>
+                        <input type="number" id="modalAge" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none" required />
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Altezza (cm)</label>
+                        <input type="number" id="modalHeight" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none" required />
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Peso (kg)</label>
+                        <input type="number" step="0.1" id="modalWeight" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none" required />
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Sesso</label>
+                        <select id="modalGender" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none">
+                            <option value="uomo">Uomo</option>
+                            <option value="donna">Donna</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attività e Obiettivo -->
+            <div>
+                <h3 class="font-headline-md text-headline-md text-on-surface mb-3 mt-4 flex items-center gap-2"><span class="material-symbols-outlined text-tertiary-container">flag</span> Obiettivo</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Livello di Attività</label>
+                        <select id="modalActivity" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none">
+                            <option value="1.2">Sedentario (Poco o nessun esercizio)</option>
+                            <option value="1.375">Leggero (1-3 gg a settimana)</option>
+                            <option value="1.55">Moderato (3-5 gg a settimana)</option>
+                            <option value="1.725">Attivo (6-7 gg a settimana)</option>
+                            <option value="1.9">Molto Attivo (Lavoro fisico/doppio allenamento)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tipo Obiettivo</label>
+                        <select id="modalGoalType" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none">
+                            <option value="dimagrimento">Dimagrimento</option>
+                            <option value="mantenimento">Mantenimento</option>
+                            <option value="massa">Massa Muscolare</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Peso Desiderato (kg)</label>
+                        <input type="number" step="0.1" id="modalTargetWeight" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none" required />
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tempo (Settimane)</label>
+                        <input type="number" id="modalTargetWeeks" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none" required />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Allenamento -->
+            <div>
+                <h3 class="font-headline-md text-headline-md text-on-surface mb-3 mt-4 flex items-center gap-2"><span class="material-symbols-outlined text-primary-fixed">fitness_center</span> Allenamento</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Durata (Minuti)</label>
+                        <select id="modalWorkoutDuration" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none">
+                            <option value="30">30 minuti</option>
+                            <option value="60" selected>1 ora</option>
+                            <option value="90">1.5 ore</option>
+                            <option value="120">2 ore</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tipo Preferito</label>
+                        <select id="modalWorkoutPreference" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:border-primary-container outline-none">
+                            <option value="Ipertrofia">Ipertrofia (Massa)</option>
+                            <option value="Forza">Forza (Powerlifting)</option>
+                            <option value="Resistenza">Resistenza (Cardio/Endurance)</option>
+                            <option value="HIIT">HIIT (Brucia Grassi)</option>
+                            <option value="Calisthenics">Calisthenics (Corpo Libero)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button id="modalSaveBtn" class="w-full mt-6 bg-primary-container text-on-primary-container font-bold py-4 rounded-xl hover:brightness-110 transition-all shadow-[0_0_20px_rgba(57,255,20,0.4)] hover:shadow-[0_0_30px_rgba(57,255,20,0.6)] flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined">rocket_launch</span> Inizia Ora
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- BottomNavBar (Mobile Only) -->
 <!-- Standard BottomNavBar -->
 <!-- Standard BottomNavBar -->
@@ -415,6 +515,74 @@
 
     // Avvia caricamento
     loadDashboardData();
+
+    async function checkProfileCompletion() {
+        if (!userId) return;
+        try {
+            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            if (res.ok) {
+                const json = await res.json();
+                const data = json.data;
+                if (!data.age || data.age === 0 || !data.weight || data.weight === 0) {
+                    const modal = document.getElementById('profileModal');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
+            }
+        } catch(e) {
+            console.error("Errore nel controllo del profilo:", e);
+        }
+    }
+
+    checkProfileCompletion();
+
+    document.getElementById('modalSaveBtn')?.addEventListener('click', async () => {
+        const payload = {
+            user_id: parseInt(userId),
+            age: parseInt(document.getElementById('modalAge').value) || 0,
+            height: parseFloat(document.getElementById('modalHeight').value) || 0,
+            weight: parseFloat(document.getElementById('modalWeight').value) || 0,
+            gender: document.getElementById('modalGender').value,
+            activity_level: parseFloat(document.getElementById('modalActivity').value) || 1.2,
+            target_weight: parseFloat(document.getElementById('modalTargetWeight').value) || 0,
+            target_weeks: parseInt(document.getElementById('modalTargetWeeks').value) || 0,
+            goal_type: document.getElementById('modalGoalType').value,
+            workout_duration: parseInt(document.getElementById('modalWorkoutDuration').value) || 60,
+            workout_preference: document.getElementById('modalWorkoutPreference').value || 'Ipertrofia'
+        };
+
+        if (!payload.age || !payload.height || !payload.weight || !payload.target_weight || !payload.target_weeks) {
+            alert("Per favore, compila tutti i campi numerici prima di procedere.");
+            return;
+        }
+
+        const btn = document.getElementById('modalSaveBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="material-symbols-outlined animate-spin">refresh</span> Salvataggio...`;
+
+        try {
+            const res = await fetch('/api/profile/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Fatto!`;
+                setTimeout(() => { 
+                    const modal = document.getElementById('profileModal');
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    loadDashboardData(); 
+                }, 1000);
+            } else {
+                alert("Errore nel salvataggio del profilo.");
+                btn.innerHTML = originalText;
+            }
+        } catch (e) {
+            alert("Errore di rete.");
+            btn.innerHTML = originalText;
+        }
+    });
 
     function renderMeals(meals) {
         const container = document.getElementById('mealsContainer');
