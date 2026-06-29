@@ -2,8 +2,10 @@
 Modulo router per l'autenticazione.
 Espone gli endpoint di login e registrazione per l'integrazione frontend.
 """
+import re
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from src.database.user_service import authenticate_user, create_user
 
 router = APIRouter()
@@ -45,6 +47,16 @@ def register(request: RegisterRequest):
     Crea un nuovo account utente.
     Cattura eccezioni a livello db (es. vincoli unicità violati) castandole a 400 Bad Request.
     """
+    if len(request.password) < 8 or \
+       not re.search(r"[A-Z]", request.password) or \
+       not re.search(r"[a-z]", request.password) or \
+       not re.search(r"[0-9]", request.password) or \
+       not re.search(r"[!@#$%^&*(),.?\":{}|<>]", request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La password deve contenere almeno 8 caratteri, una lettera maiuscola, una minuscola, un numero e un carattere speciale."
+        )
+
     try:
         new_user = create_user(request.username, request.email, request.password)
         return {
@@ -52,8 +64,13 @@ def register(request: RegisterRequest):
             "user_id": new_user.id,
             "username": new_user.username
         }
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="L'email o l'username inseriti sono già in uso. Prova ad accedere o utilizzane di diversi."
+        )
     except Exception as e:
         # Dump dello stack trace su stdout per debugging interno rapido
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=400, detail=f"Errore nella registrazione: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Errore imprevisto durante la registrazione: {str(e)}")
