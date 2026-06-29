@@ -33,6 +33,9 @@ class MealAnalysis(BaseModel):
     # Valore analitico per i grassi (macronutriente lipidico) espressi in grammi, archiviato come float
     fats: float = Field(description="Stima dei grammi di grassi per la porzione indicata.")
 
+    # Breve consiglio su cosa mangiare nel prossimo pasto in base all'obiettivo dell'utente
+    advice: str = Field(default="", description="Consiglio super rapido (1 riga) su cosa mangiare dopo in base all'obiettivo.")
+
 # Dichiarazione della classe NutritionistAgent, che specializza il comportamento generico dell'Agent IA
 class NutritionistAgent(Agent):
     """
@@ -134,8 +137,9 @@ class ConversationalNutritionistAgent(Agent):
             "- Dai sempre del 'tu' all'utente.",
 
             "# FORMATO RISPOSTA",
-            "- Rispondi SEMPRE in modo discorsivo, amichevole e ben formattato usando Markdown (grassetto, elenchi, tabelle se utile).",
-            "- NON restituire MAI JSON, codice o dati strutturati. Solo testo leggibile.",
+            "- Rispondi SEMPRE in modo naturale, discorsivo e amichevole (chatbot style). NON descrivere mai a voce alta i tuoi passaggi logici.",
+            "- Usa Markdown per migliorare la leggibilità (grassetto, elenchi, tabelle se utile).",
+            "- ASSOLUTAMENTE VIETATO restituire JSON, codice o dati strutturati. Solo testo leggibile e umano.",
             "- NON chiamare MAI tool o funzioni. Rispondi direttamente con il tuo testo.",
         ]
 
@@ -171,7 +175,7 @@ class VisionNutritionistAgent(Agent):
 
             "--- SE VEDI UN CODICE A BARRE ---",
             "1. Leggi il numero del codice a barre dall'immagine.",
-            "2. Usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode con quel numero.",
+            "2. Usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode con quel numero, ma fallo in modo SILENZIOSO in background (non dire all'utente che lo stai usando).",
             "3a. SE il tool restituisce valori nutrizionali validi: usa quei dati e ricalcola per la grammatura.",
             "3b. SE il tool dice 'non trovato' o non ha valori: guarda l'etichetta nell'immagine per identificare il prodotto e stima i valori nutrizionali dal nome/categoria.",
             "4. Calcola i valori proporzionali per la grammatura indicata dall'utente.",
@@ -187,7 +191,8 @@ class VisionNutritionistAgent(Agent):
             "Esempio: se vedi 'Pesto Barilla' e il barcode non è nel database, stima ~500kcal/100g, 5g pro, 5g carb, 50g grassi.",
 
             "--- FORMATO RISPOSTA ---",
-            "Rispondi con testo naturale in italiano. NON restituire JSON.",
+            "Rispondi con testo naturale in italiano, sii discorsivo e amichevole. NON descrivere il tuo processo interno (es. vietato dire 'ora cerco il codice a barre' o 'uso lo strumento'). Fallo in background e basta.",
+            "NON restituire mai codice JSON.",
             "Includi sempre: nome del prodotto, calorie, proteine, carboidrati, grassi (con unità di misura).",
             "Esempio: 'Ho trovato: Pasta Barilla. Per 80g: 284 kcal, 10g proteine, 57g carboidrati, 1.3g grassi.'",
             "Se hai stimato i valori perché il barcode non era nel database, specificalo: 'Valori stimati per [nome prodotto]:'",

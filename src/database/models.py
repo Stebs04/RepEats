@@ -181,3 +181,34 @@ class MealLog(Base):
 
     #Relazione inversa verso User
     user = relationship("User", back_populates="meal_logs")
+
+class WorkoutPlan(Base):
+    """
+    Modello che rappresenta una scheda di allenamento creata dall'agente fitness.
+    """
+    __tablename__ = 'workout_plans'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    name = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now())
+    
+    user = relationship("User", backref="workout_plans")
+    exercises = relationship("WorkoutExercise", back_populates="plan", cascade="all, delete-orphan")
+
+class WorkoutExercise(Base):
+    """
+    Modello che rappresenta un singolo esercizio all'interno di una scheda.
+    """
+    __tablename__ = 'workout_exercises'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    plan_id = Column(Integer, ForeignKey('workout_plans.id'), nullable=False)
+    name = Column(String(200), nullable=False)
+    muscle_group = Column(String(100), nullable=True)
+    sets = Column(Integer, nullable=False)
+    reps = Column(String(50), nullable=False) # String perchè potrebbe essere "10-12" o "Fino a cedimento"
+    rest_time = Column(String(50), nullable=True) # Es. "90s"
+    order_index = Column(Integer, default=0) # Per mantenere l'ordinamento
+    
+    plan = relationship("WorkoutPlan", back_populates="exercises")

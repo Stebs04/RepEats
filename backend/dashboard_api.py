@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros, delete_meal_log
+from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan
 
 router = APIRouter()
 
@@ -68,6 +68,36 @@ def delete_meal(meal_id: int, user_id: int = Query(...)):
         if not success:
             raise HTTPException(status_code=404, detail="Pasto non trovato o non autorizzato")
         return {"message": "Pasto eliminato con successo"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/workouts")
+def get_workouts(user_id: int = Query(...)):
+    """
+    Recupera tutte le schede di allenamento dell'utente.
+    """
+    try:
+        plans = get_user_workout_plans(user_id)
+        return {"workouts": plans}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/workout/{plan_id}")
+def delete_workout(plan_id: int, user_id: int = Query(...)):
+    """
+    Elimina una scheda di allenamento specifica dal database.
+    """
+    try:
+        success = delete_workout_plan(user_id=user_id, plan_id=plan_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Scheda non trovata o non autorizzato")
+        return {"message": "Scheda eliminata con successo"}
     except HTTPException:
         raise
     except Exception as e:

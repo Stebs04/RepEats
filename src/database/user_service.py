@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from src.database.models import User, UserProfile, Conversation, Message, MealLog
+from src.database.models import User, UserProfile, Conversation, Message, MealLog, WorkoutPlan, WorkoutExercise
 from src.database.database import get_session
 from sqlalchemy import func
 from datetime import datetime, timezone
@@ -78,6 +78,7 @@ def get_user_data(user_id: int):
 
     profile = user.profile
     data = {
+        "user_id": user_id,
         "username": user.username,
         "weight": profile.weight if profile else None,
         "height": profile.height if profile else None,
@@ -418,3 +419,109 @@ def authenticate_user(username: str, password: str):
         return user
     
     return None # Ritorna None se il login fallisce
+
+def save_workout_plan(user_id: int, plan_name: str, exercises: list):
+    """
+    Salva una nuova scheda di allenamento con i relativi esercizi.
+    `exercises` è una lista di dizionari con chiavi: name, muscle_group, sets, reps, rest_time.
+    """
+    session = get_session()
+    new_plan = WorkoutPlan(user_id=user_id, name=plan_name)
+    session.add(new_plan)
+    session.flush() # Per ottenere l'ID del piano
+    
+    for idx, ex in enumerate(exercises):
+        new_ex = WorkoutExercise(
+            plan_id=new_plan.id,
+            name=ex.get('name', 'Esercizio'),
+            muscle_group=ex.get('muscle_group', ''),
+            sets=ex.get('sets', 3),
+            reps=str(ex.get('reps', '10')),
+            rest_time=str(ex.get('rest_time', '90s')),
+            order_index=idx
+        )
+        session.add(new_ex)
+        
+    session.commit()
+    session.close()
+
+def get_user_workout_plans(user_id: int):
+    """
+    Recupera tutte le schede di allenamento di un utente, complete di esercizi.
+    """
+    session = get_session()
+    plans = session.query(WorkoutPlan).filter_by(user_id=user_id).order_by(WorkoutPlan.created_at.desc()).all()
+    
+    # Costruisce una struttura dati dictionary compatibile con il frontend
+    result = []
+    for plan in plans:
+        exercises = session.query(WorkoutExercise).filter_by(plan_id=plan.id).order_by(WorkoutExercise.order_index.asc()).all()
+        plan_dict = {
+            "id": plan.id,
+            "name": plan.name,
+            "created_at": plan.created_at.isoformat(),
+            "exercises": [
+                {
+                    "id": ex.id,
+                    "name": ex.name,
+                    "muscle_group": ex.muscle_group,
+                    "sets": ex.sets,
+                    "reps": ex.reps,
+                    "rest_time": ex.rest_time
+                } for ex in exercises
+            ]
+        }
+        result.append(plan_dict)
+        
+    session.close()
+    return result
+
+def delete_workout_plan(user_id: int, plan_id: int) -> bool:
+    """
+    Elimina una scheda di allenamento dal database.
+    Verifica che la scheda appartenga all'utente.
+    """
+    session = get_session()
+    plan = session.query(WorkoutPlan).filter_by(id=plan_id, user_id=user_id).first()
+    
+    if plan:
+        session.delete(plan)
+        session.commit()
+        session.close()
+        return True
+        
+    session.close()
+    return False
+
+def update_workout_plan(user_id: int, plan_name: str, exercises: list):
+    """
+    Aggiorna una scheda di allenamento esistente (ricerca per nome e utente).
+    Se esiste, sostituisce tutti gli esercizi con i nuovi.
+    Se non esiste, la crea.
+    """
+    session = get_session()
+    plan = session.query(WorkoutPlan).filter_by(user_id=user_id, name=plan_name).first()
+    
+    if not plan:
+        session.close()
+        save_workout_plan(user_id, plan_name, exercises)
+        return
+        
+    # Elimina vecchi esercizi
+    session.query(WorkoutExercise).filter_by(plan_id=plan.id).delete()
+    
+    # Inserisce nuovi esercizi
+    for idx, ex in enumerate(exercises):
+        new_ex = WorkoutExercise(
+            plan_id=plan.id,
+            name=ex.get('name', 'Esercizio'),
+            muscle_group=ex.get('muscle_group', ''),
+            sets=ex.get('sets', 3),
+            reps=str(ex.get('reps', '10')),
+            rest_time=str(ex.get('rest_time', '90s')),
+            order_index=idx
+        )
+        session.add(new_ex)
+        
+    session.commit()
+    session.close()

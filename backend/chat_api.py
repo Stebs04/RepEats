@@ -102,6 +102,9 @@ async def analyze_food_image(
         tmp_path = tmp.name
 
     try:
+        user_data = get_user_data(user_id)
+        obiettivo = user_data.get("goal_type", "mantenimento") if user_data else "mantenimento"
+
         # ================================================================
         # FASE 1: Agente Vision con Tool Calling (testo libero)
         # Groq non supporta vision + tool + structured output insieme.
@@ -143,19 +146,20 @@ async def analyze_food_image(
                 "Sei un parser di dati nutrizionali. Ricevi un testo con informazioni su un alimento e devi estrarne i dati in formato JSON.",
                 "REGOLE CRITICHE:",
                 "1. Restituisci SOLO un oggetto JSON valido, senza testo prima o dopo.",
-                "2. Il JSON deve avere ESATTAMENTE questi campi: name, analysis_result, calories, proteins, carbohydrates, fats.",
+                "2. Il JSON deve avere ESATTAMENTE questi campi: name, analysis_result, calories, proteins, carbohydrates, fats, advice.",
                 "3. calories, proteins, carbohydrates, fats devono essere numeri float (non stringhe).",
                 "4. Se il testo dice che il prodotto non è stato trovato o i valori sono 0, usa 0.0 come valore.",
                 "5. analysis_result deve essere una frase descrittiva.",
                 f"6. I valori devono essere riferiti a {grammatura}g di prodotto.",
+                f"7. Genera in 'advice' un consiglio velocissimo (max 1 riga) su cosa mangiare dopo, considerando che l'obiettivo dell'utente è: {obiettivo}",
                 "Template JSON da restituire:",
-                '{{"name": "nome prodotto", "analysis_result": "descrizione", "calories": 0.0, "proteins": 0.0, "carbohydrates": 0.0, "fats": 0.0}}',
+                '{{"name": "nome prodotto", "analysis_result": "descrizione", "calories": 0.0, "proteins": 0.0, "carbohydrates": 0.0, "fats": 0.0, "advice": "Il tuo consiglio qui."}}',
             ],
             markdown=False,
         )
 
         prompt_fase2 = (
-            f"Converti questi dati in JSON strutturato (valori per {grammatura}g):\n\n"
+            f"Converti questi dati in JSON strutturato (valori per {grammatura}g) e genera il consiglio in base all'obiettivo ({obiettivo}):\n\n"
             f"{testo_analisi}\n\n"
             f"Restituisci SOLO il JSON, nessun altro testo."
         )
