@@ -3,7 +3,7 @@
 <html class="dark" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>RepEats - AI Nutritionist</title>
+<title>RepEats - Lumina Nutritionist</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
@@ -160,7 +160,7 @@
 </header>
 
 
-<main class="flex-1 w-full max-w-7xl mx-auto pt-20 md:pt-28 px-container-margin md:px-xl pb-28 md:pb-12 flex flex-col gap-6 overflow-hidden relative">
+<main class="flex-1 w-full max-w-5xl mx-auto pt-20 md:pt-28 px-container-margin md:px-xl pb-28 md:pb-12 flex flex-col gap-6 overflow-hidden relative">
 <div class="absolute inset-0 pointer-events-none opacity-20" style="background: radial-gradient(circle at 80% 20%, rgba(0, 246, 246, 0.15) 0%, transparent 40%), radial-gradient(circle at 20% 80%, rgba(57, 255, 20, 0.1) 0%, transparent 40%);"></div>
 <section class="w-full relative z-10">
 <button id="scannerBtn" class="w-full md:w-auto md:min-w-[300px] glass-panel rounded-xl p-4 flex items-center justify-center gap-3 border-tertiary-fixed/30 hover:border-tertiary-fixed/60 hover:bg-surface-container transition-all group overflow-hidden relative">
@@ -224,40 +224,52 @@
 </div>
 </section>
 <section class="flex-1 flex flex-col glass-panel rounded-xl md:rounded-2xl border-t border-t-white/10 overflow-hidden relative z-10">
-<div class="bg-surface-container-low/50 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center gap-3">
-<div class="w-10 h-10 rounded-full bg-gradient-to-br from-tertiary-container to-primary-container flex items-center justify-center p-[2px]">
+<div class="bg-surface-container-low/50 backdrop-blur-md px-5 py-4 border-b border-white/5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-gradient-to-br from-tertiary-container to-primary-container flex items-center justify-center p-[2px]">
 <div class="w-full h-full bg-background rounded-full flex items-center justify-center overflow-hidden">
-<span class="material-symbols-outlined text-tertiary-fixed text-[20px]">psychology</span>
+<span class="material-symbols-outlined text-tertiary-fixed text-[24px]">psychology</span>
 </div>
 </div>
 <div>
-<h1 class="font-body-md text-body-md font-bold text-on-surface flex items-center gap-2">
-                        Lumina <span class="w-2 h-2 rounded-full bg-primary-fixed drop-shadow-[0_0_4px_rgba(42,229,0,0.8)]"></span>
+<h1 class="text-xl md:text-2xl font-bold text-on-surface flex items-center gap-2 tracking-tight">
+                        Lumina <span class="w-2.5 h-2.5 rounded-full bg-primary-fixed drop-shadow-[0_0_6px_rgba(42,229,0,0.8)]"></span>
 </h1>
-<p class="font-label-sm text-label-sm text-on-surface-variant">AI Nutritionist</p>
+<p class="text-sm font-medium text-on-surface-variant mt-0.5">Lumina Nutritionist</p>
 </div>
-<button onclick="toggleSidebar()" class="ml-auto text-on-surface-variant hover:text-primary-fixed"><span class="material-symbols-outlined">history</span></button>
+<button onclick="toggleSidebar()" class="ml-auto w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary-fixed transition-colors"><span class="material-symbols-outlined text-[24px]">history</span></button>
 </div>
 <div id="chatContainer" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar relative"></div>
 <div class="p-4 bg-background/50 backdrop-blur-xl border-t border-white/5 flex flex-col gap-3">
-<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-<button onclick="sendQuickMessage('Quanti macronutrienti mi mancano oggi? Cosa potrei mangiare per completare il fabbisogno?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px] text-tertiary-fixed">calculate</span>
-                        Calcola macronutrienti
-                    </button>
-<button onclick="sendQuickMessage('Cosa potrei mangiare a cena stasera in base ai macro che mi mancano?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-primary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px] text-primary-fixed">restaurant_menu</span>
-                        Idee per cena
-                    </button>
-<button onclick="sendQuickMessage('Quanta acqua dovrei bere oggi in base al mio peso e ai miei obiettivi?')" class="shrink-0 bg-surface-container border border-white/10 hover:border-tertiary-fixed/50 rounded-full px-3 py-1.5 font-label-sm text-label-sm text-on-surface transition-colors flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px] text-tertiary-fixed">water_drop</span>
-                        Idratazione
-                    </button>
+<div id="suggestionsBar" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-tertiary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Quanti macronutrienti mi mancano oggi? Cosa potrei mangiare per completare il fabbisogno?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-tertiary-fixed">calculate</span> Calcola macronutrienti
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
 </div>
-<div class="relative flex items-center">
-<input id="chatInput" class="w-full bg-surface-container-high/50 border border-white/10 text-on-surface rounded-full py-3 pl-4 pr-12 focus:outline-none focus:border-tertiary-fixed focus:ring-1 focus:ring-tertiary-fixed transition-all font-body-md text-body-md placeholder:text-on-surface-variant/50" placeholder="Chiedi a Lumina..." type="text"/>
-<button id="sendBtn" class="absolute right-2 w-8 h-8 flex items-center justify-center rounded-full bg-tertiary-fixed/10 hover:bg-tertiary-fixed/20 text-tertiary-fixed transition-colors">
-<span class="material-symbols-outlined text-[20px]">send</span>
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-primary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Cosa potrei mangiare a cena stasera in base ai macro che mi mancano?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-primary-fixed">restaurant_menu</span> Idee per cena
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-tertiary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Quanta acqua dovrei bere oggi in base al mio peso e ai miei obiettivi?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-tertiary-fixed">water_drop</span> Idratazione
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+</div>
+<div class="relative flex items-center mt-2">
+<input id="chatInput" class="w-full bg-surface-container-high/50 border border-white/10 text-on-surface rounded-full py-4 pl-6 pr-14 focus:outline-none focus:border-tertiary-fixed focus:ring-1 focus:ring-tertiary-fixed transition-all text-base placeholder:text-on-surface-variant/50" placeholder="Chiedi a Lumina Nutritionist..." type="text"/>
+<button id="sendBtn" class="absolute right-2 w-10 h-10 flex items-center justify-center rounded-full bg-tertiary-fixed/10 hover:bg-tertiary-fixed/20 text-tertiary-fixed transition-colors">
+<span class="material-symbols-outlined text-[24px]">send</span>
 </button>
 </div>
 </div>
@@ -667,6 +679,23 @@
     function sendQuickMessage(text) {
         chatInput.value = text;
         sendMessage();
+    }
+
+    function dismissChip(btn) {
+        const chip = btn.closest('.suggestion-chip');
+        chip.style.opacity = '0';
+        chip.style.transform = 'scale(0.8)';
+        chip.style.maxWidth = '0';
+        chip.style.padding = '0';
+        chip.style.margin = '0';
+        chip.style.border = 'none';
+        setTimeout(() => {
+            chip.remove();
+            const bar = document.getElementById('suggestionsBar');
+            if (bar && bar.children.length === 0) {
+                bar.style.display = 'none';
+            }
+        }, 300);
     }
 
     function showScannerResult(html, isWarning) {
