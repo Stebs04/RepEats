@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from src.database.models import User, UserProfile, Conversation, Message, MealLog
+from src.database.models import User, UserProfile, Conversation, Message, MealLog, WorkoutPlan, WorkoutExercise
 from src.database.database import get_session
 from sqlalchemy import func
 from datetime import datetime, timezone
@@ -48,7 +48,7 @@ def create_user(username: str, email: str, password: str):
 
 
 """Dopo aver creato un nuovo utente e un nuovo profilo, bisogna aggiornare i dati inerenti a quell'utente"""
-def update_user_profile(user_id: int, weight: float, height: float, age: int, gender: str, activity_level: float, target_weight: float, target_weeks: int, goal_type: str):
+def update_user_profile(user_id: int, weight: float, height: float, age: int, gender: str, activity_level: float, target_weight: float, target_weeks: int, goal_type: str, workout_duration: int = 60, workout_preference: str = "Ipertrofia"):
 
     session = get_session()
     profile = session.query(UserProfile).filter_by(user_id = user_id).first()
@@ -62,6 +62,8 @@ def update_user_profile(user_id: int, weight: float, height: float, age: int, ge
         profile.target_weight = target_weight 
         profile.target_weeks = target_weeks
         profile.goal_type = goal_type
+        profile.workout_duration = workout_duration
+        profile.workout_preference = workout_preference
         session.commit()
     session.close()
 
@@ -71,35 +73,47 @@ def get_user_data(user_id: int):
     """Recupera il profilo completo dell'utente specificato"""
     session = get_session()
     user = session.query(User).filter_by(id=user_id).first()
+
+    if not user:
+        session.close()
+        return None
+
+    profile = user.profile
     data = {
+        "user_id": user_id,
         "username": user.username,
-        "weight": user.profile.weight,
-        "height": user.profile.height,
-        "age": user.profile.age,
-        "gender": user.profile.gender or "uomo",
-        "activity_level": user.profile.activity_level or 1.55,
-        "target_weight": user.profile.target_weight,
-        "target_weeks": user.profile.target_weeks or 12,
-        "goal_type": user.profile.goal_type
+        "weight": profile.weight if profile else None,
+        "height": profile.height if profile else None,
+        "age": profile.age if profile else None,
+        "gender": (profile.gender if profile else None) or "uomo",
+        "activity_level": (profile.activity_level if profile else None) or 1.55,
+        "target_weight": profile.target_weight if profile else None,
+        "target_weeks": (profile.target_weeks if profile else None) or 12,
+        "goal_type": profile.goal_type if profile else None,
+        "workout_duration": (profile.workout_duration if profile else None) or 60,
+        "workout_preference": (profile.workout_preference if profile else None) or "Ipertrofia"
         }
     session.close()
     return data
 
 
-def get_user_conversations(user_id: int):
+def get_user_conversations(user_id: int, chat_type: str = None):
 
-    """Recupero di tutte le conversazioni associate a un utente specifico"""
+    """Recupero di tutte le conversazioni associate a un utente specifico, filtrando opzionalmente per tipo di agente."""
     session = get_session()
-    convs = session.query(Conversation).filter_by(user_id=user_id).order_by(Conversation.created_at.desc()).all()
+    query = session.query(Conversation).filter_by(user_id=user_id)
+    if chat_type:
+        query = query.filter(Conversation.chat_type == chat_type)
+    convs = query.order_by(Conversation.created_at.desc()).all()
     session.close()
     return convs
 
 
-def create_new_conversation(user_id: int, title: str = "Nuova conversazione"):
+def create_new_conversation(user_id: int, title: str = "Nuova conversazione", chat_type: str = "nutritionist"):
 
-    """Crea una nuova sessione per ogni chat"""
+    """Crea una nuova sessione per ogni chat, associata al tipo di agente specificato"""
     session = get_session()
-    new_conv = Conversation(user_id=user_id, title=title)
+    new_conv = Conversation(user_id=user_id, title=title, chat_type=chat_type)
     session.add(new_conv)
     session.commit()
     session.refresh(new_conv)
@@ -192,7 +206,10 @@ def calculate_daily_macros(user_id: int):
             "target_calories": 0,
             "proteins": 0,
             "fats": 0,
-            "carbohydrates": 0
+            "carbohydrates": 0,
+            "target_proteins": 0,
+            "target_fats": 0,
+            "target_carbohydrates": 0
         }
     
     # Esegue formula basale base indipendente Mifflin-St Jeor = 10*Weight + 6.25*Height - 5*Age
@@ -247,7 +264,11 @@ def calculate_daily_macros(user_id: int):
         "target_calories": round(target_calories, 1),
         "proteins": round(proteins, 1),
         "fats": round(fats, 1),
-        "carbohydrates": round(carbohydrates, 1)
+        "carbohydrates": round(carbohydrates, 1),
+        # Alias con prefisso target_ per compatibilità con il frontend dashboard
+        "target_proteins": round(proteins, 1),
+        "target_fats": round(fats, 1),
+        "target_carbohydrates": round(carbohydrates, 1)
     }
 
 def get_todays_macros(user_id: int):
@@ -402,3 +423,109 @@ def authenticate_user(username: str, password: str):
         return user
     
     return None # Ritorna None se il login fallisce
+
+def save_workout_plan(user_id: int, plan_name: str, exercises: list):
+    """
+    Salva una nuova scheda di allenamento con i relativi esercizi.
+    `exercises` è una lista di dizionari con chiavi: name, muscle_group, sets, reps, rest_time.
+    """
+    session = get_session()
+    new_plan = WorkoutPlan(user_id=user_id, name=plan_name)
+    session.add(new_plan)
+    session.flush() # Per ottenere l'ID del piano
+    
+    for idx, ex in enumerate(exercises):
+        new_ex = WorkoutExercise(
+            plan_id=new_plan.id,
+            name=ex.get('name', 'Esercizio'),
+            muscle_group=ex.get('muscle_group', ''),
+            sets=ex.get('sets', 3),
+            reps=str(ex.get('reps', '10')),
+            rest_time=str(ex.get('rest_time', '90s')),
+            order_index=idx
+        )
+        session.add(new_ex)
+        
+    session.commit()
+    session.close()
+
+def get_user_workout_plans(user_id: int):
+    """
+    Recupera tutte le schede di allenamento di un utente, complete di esercizi.
+    """
+    session = get_session()
+    plans = session.query(WorkoutPlan).filter_by(user_id=user_id).order_by(WorkoutPlan.created_at.desc()).all()
+    
+    # Costruisce una struttura dati dictionary compatibile con il frontend
+    result = []
+    for plan in plans:
+        exercises = session.query(WorkoutExercise).filter_by(plan_id=plan.id).order_by(WorkoutExercise.order_index.asc()).all()
+        plan_dict = {
+            "id": plan.id,
+            "name": plan.name,
+            "created_at": plan.created_at.isoformat(),
+            "exercises": [
+                {
+                    "id": ex.id,
+                    "name": ex.name,
+                    "muscle_group": ex.muscle_group,
+                    "sets": ex.sets,
+                    "reps": ex.reps,
+                    "rest_time": ex.rest_time
+                } for ex in exercises
+            ]
+        }
+        result.append(plan_dict)
+        
+    session.close()
+    return result
+
+def delete_workout_plan(user_id: int, plan_id: int) -> bool:
+    """
+    Elimina una scheda di allenamento dal database.
+    Verifica che la scheda appartenga all'utente.
+    """
+    session = get_session()
+    plan = session.query(WorkoutPlan).filter_by(id=plan_id, user_id=user_id).first()
+    
+    if plan:
+        session.delete(plan)
+        session.commit()
+        session.close()
+        return True
+        
+    session.close()
+    return False
+
+def update_workout_plan(user_id: int, plan_name: str, exercises: list):
+    """
+    Aggiorna una scheda di allenamento esistente (ricerca per nome e utente).
+    Se esiste, sostituisce tutti gli esercizi con i nuovi.
+    Se non esiste, la crea.
+    """
+    session = get_session()
+    plan = session.query(WorkoutPlan).filter_by(user_id=user_id, name=plan_name).first()
+    
+    if not plan:
+        session.close()
+        save_workout_plan(user_id, plan_name, exercises)
+        return
+        
+    # Elimina vecchi esercizi
+    session.query(WorkoutExercise).filter_by(plan_id=plan.id).delete()
+    
+    # Inserisce nuovi esercizi
+    for idx, ex in enumerate(exercises):
+        new_ex = WorkoutExercise(
+            plan_id=plan.id,
+            name=ex.get('name', 'Esercizio'),
+            muscle_group=ex.get('muscle_group', ''),
+            sets=ex.get('sets', 3),
+            reps=str(ex.get('reps', '10')),
+            rest_time=str(ex.get('rest_time', '90s')),
+            order_index=idx
+        )
+        session.add(new_ex)
+        
+    session.commit()
+    session.close()

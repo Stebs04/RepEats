@@ -78,6 +78,9 @@ class UserProfile(Base):
     target_weeks = Column(Integer, default=12)
     #Tipo di obiettivo che l'utente si è posto
     goal_type = Column(String(50))
+    #Preferenze per le schede di allenamento generate
+    workout_duration = Column(Integer, default=60)
+    workout_preference = Column(String(100), default="Ipertrofia")
     
     # Back-reference alla proprietà profile di User. 
     # Mantiene coerenza nella navigazione bidirezionale in memoria.
@@ -100,6 +103,10 @@ class Conversation(Base):
     
     # Metadati descrittivi visibili nell'interfaccia utente.
     title = Column(String(200), default="Nuova Conversazione")
+    
+    # Tipo di agente associato alla conversazione: 'nutritionist' o 'coach'.
+    # Permette di filtrare le sessioni in base alla pagina corrente.
+    chat_type = Column(String(50), default="nutritionist", nullable=False)
     
     # modified by Stefano Bellan 20054330 - Risoluzione incompatibilità datetimes con SQLite
     created_at = Column(DateTime, default=lambda: datetime.now())
@@ -177,3 +184,34 @@ class MealLog(Base):
 
     #Relazione inversa verso User
     user = relationship("User", back_populates="meal_logs")
+
+class WorkoutPlan(Base):
+    """
+    Modello che rappresenta una scheda di allenamento creata dall'agente fitness.
+    """
+    __tablename__ = 'workout_plans'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    name = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now())
+    
+    user = relationship("User", backref="workout_plans")
+    exercises = relationship("WorkoutExercise", back_populates="plan", cascade="all, delete-orphan")
+
+class WorkoutExercise(Base):
+    """
+    Modello che rappresenta un singolo esercizio all'interno di una scheda.
+    """
+    __tablename__ = 'workout_exercises'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    plan_id = Column(Integer, ForeignKey('workout_plans.id'), nullable=False)
+    name = Column(String(200), nullable=False)
+    muscle_group = Column(String(100), nullable=True)
+    sets = Column(Integer, nullable=False)
+    reps = Column(String(50), nullable=False) # String perchè potrebbe essere "10-12" o "Fino a cedimento"
+    rest_time = Column(String(50), nullable=True) # Es. "90s"
+    order_index = Column(Integer, default=0) # Per mantenere l'ordinamento
+    
+    plan = relationship("WorkoutPlan", back_populates="exercises")

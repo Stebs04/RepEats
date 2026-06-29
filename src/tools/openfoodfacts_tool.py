@@ -46,7 +46,7 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
 
     """
     # Recupera il nome dell'app dalle variabili d'ambiente per configurare un User-Agent univoco
-    app_name = os.getenv("OPENFOODFACTS_APP_NAME")
+    app_name = os.getenv("OPENFOODFACTS_APP_NAME", "RepEats")
     
     # Configura gli header HTTP (le policy di Open Food Facts richiedono un User-Agent descrittivo)
     headers = {"User-Agent": f"{app_name} - Project University Version"}
@@ -54,20 +54,35 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
     # Costruisce l'endpoint API v2 iniettando dinamicamente il barcode richiesto
     url = f"https://world.openfoodfacts.org/api/v2/product/{input_data.barcode}.json"
     
-    # Esegue la richiesta HTTP GET sincrona, impostando un timeout di sicurezza di 10 secondi per evitare code bloccanti
+    # Esegue la richiesta HTTP GET sincrona, impostando un timeout di sicurezza di 10 secondi
     response = requests.get(url, headers=headers, timeout=10)
     
-    # Solleva un'eccezione HTTPError se la chiamata fallisce (status code 4xx o 5xx)
-    response.raise_for_status()
+    # Gestione graceful degli errori HTTP:
+    # - 404: il prodotto non è nel database OpenFoodFacts (barcode sconosciuto)
+    # - Altri errori: problemi di rete o server
+    # NON usiamo raise_for_status() perché un 404 è un caso normale e atteso,
+    # non un errore critico. L'agente deve ricevere un risultato vuoto e poterlo
+    # comunicare all'utente, non crashare con un'eccezione.
+    if response.status_code == 404:
+        return ProductOutput(
+            product_name=f"Prodotto con barcode {input_data.barcode} non trovato nel database OpenFoodFacts. Prova a stimare i valori nutrizionali manualmente."
+        )
+    
+    if response.status_code != 200:
+        return ProductOutput(
+            product_name=f"Errore API OpenFoodFacts (HTTP {response.status_code}). Impossibile recuperare i dati del prodotto."
+        )
     
     # Deserializza il corpo della risposta JSON in un dizionario Python
     data = response.json()
     
-    # L'API restituisce status=1 se il prodotto è stato trovato; in caso contrario, ritorna un DTO vuoto come fallback "graceful"
+    # L'API restituisce status=1 se il prodotto è stato trovato; in caso contrario, ritorna un DTO descrittivo
     if data.get("status") != 1:
-        return ProductOutput()
+        return ProductOutput(
+            product_name=f"Prodotto con barcode {input_data.barcode} non presente nel database OpenFoodFacts."
+        )
         
-    # Estrae il sotto-dizionario 'product' (con fallback su dict vuoto, in base al paradigma di programmazione difensiva)
+    # Estrae il sotto-dizionario 'product' (con fallback su dict vuoto, programmazione difensiva)
     product_data = data.get("product", {})
     
     # Estrae il sotto-dizionario 'nutriments' contenente i valori macro e micro nutrizionali

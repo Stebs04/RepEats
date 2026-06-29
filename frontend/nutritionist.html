@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RepEats - Lumina Nutritionist</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Custom scrollbar for horizontal lists */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Glassmorphism utility base */
+        .glass-panel {
+            background-color: rgba(24, 24, 24, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#e5e2e1",
+                        "secondary": "#ffb59c",
+                        "on-secondary-fixed": "#390c00",
+                        "secondary-container": "#fa5c1c",
+                        "surface-container-lowest": "#0e0e0e",
+                        "tertiary-container": "#00f6f6",
+                        "surface-dim": "#131313",
+                        "inverse-primary": "#106e00",
+                        "primary-fixed-dim": "#2ae500",
+                        "background": "#131313",
+                        "outline": "#85967c",
+                        "primary-fixed": "#79ff5b",
+                        "on-tertiary-fixed-variant": "#004f4f",
+                        "surface-bright": "#393939",
+                        "on-primary-container": "#107100",
+                        "on-surface-variant": "#baccb0",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "surface-tint": "#2ae500",
+                        "surface-container": "#201f1f",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed-variant": "#095300",
+                        "error-container": "#93000a",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error": "#690005",
+                        "surface-variant": "#353534",
+                        "secondary-fixed": "#ffdbcf",
+                        "on-secondary-fixed-variant": "#832700",
+                        "on-background": "#e5e2e1",
+                        "inverse-surface": "#e5e2e1",
+                        "on-secondary": "#5c1900",
+                        "outline-variant": "#3c4b35",
+                        "tertiary": "#e6fffe",
+                        "tertiary-fixed": "#00fbfb",
+                        "on-tertiary": "#003737",
+                        "on-primary": "#053900",
+                        "on-tertiary-container": "#006d6d",
+                        "secondary-fixed-dim": "#ffb59c",
+                        "primary-container": "#39ff14",
+                        "error": "#ffb4ab",
+                        "surface": "#131313",
+                        "on-primary-fixed": "#022100",
+                        "on-secondary-container": "#511500",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#00dddd",
+                        "primary": "#efffe3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "12px",
+                        "xl": "64px",
+                        "lg": "40px",
+                        "gutter": "16px",
+                        "container-margin": "20px",
+                        "md": "24px",
+                        "base": "8px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-xl-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-xl": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "stat-value": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-xl-mobile": ["36px", { "lineHeight": "42px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "stat-value": ["28px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    
+</script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-sans selection:bg-primary-container selection:text-on-primary-container">
+<!-- Standard TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
+<div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
+<img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
+<span class="font-display-xl-mobile text-display-xl-mobile font-black tracking-tighter text-primary-container hidden md:inline-block">RepEats</span>
+</div>
+<nav class="hidden md:flex gap-lg items-center">
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span> Home
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span> Nutrition
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span> Coach
+</a>
+</nav>
+<div class="flex items-center gap-sm">
+<div class="h-8 w-8 rounded-full border border-surface-variant bg-surface-container-high flex items-center justify-center ml-xs cursor-pointer" onclick="window.location.href='user_profile.html'">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">person</span>
+</div>
+</div>
+</header>
+
+
+<main class="flex-1 w-full max-w-5xl mx-auto pt-20 md:pt-28 px-container-margin md:px-xl pb-28 md:pb-12 flex flex-col gap-6 overflow-hidden relative">
+<div class="absolute inset-0 pointer-events-none opacity-20" style="background: radial-gradient(circle at 80% 20%, rgba(0, 246, 246, 0.15) 0%, transparent 40%), radial-gradient(circle at 20% 80%, rgba(57, 255, 20, 0.1) 0%, transparent 40%);"></div>
+<section class="w-full relative z-10">
+<button id="scannerBtn" class="w-full md:w-auto md:min-w-[300px] glass-panel rounded-xl p-4 flex items-center justify-center gap-3 border-tertiary-fixed/30 hover:border-tertiary-fixed/60 hover:bg-surface-container transition-all group overflow-hidden relative">
+<div class="absolute inset-0 bg-gradient-to-r from-tertiary-fixed/0 via-tertiary-fixed/10 to-tertiary-fixed/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+<span class="material-symbols-outlined text-tertiary-fixed text-[28px] drop-shadow-[0_0_8px_rgba(0,251,251,0.5)]">photo_camera</span>
+<span class="font-label-sm text-label-sm text-tertiary-fixed tracking-widest uppercase relative z-10">Scanner Alimenti</span>
+</button>
+<input type="file" id="imageInput" accept="image/*" class="hidden">
+</section>
+<section class="w-full relative z-10" style="display:none;">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-4">Pasti Consigliati</h2>
+<div class="flex gap-4 overflow-x-auto snap-x hide-scrollbar pb-2 w-[calc(100%+20px)] -ml-container-margin px-container-margin md:w-full md:ml-0 md:px-0">
+<div class="shrink-0 w-64 glass-panel rounded-xl overflow-hidden snap-start border-t border-t-white/10 flex flex-col group cursor-pointer hover:border-primary-container/30 transition-colors">
+<div class="h-32 w-full bg-surface-container-high relative overflow-hidden">
+<img class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity group-hover:scale-105 duration-500" data-alt="A high-end, professionally styled overhead shot of a steamed salmon fillet resting on a bed of fluffy quinoa, garnished with microgreens. The lighting is studio-quality, emphasizing the fresh textures and vibrant pink and green colors against a dark, matte slate background. The aesthetic is clean, modern, and appetizing." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAW-M_nHVVKIsqbtWQKp01rJhYg1bMX2VJnRo14zdVRwQjMx4aliQDJPkG_CEIZjvFMB4DJPZiA0wi6Q9kU6jrt3mjTXQmlgLY_fhwKPUnXUvfBUZ2_05bfa4cRiag95W6A0ADwidUlL8ZYU_nuJC7snJTMH_kxUiOUFypiP1Urol7CABJdkx0yg0GlzcSZzMVQ20AtGNuwg79RIHEJFarsNy_o_Mw2Q3NFcFI3U_INlUgGaqdf2CzRqtR6xajRakXuvxMHBby40iJB"/>
+<div class="absolute top-2 right-2 bg-surface-container-lowest/80 backdrop-blur-sm px-2 py-1 rounded-full border border-white/10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed">local_fire_department</span>
+<span class="font-label-sm text-label-sm text-on-surface">450 kcal</span>
+</div>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-1">Salmone al Vapore &amp; Quinoa</h3>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm">20 min prep</span>
+</div>
+</div>
+</div>
+<div class="shrink-0 w-64 glass-panel rounded-xl overflow-hidden snap-start border-t border-t-white/10 flex flex-col group cursor-pointer hover:border-primary-container/30 transition-colors">
+<div class="h-32 w-full bg-surface-container-high relative overflow-hidden">
+<img class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity group-hover:scale-105 duration-500" data-alt="A macro shot of a sleek, dark bowl filled with roasted chicken breast slices, vibrant steamed broccoli, and sweet potato wedges. The lighting is dramatic and directional, creating deep shadows that contrast with the bright, healthy ingredients. The overall vibe is fitness-oriented, premium, and delicious." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsIzq9a2RSWUtpJabyfhinnsoDby2uomO6ZHHZYzybVj4S51pEAMA5ziyISEfEVts9yiiEYijYxmvSXwVOVBJ7-3gN65RMArdZ0baXuIxIzr7Ra_KAo-NvCVI28_MtYfZ7jedGpRnuVCKWKh3Nbo1NgAY-Is2wkmYtdmBOpj2aXQzDv0CQf1FXM9-5oCTkpmm3Cw98QEoAunsRq_u0aMD8f0572jewUBx9Kxq9ei70jaxUj5w5-AODUMDIfQwlN9lC_JXm0zc3PqxH"/>
+<div class="absolute top-2 right-2 bg-surface-container-lowest/80 backdrop-blur-sm px-2 py-1 rounded-full border border-white/10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed">local_fire_department</span>
+<span class="font-label-sm text-label-sm text-on-surface">520 kcal</span>
+</div>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-1">Pollo Arrosto con Verdure</h3>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm">35 min prep</span>
+</div>
+</div>
+</div>
+<div class="shrink-0 w-64 glass-panel rounded-xl overflow-hidden snap-start border-t border-t-white/10 flex flex-col group cursor-pointer hover:border-primary-container/30 transition-colors">
+<div class="h-32 w-full bg-surface-container-high relative overflow-hidden">
+<img class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity group-hover:scale-105 duration-500" data-alt="A dynamic angle of a protein-packed smoothie bowl in a dark, textured stone vessel. The bowl is topped with perfectly arranged rows of chia seeds, fresh blueberries, and sliced almonds. The lighting highlights the glossy texture of the smoothie and the crisp edges of the toppings. The color palette features deep purples and earthy darks." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTQW62D_BH4-k3FmxWWOh-a1T3gcynDg66HbQJQRML-wvzsUT_j1aote7fpPXPe7xfdy5XZhNdgU4PtiZ49Cj8jRt0CtzhfJGwu1eVbwnBp_B8rww4Q5qvfNRssfesDu0eWJ2vvB_i1L42lK0oVaE2YcWlKKXBn9nsW5R1sBxGc-bvToERkTWulRtS_afDWN8scCRtiWhYUPcqfVpSmp7q4dgL39_khIi4Unx6BSrH-yjTeZHjUxPfUqs9godcgFLDkCvr3szweuEb"/>
+<div class="absolute top-2 right-2 bg-surface-container-lowest/80 backdrop-blur-sm px-2 py-1 rounded-full border border-white/10 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed">local_fire_department</span>
+<span class="font-label-sm text-label-sm text-on-surface">310 kcal</span>
+</div>
+</div>
+<div class="p-4 flex flex-col gap-2">
+<h3 class="font-body-md text-body-md font-bold text-on-surface line-clamp-1">Smoothie Bowl Proteico</h3>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="font-label-sm text-label-sm">5 min prep</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="flex-1 flex flex-col glass-panel rounded-xl md:rounded-2xl border-t border-t-white/10 overflow-hidden relative z-10">
+<div class="bg-surface-container-low/50 backdrop-blur-md px-5 py-4 border-b border-white/5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-gradient-to-br from-tertiary-container to-primary-container flex items-center justify-center p-[2px]">
+<div class="w-full h-full bg-background rounded-full flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-tertiary-fixed text-[24px]">psychology</span>
+</div>
+</div>
+<div>
+<h1 class="text-xl md:text-2xl font-bold text-on-surface flex items-center gap-2 tracking-tight">
+                        Lumina <span class="w-2.5 h-2.5 rounded-full bg-primary-fixed drop-shadow-[0_0_6px_rgba(42,229,0,0.8)]"></span>
+</h1>
+<p class="text-sm font-medium text-on-surface-variant mt-0.5">Lumina Nutritionist</p>
+</div>
+<button onclick="toggleSidebar()" class="ml-auto w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary-fixed transition-colors"><span class="material-symbols-outlined text-[24px]">history</span></button>
+</div>
+<div id="chatContainer" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar relative"></div>
+<div class="p-4 bg-background/50 backdrop-blur-xl border-t border-white/5 flex flex-col gap-3">
+<div id="suggestionsBar" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-tertiary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Quanti macronutrienti mi mancano oggi? Cosa potrei mangiare per completare il fabbisogno?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-tertiary-fixed">calculate</span> Calcola macronutrienti
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-primary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Cosa potrei mangiare a cena stasera in base ai macro che mi mancano?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-primary-fixed">restaurant_menu</span> Idee per cena
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-tertiary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Quanta acqua dovrei bere oggi in base al mio peso e ai miei obiettivi?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-tertiary-fixed">water_drop</span> Idratazione
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+</div>
+<div class="relative flex items-center mt-2">
+<input id="chatInput" class="w-full bg-surface-container-high/50 border border-white/10 text-on-surface rounded-full py-4 pl-6 pr-14 focus:outline-none focus:border-tertiary-fixed focus:ring-1 focus:ring-tertiary-fixed transition-all text-base placeholder:text-on-surface-variant/50" placeholder="Chiedi a Lumina Nutritionist..." type="text"/>
+<button id="sendBtn" class="absolute right-2 w-10 h-10 flex items-center justify-center rounded-full bg-tertiary-fixed/10 hover:bg-tertiary-fixed/20 text-tertiary-fixed transition-colors">
+<span class="material-symbols-outlined text-[24px]">send</span>
+</button>
+</div>
+</div>
+</section>
+
+<!-- Chat Sidebar Backdrop -->
+<div id="chatBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="toggleSidebar()"></div>
+<!-- Chat Sidebar for History -->
+<div id="chatSidebar" class="fixed top-0 right-0 w-full sm:w-80 md:w-72 h-full bg-surface-container-high/95 backdrop-blur-xl border-l border-white/5 p-4 sm:p-5 z-50 translate-x-full transition-transform duration-300 overflow-y-auto flex flex-col gap-2">
+    <div class="flex justify-between items-center mb-4 pt-2">
+        <h3 class="font-headline-md text-on-surface text-[18px] flex items-center gap-2"><span class="material-symbols-outlined text-tertiary-fixed text-[20px]">history</span> Vecchie Chat</h3>
+        <button onclick="toggleSidebar()" class="w-8 h-8 rounded-full bg-surface-container hover:bg-error/20 flex items-center justify-center text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">close</span></button>
+    </div>
+    <button onclick="startNewChat()" class="w-full bg-primary-container/20 text-primary-container border border-primary-container/30 py-2.5 rounded-lg mb-2 text-sm flex items-center justify-center gap-2 hover:bg-primary-container/30 transition-colors active:scale-95">
+        <span class="material-symbols-outlined text-[18px]">add</span> Nuova Chat
+    </button>
+    <div id="sessionList" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar">
+        <!-- Sessions loaded here -->
+    </div>
+</div>
+
+</main>
+<!-- Standard BottomNavBar -->
+<!-- Standard BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span>
+<span class="font-label-sm text-label-sm mt-1">Nutrition</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-label-sm text-label-sm mt-1">Coach</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="user_profile.html">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+
+<script>
+    // 1. Verifichiamo se l'utente ha fatto il login, altrimenti lo rimandiamo indietro
+    let userId = sessionStorage.getItem('repEats_userId');
+    if (!userId) {
+        userId = localStorage.getItem('repEats_userId');
+        const expires = localStorage.getItem('repEats_expires');
+        if (expires && Date.now() > parseInt(expires)) {
+            localStorage.removeItem('repEats_userId');
+            localStorage.removeItem('repEats_username');
+            localStorage.removeItem('repEats_expires');
+            userId = null;
+        }
+    }
+
+    if (!userId) {
+        window.location.replace('/login.html');
+        throw new Error('AUTH_REDIRECT');
+    }
+
+    // Controllo completamento profilo obbligatorio
+    async function checkProfileGuard() {
+        try {
+            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (!json.data.age || json.data.age === 0 || !json.data.weight || json.data.weight === 0) {
+                    window.location.replace('dashboard.html');
+                }
+            }
+        } catch(e) {}
+    }
+    checkProfileGuard();
+
+    const chatContainer = document.getElementById('chatContainer');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    let currentConversationId = null;
+
+    // Funzione per formattare l'ora corrente
+    function getCurrentTime() {
+        return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Funzione per aggiungere la nuvoletta dell'utente (verde, a destra)
+    function appendUserMessage(text) {
+        const time = getCurrentTime();
+        const html = `
+            <div class="flex flex-col gap-1 w-[85%] md:w-2/3 self-end items-end">
+                <div class="bg-primary-container/10 backdrop-blur-md border border-primary-container/30 text-on-surface rounded-2xl rounded-tr-none p-4 font-body-md text-body-md shadow-[0_4px_24px_-8px_rgba(57,255,20,0.1)]">
+                    ${text}
+                </div>
+                <span class="font-label-sm text-label-sm text-on-surface-variant mr-2 opacity-50">${time}</span>
+            </div>
+        `;
+        chatContainer.insertAdjacentHTML('beforeend', html);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // ---- Parser Markdown completo ----
+    function parseMarkdown(text) {
+        // Escape HTML di sicurezza
+        const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        let lines = text.split('\n');
+        let html = '';
+        let i = 0;
+
+        while (i < lines.length) {
+            let line = lines[i];
+
+            // Tabelle markdown: rilevato quando troviamo una riga con |...|...
+            if (/^\|.+\|/.test(line)) {
+                let tableLines = [];
+                while (i < lines.length && /^\|/.test(lines[i])) {
+                    tableLines.push(lines[i]);
+                    i++;
+                }
+                html += '<div class="overflow-x-auto my-2"><table class="w-full text-sm border-collapse">';
+                tableLines.forEach((tl, ti) => {
+                    // riga separatore (es. |---|---|)
+                    if (/^\|[-:\s|]+\|$/.test(tl)) return;
+                    const cells = tl.split('|').filter((_,idx,arr) => idx > 0 && idx < arr.length - 1);
+                    const tag = ti === 0 ? 'th' : 'td';
+                    const rowClass = ti === 0
+                        ? 'bg-surface-container-high/60'
+                        : (ti % 2 === 0 ? 'bg-surface-container/30' : '');
+                    html += `<tr class="${rowClass}">`;
+                    cells.forEach(c => {
+                        html += `<${tag} class="px-3 py-2 border border-white/10 text-left font-${tag==='th'?'bold':'normal'} text-on-surface">${inlineMarkdown(c.trim())}</${tag}>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</table></div>';
+                continue;
+            }
+
+            // Lista puntata (-, *, +)
+            if (/^[-*+]\s/.test(line)) {
+                html += '<ul class="list-none my-2 flex flex-col gap-1">';
+                while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^[-*+]\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-tertiary-fixed mt-1 text-[10px]">&#9679;</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++;
+                }
+                html += '</ul>';
+                continue;
+            }
+
+            // Lista numerata
+            if (/^\d+\.\s/.test(line)) {
+                html += '<ol class="list-none my-2 flex flex-col gap-1" start="1">';
+                let num = 1;
+                while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^\d+\.\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-primary-fixed font-bold min-w-[20px]">${num}.</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++;
+                    num++;
+                }
+                html += '</ol>';
+                continue;
+            }
+
+            // Heading ##
+            if (/^###\s/.test(line)) {
+                html += `<h3 class="font-bold text-primary-fixed text-[16px] mt-3 mb-1">${inlineMarkdown(esc(line.replace(/^###\s/, '')))}</h3>`;
+                i++; continue;
+            }
+            if (/^##\s/.test(line)) {
+                html += `<h2 class="font-bold text-tertiary-fixed text-[18px] mt-4 mb-1">${inlineMarkdown(esc(line.replace(/^##\s/, '')))}</h2>`;
+                i++; continue;
+            }
+            if (/^#\s/.test(line)) {
+                html += `<h1 class="font-bold text-on-surface text-[20px] mt-4 mb-2">${inlineMarkdown(esc(line.replace(/^#\s/, '')))}</h1>`;
+                i++; continue;
+            }
+
+            // Riga vuota = spazio
+            if (line.trim() === '') {
+                html += '<div class="h-2"></div>';
+                i++; continue;
+            }
+
+            // Paragrafo normale
+            html += `<p class="leading-relaxed">${inlineMarkdown(esc(line))}</p>`;
+            i++;
+        }
+        return html;
+    }
+
+    function inlineMarkdown(text) {
+        // Gestisce bold, italic, codice inline (in sequenza per evitare conflitti)
+        return text
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code class="bg-surface-container-highest px-1 rounded text-primary-fixed text-[13px]">$1</code>');
+    }
+
+    // Funzione per aggiungere la nuvoletta di Lumina (azzurra, a sinistra)
+    function appendBotMessage(text) {
+        const container = document.getElementById('chatContainer') || document.getElementById('chatHistory');
+        const botDiv = document.createElement('div');
+        botDiv.className = "flex flex-col gap-1 w-[85%] md:w-2/3";
+        botDiv.innerHTML = `
+            <div class="glass-panel rounded-2xl rounded-tl-none p-4 text-on-surface font-body-md text-body-md relative overflow-hidden border border-tertiary-fixed/20 shadow-[0_4px_24px_-8px_rgba(0,246,246,0.15)]">
+                ${parseMarkdown(text)}
+            </div>
+        `;
+        container.appendChild(botDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+
+    // Aggiunge la nuvoletta del "caricamento..."
+    function appendLoading() {
+        const html = `
+            <div id="loadingBubble" class="flex flex-col gap-1 w-[85%] md:w-2/3">
+                <div class="glass-panel rounded-2xl rounded-tl-none p-4 text-on-surface font-body-md text-body-md relative overflow-hidden border border-tertiary-fixed/20 shadow-[0_4px_24px_-8px_rgba(0,246,246,0.15)] flex items-center gap-3">
+                    <span class="material-symbols-outlined animate-spin text-tertiary-fixed">progress_activity</span>
+                    <span class="text-on-surface-variant italic">Lumina sta scrivendo...</span>
+                </div>
+            </div>
+        `;
+        chatContainer.insertAdjacentHTML('beforeend', html);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Rimuove la nuvoletta del caricamento
+    function removeLoading() {
+        const loading = document.getElementById('loadingBubble');
+        if (loading) loading.remove();
+    }
+
+    // Invio del messaggio
+    async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Mostriamo il messaggio dell'utente e svuotiamo l'input
+        appendUserMessage(message);
+        chatInput.value = '';
+        
+        // Mostriamo l'animazione di caricamento
+        appendLoading();
+
+        try {
+            // Chiamata all'API che abbiamo appena scritto!
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: parseInt(userId),
+                    conversation_id: currentConversationId,
+                    message: message,
+                    chat_type: "nutritionist"
+                })
+            });
+
+            const data = await response.json();
+            removeLoading();
+
+            if (response.ok) {
+                // Salviamo l'ID della conversazione per i prossimi messaggi
+                currentConversationId = data.conversation_id;
+                // Mostriamo la risposta dell'IA
+                appendBotMessage(data.reply);
+            } else {
+                appendBotMessage("Scusa, ho avuto un problema di connessione ai miei circuiti. 🤖 Errore: " + (data.detail || 'Sconosciuto'));
+            }
+
+        } catch (error) {
+            removeLoading();
+            appendBotMessage("Errore di rete. Controlla che il server sia acceso.");
+        }
+    }
+
+    // Event listeners chat
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    // Scanner Alimenti (Vision AI) rimosso dal main block perché gestito nel modal a fondo pagina
+
+    // ---- Chat Sidebar Logic ----
+    function toggleSidebar() {
+        const sidebar = document.getElementById('chatSidebar');
+        const backdrop = document.getElementById('chatBackdrop');
+        const isOpen = !sidebar.classList.contains('translate-x-full');
+        if (!isOpen) {
+            // Open
+            backdrop.classList.remove('hidden');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                backdrop.classList.add('opacity-100');
+                sidebar.classList.remove('translate-x-full');
+            }, 10);
+            loadSessions();
+        } else {
+            // Close
+            sidebar.classList.add('translate-x-full');
+            backdrop.classList.remove('opacity-100');
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => { backdrop.classList.add('hidden'); }, 300);
+        }
+    }
+
+    async function loadSessions() {
+        const list = document.getElementById('sessionList');
+        list.innerHTML = '<div class="flex items-center justify-center py-4 gap-2"><span class="material-symbols-outlined animate-spin text-tertiary-fixed text-[20px]">progress_activity</span><span class="text-on-surface-variant text-sm">Caricamento...</span></div>';
+        try {
+            const res = await fetch(`/api/chat/sessions?user_id=${userId}&chat_type=nutritionist`);
+            if (res.ok) {
+                const data = await res.json();
+                list.innerHTML = '';
+                if (data.sessions.length === 0) {
+                    list.innerHTML = '<div class="flex flex-col items-center justify-center py-8 gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-[32px] opacity-30">chat_bubble_outline</span><span class="text-sm">Nessuna chat passata.</span></div>';
+                    return;
+                }
+                data.sessions.slice().reverse().forEach(s => {
+                    const isActive = currentConversationId === s.id;
+                    const div = document.createElement('div');
+                    div.className = `glass-panel p-3 rounded-lg flex flex-col gap-1 border cursor-pointer group relative transition-all active:scale-[0.98] ${
+                        isActive ? 'border-tertiary-fixed/50 bg-tertiary-fixed/10' : 'border-white/5 hover:border-tertiary-fixed/30 hover:bg-surface-container/50'
+                    }`;
+                    div.onclick = () => loadChat(s.id);
+
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'flex justify-between items-center';
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = `text-sm truncate pr-8 ${isActive ? 'text-tertiary-fixed font-semibold' : 'text-on-surface'}`;
+                    titleSpan.innerText = s.title;
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
+
+                    const renameBtn = document.createElement('button');
+                    renameBtn.className = 'w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container-highest/50 transition-colors';
+                    renameBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-tertiary-container hover:text-tertiary-fixed">edit</span>';
+                    renameBtn.onclick = (e) => { e.stopPropagation(); renameSession(s.id, s.title); };
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'w-6 h-6 rounded flex items-center justify-center hover:bg-error/20 transition-colors';
+                    delBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error hover:text-error-container">delete</span>';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+
+                    actionsDiv.appendChild(renameBtn);
+                    actionsDiv.appendChild(delBtn);
+                    titleDiv.appendChild(titleSpan);
+                    titleDiv.appendChild(actionsDiv);
+                    div.appendChild(titleDiv);
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'text-[10px] text-on-surface-variant opacity-50';
+                    dateSpan.innerText = new Date(s.created_at).toLocaleString();
+                    div.appendChild(dateSpan);
+
+                    list.appendChild(div);
+                });
+            }
+        } catch(e) {
+            console.error(e);
+            list.innerHTML = '<div class="flex flex-col items-center justify-center py-6 gap-2"><span class="material-symbols-outlined text-error text-[24px]">error_outline</span><span class="text-error text-sm">Errore nel caricamento.</span></div>';
+        }
+    }
+
+    async function loadChat(id) {
+        try {
+            const res = await fetch(`/api/chat/session/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                currentConversationId = id;
+                chatContainer.innerHTML = '';
+                data.history.forEach(m => {
+                    if (m.role === 'user') appendUserMessage(m.content);
+                    else appendBotMessage(m.content);
+                });
+                toggleSidebar();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function deleteSession(id) {
+        if (!confirm('Vuoi davvero eliminare questa chat?')) return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                if (currentConversationId === id) startNewChat();
+                loadSessions();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function renameSession(id, oldTitle) {
+        const newTitle = prompt('Nuovo titolo:', oldTitle);
+        if (!newTitle || newTitle.trim() === '') return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            });
+            if (res.ok) loadSessions();
+        } catch(e) { console.error(e); }
+    }
+
+    function startNewChat() {
+        currentConversationId = null;
+        chatContainer.innerHTML = '';
+        const sidebar = document.getElementById('chatSidebar');
+        if (!sidebar.classList.contains('hidden')) toggleSidebar();
+    }
+
+    // Funzione per i quick-chip buttons
+    function sendQuickMessage(text) {
+        chatInput.value = text;
+        sendMessage();
+    }
+
+    function dismissChip(btn) {
+        const chip = btn.closest('.suggestion-chip');
+        chip.style.opacity = '0';
+        chip.style.transform = 'scale(0.8)';
+        chip.style.maxWidth = '0';
+        chip.style.padding = '0';
+        chip.style.margin = '0';
+        chip.style.border = 'none';
+        setTimeout(() => {
+            chip.remove();
+            const bar = document.getElementById('suggestionsBar');
+            if (bar && bar.children.length === 0) {
+                bar.style.display = 'none';
+            }
+        }, 300);
+    }
+
+    function showScannerResult(html, isWarning) {
+        // Hide loading, show result
+        document.getElementById('scannerLoading').classList.add('hidden');
+        document.getElementById('scannerLoading').classList.remove('flex');
+        document.getElementById('scannerForm').classList.add('hidden');
+        
+        const resultDiv = document.getElementById('scannerResult');
+        const resultContent = document.getElementById('scannerResultContent');
+        const progressBar = document.getElementById('scannerResultProgress');
+        const checkIcon = resultDiv.querySelector('.material-symbols-outlined');
+        
+        // Set icon based on result type
+        if (isWarning) {
+            checkIcon.textContent = 'warning';
+            checkIcon.classList.remove('text-tertiary-fixed');
+            checkIcon.classList.add('text-yellow-400');
+        } else {
+            checkIcon.textContent = 'check_circle';
+            checkIcon.classList.remove('text-yellow-400');
+            checkIcon.classList.add('text-tertiary-fixed');
+        }
+        
+        resultContent.innerHTML = html;
+        resultDiv.classList.remove('hidden');
+        resultDiv.classList.add('flex');
+        
+        // Reset and animate progress bar
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '100%';
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                progressBar.style.transition = 'width 10s linear';
+                progressBar.style.width = '0%';
+            });
+        });
+        
+        // Auto-close after 10 seconds
+        scannerAutoCloseTimer = setTimeout(() => {
+            closeScannerModal();
+        }, 10000);
+    }
+
+</script>
+
+<!-- Scanner Modal -->
+<div id="scannerModal" class="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md rounded-2xl p-6 border border-tertiary-fixed/30 flex flex-col gap-4 relative">
+        <button onclick="closeScannerModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-error"><span class="material-symbols-outlined">close</span></button>
+        <h3 class="font-headline-md text-on-surface text-center mb-2 flex items-center justify-center gap-2"><span class="material-symbols-outlined text-tertiary-fixed">photo_camera</span> Analisi Pasto</h3>
+        
+        <div id="scannerForm">
+            <div class="flex flex-col gap-1 mb-4">
+                <label class="text-sm text-on-surface-variant">Categoria</label>
+                <select id="mealCategory" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:outline-none focus:border-tertiary-fixed">
+                    <option value="Colazione">Colazione</option>
+                    <option value="Pranzo">Pranzo</option>
+                    <option value="Cena">Cena</option>
+                    <option value="Spuntino" selected>Spuntino</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1 mb-6">
+                <label class="text-sm text-on-surface-variant">Grammatura (g)</label>
+                <input type="number" id="mealWeight" value="100" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:outline-none focus:border-tertiary-fixed">
+            </div>
+            <button onclick="submitImage()" class="w-full bg-tertiary-fixed text-on-tertiary-fixed py-3 rounded-xl font-bold uppercase tracking-wider flex justify-center items-center gap-2 active:scale-95 transition-transform">
+                <span class="material-symbols-outlined">analytics</span> Analizza Ora
+            </button>
+        </div>
+        
+        <div id="scannerLoading" class="hidden flex-col items-center justify-center py-6 gap-4">
+            <span class="material-symbols-outlined animate-spin text-tertiary-fixed text-[48px]">progress_activity</span>
+            <p class="text-on-surface text-center font-bold">Lumina sta analizzando il tuo pasto...</p>
+            <p class="text-sm text-on-surface-variant text-center">Riconoscimento ingredienti e calcolo macro in corso</p>
+        </div>
+
+        <div id="scannerResult" class="hidden flex-col items-center justify-center py-4 gap-3">
+            <span class="material-symbols-outlined text-tertiary-fixed text-[48px]">check_circle</span>
+            <div id="scannerResultContent" class="text-on-surface text-sm w-full"></div>
+            <div class="w-full bg-tertiary-fixed/20 rounded-full h-1 mt-2 overflow-hidden">
+                <div id="scannerResultProgress" class="bg-tertiary-fixed h-full rounded-full" style="width: 100%; transition: width 10s linear;"></div>
+            </div>
+            <p class="text-xs text-on-surface-variant">Si chiuderà automaticamente...</p>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    let selectedImageFile = null;
+
+    document.getElementById('scannerBtn').addEventListener('click', () => {
+        document.getElementById('imageInput').click();
+    });
+
+    document.getElementById('imageInput').addEventListener('change', (e) => {
+        if(e.target.files && e.target.files.length > 0) {
+            selectedImageFile = e.target.files[0];
+            document.getElementById('scannerModal').classList.remove('hidden');
+            document.getElementById('scannerForm').classList.remove('hidden');
+            document.getElementById('scannerLoading').classList.add('hidden');
+        }
+    });
+
+    let scannerAutoCloseTimer = null;
+
+    function closeScannerModal() {
+        if (scannerAutoCloseTimer) {
+            clearTimeout(scannerAutoCloseTimer);
+            scannerAutoCloseTimer = null;
+        }
+        document.getElementById('scannerModal').classList.add('hidden');
+        document.getElementById('scannerForm').classList.remove('hidden');
+        document.getElementById('scannerLoading').classList.add('hidden');
+        document.getElementById('scannerLoading').classList.remove('flex');
+        document.getElementById('scannerResult').classList.add('hidden');
+        document.getElementById('scannerResult').classList.remove('flex');
+        document.getElementById('imageInput').value = '';
+        selectedImageFile = null;
+    }
+
+    async function submitImage() {
+        if(!selectedImageFile) return;
+        
+        const cat = document.getElementById('mealCategory').value;
+        const weight = document.getElementById('mealWeight').value;
+        
+        document.getElementById('scannerForm').classList.add('hidden');
+        document.getElementById('scannerLoading').classList.remove('hidden');
+        document.getElementById('scannerLoading').classList.add('flex');
+        
+        const formData = new FormData();
+        formData.append('file', selectedImageFile);
+        formData.append('user_id', userId);
+        formData.append('grammatura', weight);
+        formData.append('categoria', cat);
+        
+        try {
+            const res = await fetch('/api/chat/vision', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if(res.ok) {
+                const data = await res.json();
+                
+                const meal = data.data;
+                
+                // Controlla se i valori sono tutti zero (caso degenere)
+                const tuttiZero = meal.calories === 0 && meal.proteins === 0 && meal.carbohydrates === 0 && meal.fats === 0;
+                if (tuttiZero && (meal.name === "" || meal.name === "Prodotto non identificato")) {
+                    // Caso non identificato: mostra errore nel modal e chiudi dopo 3s
+                    showScannerResult(`
+                        <div class="text-center">
+                            <p class="text-base font-bold text-yellow-400 mb-2">⚠️ Alimento non identificato</p>
+                            <p class="text-on-surface-variant">Prova con una foto più chiara o inquadra meglio il codice a barre.</p>
+                        </div>
+                    `, true);
+                    return;
+                }
+
+                // Determina se i valori sono stati trovati dal barcode o stimati
+                const analysis = meal.analysis_result || "";
+                const isStimato = analysis.toLowerCase().includes("stim") || tuttiZero;
+                const badge = isStimato ? '<span class="text-xs text-on-surface-variant italic">(valori stimati)</span>' : '<span class="text-xs text-tertiary-fixed italic">(dati OpenFoodFacts)</span>';
+
+                let resultHTML = `
+                    <div class="text-center mb-3">
+                        <p class="text-base font-bold text-on-surface">${meal.name}</p>
+                        <p class="text-xs text-on-surface-variant">${cat} ${badge}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-orange-400">🔥 ${Math.round(meal.calories)}</p>
+                            <p class="text-xs text-on-surface-variant">kcal</p>
+                        </div>
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-red-400">🥩 ${Math.round(meal.proteins)}g</p>
+                            <p class="text-xs text-on-surface-variant">Proteine</p>
+                        </div>
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-yellow-400">🍞 ${Math.round(meal.carbohydrates)}g</p>
+                            <p class="text-xs text-on-surface-variant">Carboidrati</p>
+                        </div>
+                        <div class="bg-surface-container-high rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-green-400">🥑 ${Math.round(meal.fats)}g</p>
+                            <p class="text-xs text-on-surface-variant">Grassi</p>
+                        </div>
+                    </div>
+                    <p class="text-center text-sm mt-3 ${tuttiZero ? 'text-yellow-400' : 'text-tertiary-fixed'} font-medium">
+                        ${tuttiZero ? '⚠️ Valori a 0 — correggili nella dashboard' : '✅ Salvato nei tuoi macros di oggi! 💪'}
+                    </p>
+                    ${meal.advice ? `<div class="mt-3 bg-tertiary-fixed/10 border border-tertiary-fixed/30 rounded-lg p-2 text-xs text-on-surface text-center">💡 <b>Consiglio:</b> ${meal.advice}</div>` : ''}
+                `;
+
+                showScannerResult(resultHTML, tuttiZero);
+            } else {
+                alert("Errore durante l'analisi.");
+                closeScannerModal();
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Errore di rete.");
+            closeScannerModal();
+        }
+    }
+</script>
+</body>
+</html>

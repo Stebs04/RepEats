@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="it"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RepEats - Lumina Coach</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background-color: rgba(32, 31, 31, 0.7); /* surface-container */
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .neon-glow-primary {
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.3); /* primary-container approx */
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface": "#e5e2e1",
+                        "secondary": "#ffb59c",
+                        "on-secondary-fixed": "#390c00",
+                        "secondary-container": "#fa5c1c",
+                        "surface-container-lowest": "#0e0e0e",
+                        "tertiary-container": "#00f6f6",
+                        "surface-dim": "#131313",
+                        "inverse-primary": "#106e00",
+                        "primary-fixed-dim": "#2ae500",
+                        "background": "#131313",
+                        "outline": "#85967c",
+                        "primary-fixed": "#79ff5b",
+                        "on-tertiary-fixed-variant": "#004f4f",
+                        "surface-bright": "#393939",
+                        "on-primary-container": "#107100",
+                        "on-surface-variant": "#baccb0",
+                        "surface-container-highest": "#353534",
+                        "inverse-on-surface": "#313030",
+                        "surface-tint": "#2ae500",
+                        "surface-container": "#201f1f",
+                        "on-tertiary-fixed": "#002020",
+                        "on-primary-fixed-variant": "#095300",
+                        "error-container": "#93000a",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error": "#690005",
+                        "surface-variant": "#353534",
+                        "secondary-fixed": "#ffdbcf",
+                        "on-secondary-fixed-variant": "#832700",
+                        "on-background": "#e5e2e1",
+                        "inverse-surface": "#e5e2e1",
+                        "on-secondary": "#5c1900",
+                        "outline-variant": "#3c4b35",
+                        "tertiary": "#e6fffe",
+                        "tertiary-fixed": "#00fbfb",
+                        "on-tertiary": "#003737",
+                        "on-primary": "#053900",
+                        "on-tertiary-container": "#006d6d",
+                        "secondary-fixed-dim": "#ffb59c",
+                        "primary-container": "#39ff14",
+                        "error": "#ffb4ab",
+                        "surface": "#131313",
+                        "on-primary-fixed": "#022100",
+                        "on-secondary-container": "#511500",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#00dddd",
+                        "primary": "#efffe3"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "sm": "12px",
+                        "xl": "64px",
+                        "lg": "40px",
+                        "gutter": "16px",
+                        "container-margin": "20px",
+                        "md": "24px",
+                        "base": "8px",
+                        "xs": "4px"
+                    },
+                    fontFamily: {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-xl-mobile": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-xl": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "stat-value": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "display-xl-mobile": ["36px", { "lineHeight": "42px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "stat-value": ["28px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-sans selection:bg-primary-container selection:text-on-primary-container">
+<!-- Standard TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
+<div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
+<img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
+<span class="font-display-xl-mobile text-display-xl-mobile font-black tracking-tighter text-primary-container hidden md:inline-block">RepEats</span>
+</div>
+<nav class="hidden md:flex gap-lg items-center">
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span> Home
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span> Nutrition
+</a>
+<a class="text-on-surface-variant hover:text-primary-fixed transition-colors flex items-center gap-xs" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span> Coach
+</a>
+</nav>
+<div class="flex items-center gap-sm">
+<div class="h-8 w-8 rounded-full border border-surface-variant bg-surface-container-high flex items-center justify-center ml-xs cursor-pointer" onclick="window.location.href='user_profile.html'">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">person</span>
+</div>
+</div>
+</header>
+<!-- TopAppBar (Shared Component) -->
+
+<!-- Main Canvas -->
+<main class="flex-1 w-full max-w-5xl mx-auto pt-20 md:pt-28 px-container-margin md:px-xl pb-28 md:pb-12 flex flex-col gap-6 overflow-hidden relative">
+<!-- Motivational AI Chat -->
+<section class="flex-1 flex flex-col glass-panel rounded-xl md:rounded-2xl border-t border-t-white/10 overflow-hidden relative z-10">
+<div class="bg-surface-container-low/50 backdrop-blur-md px-5 py-4 border-b border-white/5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary-container to-tertiary-container flex items-center justify-center p-[2px]">
+<div class="w-full h-full bg-background rounded-full flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-primary-container text-[24px]">fitness_center</span>
+</div>
+</div>
+<div>
+<h1 class="text-xl md:text-2xl font-bold text-on-surface flex items-center gap-2 tracking-tight">
+                        Lumina <span class="w-2.5 h-2.5 rounded-full bg-primary-container drop-shadow-[0_0_6px_rgba(57,255,20,0.8)]"></span>
+</h1>
+<p class="text-sm font-medium text-on-surface-variant mt-0.5">Lumina Coach</p>
+</div>
+<button onclick="toggleSidebar()" class="ml-auto w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary-container transition-colors"><span class="material-symbols-outlined text-[24px]">history</span></button>
+</div>
+
+<!-- Decorative gradient mesh -->
+<div class="absolute -top-24 -right-24 w-48 h-48 bg-tertiary-container/10 rounded-full blur-3xl pointer-events-none"></div>
+
+<div id="chatHistory" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar relative"></div>
+
+<!-- Input Section -->
+<div class="p-4 bg-background/50 backdrop-blur-xl border-t border-white/5 flex flex-col gap-3">
+<!-- Quick-chip suggestions -->
+<div id="suggestionsBar" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-primary-container/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Crea una scheda di allenamento per la settimana in base al mio obiettivo')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-primary-container">fitness_center</span> Scheda settimanale
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-primary-fixed/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Quali esercizi mi consigli per oggi in base ai miei macro attuali?')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-primary-fixed">bolt</span> Allenamento oggi
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+<div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-tertiary-container/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
+  <button onclick="sendQuickMessage('Dammi consigli su stretching e recupero muscolare')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
+    <span class="material-symbols-outlined text-[15px] text-tertiary-container">self_improvement</span> Recovery
+  </button>
+  <button onclick="dismissChip(this)" class="pr-2.5 pl-0.5 py-2 text-on-surface-variant/30 hover:text-on-surface/70 transition-colors" aria-label="Rimuovi suggerimento">
+    <span class="material-symbols-outlined text-[13px]">close</span>
+  </button>
+</div>
+</div>
+<!-- Quick Input -->
+<div class="relative flex items-center mt-2">
+<input id="chatInput" class="w-full bg-surface-container-high/50 border border-white/10 text-on-surface rounded-full py-4 pl-6 pr-14 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all text-base placeholder:text-on-surface-variant/50" placeholder="Chiedi a Lumina Coach..." type="text"/>
+<button id="sendBtn" class="absolute right-2 w-10 h-10 flex items-center justify-center rounded-full bg-primary-container/10 hover:bg-primary-container/20 text-primary-container transition-colors">
+<span class="material-symbols-outlined text-[24px]" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Focus Oggi Widget -->
+<section class="relative rounded-xl p-md overflow-hidden border border-white/10 bg-surface-container-high/60 backdrop-blur-md" style="display:none;">
+<!-- Animated Shader Background Placeholder for Focus -->
+<div class="absolute inset-0 opacity-20 mix-blend-screen pointer-events-none">
+<div class="w-full h-full bg-gradient-to-br from-primary-container/20 via-transparent to-transparent"></div>
+</div>
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-gutter">
+<div>
+<h2 class="font-label-sm text-label-sm text-primary-container uppercase tracking-widest mb-1 flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" data-icon="target">target</span> Focus Oggi
+                    </h2>
+<h1 class="font-display-xl-mobile md:font-display-xl text-display-xl-mobile md:text-display-xl text-on-surface font-black leading-tight">Upper Body <br class="hidden md:block"/><span class="text-transparent bg-clip-text bg-gradient-to-r from-on-surface to-surface-variant">Blast</span></h1>
+</div>
+<div class="flex gap-sm">
+<div class="bg-surface-container-lowest/50 rounded-lg px-4 py-2 border border-white/5 flex flex-col items-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Durata</span>
+<span class="font-stat-value text-stat-value text-on-surface">45<span class="text-body-md font-body-md text-on-surface-variant ml-1">m</span></span>
+</div>
+<div class="bg-surface-container-lowest/50 rounded-lg px-4 py-2 border border-white/5 flex flex-col items-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Volume</span>
+<span class="font-stat-value text-stat-value text-on-surface">Alto</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Workout Plans Section -->
+<section id="workoutPlansSection" class="flex flex-col gap-sm mt-4">
+    <h3 class="font-headline-md text-headline-md text-on-surface mb-xs px-2">Le Tue Schede di Allenamento</h3>
+    <div id="workoutPlansContainer" class="flex flex-col gap-4">
+        <!-- Plans will be loaded here dynamically -->
+        <div class="text-on-surface-variant text-sm px-2">Caricamento schede in corso...</div>
+    </div>
+</section>
+<!-- Spacer for FAB & Bottom Nav -->
+<div class="h-24 md:h-12 w-full"></div>
+
+<!-- Chat Sidebar Backdrop -->
+<div id="chatBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="toggleSidebar()"></div>
+<!-- Chat Sidebar for History -->
+<div id="chatSidebar" class="fixed top-0 right-0 w-full sm:w-80 md:w-72 h-full bg-surface-container-high/95 backdrop-blur-xl border-l border-white/5 p-4 sm:p-5 z-50 translate-x-full transition-transform duration-300 overflow-y-auto flex flex-col gap-2">
+    <div class="flex justify-between items-center mb-4 pt-2">
+        <h3 class="font-headline-md text-on-surface text-[18px] flex items-center gap-2"><span class="material-symbols-outlined text-primary-container text-[20px]">history</span> Vecchie Chat</h3>
+        <button onclick="toggleSidebar()" class="w-8 h-8 rounded-full bg-surface-container hover:bg-error/20 flex items-center justify-center text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-[20px]">close</span></button>
+    </div>
+    <button onclick="startNewChat()" class="w-full bg-primary-container/20 text-primary-container border border-primary-container/30 py-2.5 rounded-lg mb-2 text-sm flex items-center justify-center gap-2 hover:bg-primary-container/30 transition-colors active:scale-95">
+        <span class="material-symbols-outlined text-[18px]">add</span> Nuova Chat
+    </button>
+    <div id="sessionList" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar">
+        <!-- Sessions loaded here -->
+    </div>
+</div>
+
+</main>
+
+<!-- BottomNavBar (Shared Component) - Mobile Only -->
+<!-- Standard BottomNavBar -->
+<!-- Standard BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="nutritionist.html">
+<span class="material-symbols-outlined">restaurant</span>
+<span class="font-label-sm text-label-sm mt-1">Nutrition</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="fitness_coach.html">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-label-sm text-label-sm mt-1">Coach</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="user_profile.html">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<style>
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+<script>
+    let userId = sessionStorage.getItem('repEats_userId');
+    if (!userId) {
+        userId = localStorage.getItem('repEats_userId');
+        const expires = localStorage.getItem('repEats_expires');
+        if (expires && Date.now() > parseInt(expires)) {
+            localStorage.removeItem('repEats_userId');
+            localStorage.removeItem('repEats_username');
+            localStorage.removeItem('repEats_expires');
+            userId = null;
+        }
+    }
+
+    if (!userId) {
+        window.location.replace('/login.html');
+        throw new Error('AUTH_REDIRECT');
+    }
+
+    // Controllo completamento profilo obbligatorio
+    async function checkProfileGuard() {
+        try {
+            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            if (res.ok) {
+                const json = await res.json();
+                if (!json.data.age || json.data.age === 0 || !json.data.weight || json.data.weight === 0) {
+                    window.location.replace('dashboard.html');
+                }
+            }
+        } catch(e) {}
+    }
+    checkProfileGuard();
+
+    const chatHistory = document.getElementById('chatHistory');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    let currentConversationId = null;
+
+    function appendUserMessage(text) {
+        const html = `
+            <div class="flex items-start justify-end gap-gutter w-full">
+                <div class="bg-primary-container/20 border border-primary-container/30 rounded-2xl rounded-tr-none p-sm">
+                    <p class="font-body-md text-on-surface">${text}</p>
+                </div>
+            </div>
+        `;
+        chatHistory.insertAdjacentHTML('beforeend', html);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // ---- Parser Markdown completo ----
+    function parseMarkdown(text) {
+        const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        let lines = text.split('\n');
+        let html = '';
+        let i = 0;
+        while (i < lines.length) {
+            let line = lines[i];
+            // Tabelle markdown
+            if (/^\|.+\|/.test(line)) {
+                let tableLines = [];
+                while (i < lines.length && /^\|/.test(lines[i])) { tableLines.push(lines[i]); i++; }
+                html += '<div class="overflow-x-auto my-2"><table class="w-full text-sm border-collapse">';
+                tableLines.forEach((tl, ti) => {
+                    if (/^\|[-:\s|]+\|$/.test(tl)) return;
+                    const cells = tl.split('|').filter((_,idx,arr) => idx > 0 && idx < arr.length - 1);
+                    const tag = ti === 0 ? 'th' : 'td';
+                    const rowClass = ti === 0 ? 'bg-primary-container/10' : (ti % 2 === 0 ? 'bg-surface-container/30' : '');
+                    html += `<tr class="${rowClass}">`;
+                    cells.forEach(c => { html += `<${tag} class="px-3 py-2 border border-white/10 text-left font-${tag==='th'?'bold':'normal'} text-on-surface">${inlineMarkdown(c.trim())}</${tag}>`; });
+                    html += '</tr>';
+                });
+                html += '</table></div>';
+                continue;
+            }
+            // Lista puntata
+            if (/^[-*+]\s/.test(line)) {
+                html += '<ul class="list-none my-2 flex flex-col gap-1">';
+                while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^[-*+]\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-primary-container mt-1 text-[10px]">&#9679;</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++;
+                }
+                html += '</ul>';
+                continue;
+            }
+            // Lista numerata
+            if (/^\d+\.\s/.test(line)) {
+                html += '<ol class="list-none my-2 flex flex-col gap-1">';
+                let num = 1;
+                while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+                    const content = lines[i].replace(/^\d+\.\s/, '');
+                    html += `<li class="flex items-start gap-2"><span class="text-primary-fixed font-bold min-w-[20px]">${num}.</span><span>${inlineMarkdown(esc(content))}</span></li>`;
+                    i++; num++;
+                }
+                html += '</ol>';
+                continue;
+            }
+            // Heading
+            if (/^###\s/.test(line)) { html += `<h3 class="font-bold text-primary-fixed text-[15px] mt-3 mb-1">${inlineMarkdown(esc(line.replace(/^###\s/, '')))}</h3>`; i++; continue; }
+            if (/^##\s/.test(line)) { html += `<h2 class="font-bold text-primary-container text-[17px] mt-4 mb-1">${inlineMarkdown(esc(line.replace(/^##\s/, '')))}</h2>`; i++; continue; }
+            if (/^#\s/.test(line)) { html += `<h1 class="font-bold text-on-surface text-[19px] mt-4 mb-2">${inlineMarkdown(esc(line.replace(/^#\s/, '')))}</h1>`; i++; continue; }
+            // Riga vuota
+            if (line.trim() === '') { html += '<div class="h-2"></div>'; i++; continue; }
+            // Paragrafo
+            html += `<p class="leading-relaxed">${inlineMarkdown(esc(line))}</p>`;
+            i++;
+        }
+        return html;
+    }
+
+    function inlineMarkdown(text) {
+        return text
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code class="bg-surface-container-highest px-1 rounded text-primary-container text-[13px]">$1</code>');
+    }
+
+    function appendBotMessage(text) {
+        const botDiv = document.createElement('div');
+        botDiv.className = 'flex items-start gap-gutter w-full';
+        botDiv.innerHTML = `
+            <div class="relative shrink-0">
+                <img class="w-12 h-12 rounded-full object-cover border border-tertiary-container/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlrUM8QRyxwPtdV3pN_Kb5BiTYpvQSSocTfT5tRFUEiSUQORP2qoU9ypgPgjSK3Chd0s_1xWLnqfPNDfvIhlemquidz2lpTVGTgzI_SkDQf1t5dx2SLdhbFbN36MIZg7p3awk6ZAS40QnaHMjUrQWD-3n5x_cLX5Vdc_XCGBRvlfWIehYaIj4vQj-iMnEBG7EyxkGE0cxMgz0GKcbia22JimrHgYWkdIB51T7ovid9T9Rr93a5DbTosoRL-5Tl9_QECFQz-ar-lQax"/>
+            </div>
+            <div class="bg-surface-variant/50 rounded-2xl rounded-tl-none p-sm border border-white/5 text-on-surface font-body-md">
+                ${parseMarkdown(text)}
+            </div>
+        `;
+        chatHistory.appendChild(botDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function appendLoading() {
+        const html = `
+            <div id="loadingBubble" class="flex items-start gap-gutter w-full">
+                <div class="relative shrink-0">
+                    <div class="w-12 h-12 rounded-full border border-tertiary-container/30 bg-surface-container flex items-center justify-center">
+                        <span class="material-symbols-outlined animate-spin text-tertiary-container">progress_activity</span>
+                    </div>
+                </div>
+                <div class="bg-surface-variant/50 rounded-2xl rounded-tl-none p-sm border border-white/5 flex items-center">
+                    <p class="font-body-md text-on-surface-variant italic">Lumina sta scrivendo...</p>
+                </div>
+            </div>
+        `;
+        chatHistory.insertAdjacentHTML('beforeend', html);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function removeLoading() {
+        const loading = document.getElementById('loadingBubble');
+        if (loading) loading.remove();
+    }
+
+    async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        appendUserMessage(message);
+        chatInput.value = '';
+        appendLoading();
+
+        try {
+            // L'Orchestratore capirà dal contesto e dal prompt che stiamo parlando di allenamento!
+            const response = await fetch('/api/chat/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: parseInt(userId),
+                    conversation_id: currentConversationId,
+                    message: "Al Coach: " + message, // trucco per forzare l'orchestratore verso il fitness agent
+                    chat_type: "coach"
+                })
+            });
+
+            const data = await response.json();
+            removeLoading();
+
+            if (response.ok) {
+                currentConversationId = data.conversation_id;
+                appendBotMessage(data.reply);
+            } else {
+                appendBotMessage("Errore: " + (data.detail || 'Sconosciuto'));
+            }
+
+        } catch (error) {
+            removeLoading();
+            appendBotMessage("Errore di rete.");
+        }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    // ---- Chat Sidebar Logic ----
+    function toggleSidebar() {
+        const sidebar = document.getElementById('chatSidebar');
+        const backdrop = document.getElementById('chatBackdrop');
+        const isOpen = !sidebar.classList.contains('translate-x-full');
+        if (!isOpen) {
+            // Open
+            backdrop.classList.remove('hidden');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                backdrop.classList.add('opacity-100');
+                sidebar.classList.remove('translate-x-full');
+            }, 10);
+            loadSessions();
+        } else {
+            // Close
+            sidebar.classList.add('translate-x-full');
+            backdrop.classList.remove('opacity-100');
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => { backdrop.classList.add('hidden'); }, 300);
+        }
+    }
+
+    async function loadSessions() {
+        const list = document.getElementById('sessionList');
+        list.innerHTML = '<div class="flex items-center justify-center py-4 gap-2"><span class="material-symbols-outlined animate-spin text-primary-container text-[20px]">progress_activity</span><span class="text-on-surface-variant text-sm">Caricamento...</span></div>';
+        try {
+            const res = await fetch(`/api/chat/sessions?user_id=${userId}&chat_type=coach`);
+            if (res.ok) {
+                const data = await res.json();
+                list.innerHTML = '';
+                if (data.sessions.length === 0) {
+                    list.innerHTML = '<div class="flex flex-col items-center justify-center py-8 gap-2 text-on-surface-variant"><span class="material-symbols-outlined text-[32px] opacity-30">chat_bubble_outline</span><span class="text-sm">Nessuna chat passata.</span></div>';
+                    return;
+                }
+                data.sessions.slice().reverse().forEach(s => {
+                    const isActive = currentConversationId === s.id;
+                    const div = document.createElement('div');
+                    div.className = `glass-panel p-3 rounded-lg flex flex-col gap-1 border cursor-pointer group relative transition-all active:scale-[0.98] ${
+                        isActive ? 'border-primary-container/50 bg-primary-container/10' : 'border-white/5 hover:border-primary-container/30 hover:bg-surface-container/50'
+                    }`;
+                    div.onclick = () => loadChat(s.id);
+
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'flex justify-between items-center';
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = `text-sm truncate pr-8 ${isActive ? 'text-primary-container font-semibold' : 'text-on-surface'}`;
+                    titleSpan.innerText = s.title;
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity';
+
+                    const renameBtn = document.createElement('button');
+                    renameBtn.className = 'w-6 h-6 rounded flex items-center justify-center hover:bg-surface-container-highest/50 transition-colors';
+                    renameBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-tertiary-container hover:text-tertiary-fixed">edit</span>';
+                    renameBtn.onclick = (e) => { e.stopPropagation(); renameSession(s.id, s.title); };
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'w-6 h-6 rounded flex items-center justify-center hover:bg-error/20 transition-colors';
+                    delBtn.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error hover:text-error-container">delete</span>';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+
+                    actionsDiv.appendChild(renameBtn);
+                    actionsDiv.appendChild(delBtn);
+                    titleDiv.appendChild(titleSpan);
+                    titleDiv.appendChild(actionsDiv);
+                    div.appendChild(titleDiv);
+
+                    const dateSpan = document.createElement('span');
+                    dateSpan.className = 'text-[10px] text-on-surface-variant opacity-50';
+                    dateSpan.innerText = new Date(s.created_at).toLocaleString();
+                    div.appendChild(dateSpan);
+
+                    list.appendChild(div);
+                });
+            }
+        } catch(e) {
+            console.error(e);
+            list.innerHTML = '<div class="flex flex-col items-center justify-center py-6 gap-2"><span class="material-symbols-outlined text-error text-[24px]">error_outline</span><span class="text-error text-sm">Errore nel caricamento.</span></div>';
+        }
+    }
+
+    async function loadChat(id) {
+        try {
+            const res = await fetch(`/api/chat/session/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                currentConversationId = id;
+                chatHistory.innerHTML = '';
+                data.history.forEach(m => {
+                    if (m.role === 'user') {
+                        // Strip the "Al Coach: " prefix if present
+                        let content = m.content;
+                        if (content.startsWith('Al Coach: ')) {
+                            content = content.substring('Al Coach: '.length);
+                        }
+                        appendUserMessage(content);
+                    } else {
+                        appendBotMessage(m.content);
+                    }
+                });
+                toggleSidebar();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function deleteSession(id) {
+        if (!confirm('Vuoi davvero eliminare questa chat?')) return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                if (currentConversationId === id) startNewChat();
+                loadSessions();
+            }
+        } catch(e) { console.error(e); }
+    }
+
+    async function renameSession(id, oldTitle) {
+        const newTitle = prompt('Nuovo titolo:', oldTitle);
+        if (!newTitle || newTitle.trim() === '') return;
+        try {
+            const res = await fetch(`/api/chat/session/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: newTitle })
+            });
+            if (res.ok) loadSessions();
+        } catch(e) { console.error(e); }
+    }
+
+    function startNewChat() {
+        currentConversationId = null;
+        chatHistory.innerHTML = '';
+        const sidebar = document.getElementById('chatSidebar');
+        if (!sidebar.classList.contains('hidden')) toggleSidebar();
+    }
+
+    function sendQuickMessage(text) {
+        chatInput.value = text;
+        sendMessage();
+    }
+
+    function dismissChip(btn) {
+        const chip = btn.closest('.suggestion-chip');
+        chip.style.opacity = '0';
+        chip.style.transform = 'scale(0.8)';
+        chip.style.maxWidth = '0';
+        chip.style.padding = '0';
+        chip.style.margin = '0';
+        chip.style.border = 'none';
+        setTimeout(() => {
+            chip.remove();
+            const bar = document.getElementById('suggestionsBar');
+            if (bar && bar.children.length === 0) {
+                bar.style.display = 'none';
+            }
+        }, 300);
+    }
+    
+    // ---- Fetch and Display Workout Plans ----
+    async function loadWorkoutPlans() {
+        const container = document.getElementById('workoutPlansContainer');
+        try {
+            const res = await fetch(`/api/dashboard/workouts?user_id=${userId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (!data.workouts || data.workouts.length === 0) {
+                    container.innerHTML = '<div class="text-on-surface-variant text-sm px-2">Nessuna scheda trovata. Chiedi a Lumina Coach di crearne una per te!</div>';
+                    return;
+                }
+                
+                container.innerHTML = '';
+                data.workouts.forEach(plan => {
+                    const planDiv = document.createElement('div');
+                    planDiv.className = 'glass-panel rounded-xl overflow-hidden border border-white/10';
+                    
+                    // Header della scheda
+                    const headerHtml = `
+                        <div class="bg-surface-container/80 px-4 py-3 flex justify-between items-center cursor-pointer hover:bg-surface-container transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container">
+                                    <span class="material-symbols-outlined">assignment</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-on-surface text-lg">${plan.name}</h4>
+                                    <p class="text-xs text-on-surface-variant">${new Date(plan.created_at).toLocaleDateString()} • ${plan.exercises.length} esercizi</p>
+                                </div>
+                            </div>
+                            <span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+                        </div>
+                    `;
+                    
+                    // Corpo della scheda con esercizi (nascosto di default se non è il primo)
+                    const isFirst = data.workouts.indexOf(plan) === 0;
+                    let bodyHtml = `<div class="${isFirst ? '' : 'hidden'} flex flex-col gap-2 p-4">`;
+                    
+                    if (plan.exercises.length === 0) {
+                        bodyHtml += `<div class="text-sm text-on-surface-variant italic">Nessun esercizio presente in questa scheda.</div>`;
+                    } else {
+                        plan.exercises.forEach(ex => {
+                            bodyHtml += `
+                                <div class="bg-surface-container-high/50 rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border border-white/5">
+                                    <div class="flex-1">
+                                        <h5 class="font-semibold text-on-surface">${ex.name}</h5>
+                                        <div class="flex gap-3 text-xs text-on-surface-variant mt-1">
+                                            ${ex.muscle_group ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">accessibility_new</span>${ex.muscle_group}</span>` : ''}
+                                            ${ex.rest_time ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">timer</span>${ex.rest_time}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-4 items-center bg-surface-container-lowest/50 px-3 py-1.5 rounded-md self-end sm:self-auto border border-white/5">
+                                        <div class="text-center">
+                                            <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">SET</span>
+                                            <span class="font-bold text-primary-fixed">${ex.sets}</span>
+                                        </div>
+                                        <div class="w-px h-6 bg-white/10"></div>
+                                        <div class="text-center">
+                                            <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">REP</span>
+                                            <span class="font-bold text-tertiary-fixed">${ex.reps}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    bodyHtml += `
+                        <div class="mt-2 flex justify-end gap-2">
+                            <button onclick="deleteWorkoutPlan(${plan.id})" class="text-xs text-error hover:text-error flex items-center gap-1 py-1 px-2 rounded hover:bg-error/10 transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">delete</span> Elimina
+                            </button>
+                            <button onclick="sendQuickMessage('Voglio modificare la scheda ${plan.name}')" class="text-xs text-primary-container hover:text-primary-fixed flex items-center gap-1 py-1 px-2 rounded hover:bg-primary-container/10 transition-colors">
+                                <span class="material-symbols-outlined text-[14px]">edit</span> Modifica questa scheda
+                            </button>
+                        </div>
+                    </div>`;
+                    
+                    planDiv.innerHTML = headerHtml + bodyHtml;
+                    container.appendChild(planDiv);
+                });
+            } else {
+                container.innerHTML = '<div class="text-error text-sm px-2">Errore nel caricamento delle schede.</div>';
+            }
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = '<div class="text-error text-sm px-2">Errore di rete. Impossibile caricare le schede.</div>';
+        }
+    }
+    
+    async function deleteWorkoutPlan(planId) {
+        if (!confirm("Sei sicuro di voler eliminare questa scheda?")) {
+            return;
+        }
+        
+        try {
+            const res = await fetch(`/api/dashboard/workout/${planId}?user_id=${userId}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                loadWorkoutPlans();
+            } else {
+                alert("Errore durante l'eliminazione della scheda.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Errore di rete. Impossibile eliminare la scheda.");
+        }
+    }
+    
+    // Call when page loads
+    document.addEventListener('DOMContentLoaded', loadWorkoutPlans);
+    
+    // Reload plans whenever a message from bot might have changed them
+    const originalAppendBotMessage = appendBotMessage;
+    appendBotMessage = function(text) {
+        originalAppendBotMessage(text);
+        // If the agent mentions saving or modifying, reload the list
+        if (text.toLowerCase().includes('salvat') || text.toLowerCase().includes('modificat') || text.toLowerCase().includes('scheda')) {
+            loadWorkoutPlans();
+        }
+    };
+</script>
+</body></html>

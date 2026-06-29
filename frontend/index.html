@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <title>RepEats</title>
+    <script>
+        // Controlliamo prima sessionStorage, poi localStorage
+        let userId = sessionStorage.getItem('repEats_userId');
+        if (!userId) {
+            userId = localStorage.getItem('repEats_userId');
+            const expires = localStorage.getItem('repEats_expires');
+            if (expires && Date.now() > parseInt(expires)) {
+                localStorage.removeItem('repEats_userId');
+                localStorage.removeItem('repEats_username');
+                localStorage.removeItem('repEats_expires');
+                userId = null;
+            }
+        }
+        if (userId) {
+            window.location.replace('/dashboard.html');
+        } else {
+            window.location.replace('/login.html');
+        }
+    </script>
+</head>
+<body>
+</body>
+</html>
