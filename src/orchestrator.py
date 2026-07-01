@@ -25,6 +25,7 @@ from agno.knowledge.embedder.sentence_transformer import SentenceTransformerEmbe
 # Importazione degli agenti specializzati
 from src.agents.fitness_agent import get_pt_agent
 from src.agents.nutritionst import ConversationalNutritionistAgent
+from src.database.user_service import get_recent_macros_history
 
 
 def setup_knowledge_base() -> Knowledge:
@@ -99,6 +100,22 @@ def build_user_context(user_data: dict, macros: dict, daily_targets: dict, chat_
     storia_testo = "Nessun messaggio precedente."
     if chat_history:
         storia_testo = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in chat_history])
+        
+    # Recupero dello storico macro degli ultimi 7 giorni
+    try:
+        user_id = user_data.get('user_id')
+        if user_id:
+            recent_history = get_recent_macros_history(user_id, days=7)
+            if recent_history:
+                storico_testo = "STORICO MACRONUTRIENTI (ULTIMI 7 GIORNI):\n"
+                for day in recent_history:
+                    storico_testo += f"- {day['date']}: {day['calories']} kcal, {day['proteins']}g Pro, {day['carbs']}g Carb, {day['fats']}g Fat\n"
+            else:
+                storico_testo = "STORICO MACRONUTRIENTI: Nessun dato recente disponibile."
+        else:
+            storico_testo = ""
+    except Exception as e:
+        storico_testo = "STORICO MACRONUTRIENTI: Non disponibile."
 
     user_context = f"""
 --- CONTESTO UTENTE (MEMORIA CONDIVISA) ---
@@ -124,6 +141,8 @@ ANALISI TEMPORALE INTAKE CALORICO:
 DATA E ORA CORRENTE: {ora_attuale}
 
 PAGINA CORRENTE DELL'UTENTE: {chat_type.upper()}
+
+{storico_testo}
 
 CRONOLOGIA CONVERSAZIONE:
 {storia_testo}

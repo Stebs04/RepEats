@@ -4,32 +4,39 @@ from src.database.user_service import get_user_data, get_todays_macros, calculat
 router = APIRouter()
 
 @router.get("/stats")
-def get_dashboard_stats(user_id: int = Query(...)):
+def get_dashboard_stats(user_id: int = Query(...), date: str = Query(None)):
     try:
+        from datetime import datetime, timezone
+        from sqlalchemy import func
+        from src.database.database import get_session
+        from src.database.models import MealLog
+
+        if date:
+            try:
+                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                target_date = datetime.now(timezone.utc).date()
+        else:
+            target_date = datetime.now(timezone.utc).date()
+
         # Recuperiamo i dati del profilo e l'obiettivo (es. "dimagrimento")
         user_data = get_user_data(user_id)
         if not user_data:
             raise HTTPException(status_code=404, detail="Utente non trovato")
             
-        # Recuperiamo quello che l'utente ha effettivamente mangiato oggi
-        macros_odierni = get_todays_macros(user_id)
+        # Recuperiamo quello che l'utente ha effettivamente mangiato per la data target
+        macros_odierni = get_todays_macros(user_id, target_date)
         
         # Calcoliamo matematicamente i suoi limiti in base al metabolismo
         target_macros = calculate_daily_macros(user_id)
         
         # Uniamo tutto in un unico "pacchetto" JSON pronto per la pagina HTML
         
-        # Recupero i pasti di oggi per categoria
-        from datetime import datetime, timezone
-        from sqlalchemy import func
-        from src.database.database import get_session
-        from src.database.models import MealLog
-
+        # Recupero i pasti della data target per categoria
         session = get_session()
-        today_date = datetime.now(timezone.utc).date()
         meals_today_records = session.query(MealLog).filter(
             MealLog.user_id == user_id,
-            func.date(MealLog.timestamp) == today_date
+            func.date(MealLog.timestamp) == target_date
         ).all()
         session.close()
 

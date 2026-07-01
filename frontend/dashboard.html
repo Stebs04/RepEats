@@ -168,10 +168,19 @@
 
 <!-- Main Content -->
 <main class="flex-grow pt-[88px] px-container-margin md:px-lg max-w-7xl mx-auto w-full">
-<!-- Greeting -->
-<div class="mb-lg">
-<h1 class="font-headline-lg text-headline-lg text-on-surface">Bentornato, Alex.</h1>
-<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Pronto per distruggere i tuoi obiettivi oggi?</p>
+<!-- Greeting & Date Navigator -->
+<div class="mb-lg flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+    <div>
+        <h1 class="font-headline-lg text-headline-lg text-on-surface">Bentornato, Alex.</h1>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Pronto per distruggere i tuoi obiettivi oggi?</p>
+    </div>
+    
+    <!-- Date Navigator -->
+    <div class="flex items-center gap-2 bg-surface-container-high rounded-lg p-1 border border-white/10 self-start md:self-auto shadow-md">
+        <button id="prevDateBtn" class="p-2 rounded-md hover:bg-white/5 text-on-surface-variant transition-colors flex items-center justify-center"><span class="material-symbols-outlined">chevron_left</span></button>
+        <span id="currentDateDisplay" class="font-label-sm text-on-surface w-24 text-center tracking-wider">Oggi</span>
+        <button id="nextDateBtn" class="p-2 rounded-md hover:bg-white/5 text-on-surface-variant transition-colors disabled:opacity-30 flex items-center justify-center" disabled><span class="material-symbols-outlined">chevron_right</span></button>
+    </div>
 </div>
 <!-- Rings Section (Bento Grid Area 1) -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
@@ -482,10 +491,61 @@
         circle.style.strokeDashoffset = offset;
     }
 
+    let currentDate = new Date();
+
+    function formatDateForAPI(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function formatDateForDisplay(date) {
+        const today = new Date();
+        if (date.toDateString() === today.toDateString()) {
+            return "Oggi";
+        }
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (date.toDateString() === yesterday.toDateString()) {
+            return "Ieri";
+        }
+        return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
+    }
+
+    function updateDateNav() {
+        const display = document.getElementById('currentDateDisplay');
+        const nextBtn = document.getElementById('nextDateBtn');
+        if(display) display.innerText = formatDateForDisplay(currentDate);
+        if(nextBtn) {
+            const today = new Date();
+            nextBtn.disabled = (currentDate.toDateString() === today.toDateString());
+        }
+    }
+
+    // Aggiungo i listener per il navigatore delle date
+    document.getElementById('prevDateBtn')?.addEventListener('click', () => {
+        currentDate.setDate(currentDate.getDate() - 1);
+        updateDateNav();
+        loadDashboardData();
+    });
+
+    document.getElementById('nextDateBtn')?.addEventListener('click', () => {
+        const today = new Date();
+        if (currentDate.toDateString() !== today.toDateString()) {
+            currentDate.setDate(currentDate.getDate() + 1);
+            updateDateNav();
+            loadDashboardData();
+        }
+    });
+
+    updateDateNav();
+
     async function loadDashboardData() {
         if (!userId) return;
         try {
-            const res = await fetch(`/api/dashboard/stats?user_id=${userId}`);
+            const dateParam = formatDateForAPI(currentDate);
+            const res = await fetch(`/api/dashboard/stats?user_id=${userId}&date=${dateParam}`);
             if (res.ok) {
                 const data = await res.json();
                 

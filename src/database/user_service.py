@@ -271,16 +271,17 @@ def calculate_daily_macros(user_id: int):
         "target_carbohydrates": round(carbohydrates, 1)
     }
 
-def get_todays_macros(user_id: int):
+def get_todays_macros(user_id: int, target_date=None):
     """
-    Calcola e restituisce la somma totale dei macronutrienti e delle calorie assunte da un utente nella giornata odierna.
+    Calcola e restituisce la somma totale dei macronutrienti e delle calorie assunte da un utente nella data specificata (o odierna se non fornita).
     Autore: Stefano Bellan (20054330)
     """
     # Ottiene un'istanza della sessione del database
     session = get_session()
     
-    # Recupera la data odierna nel fuso orario UTC
-    today_date = datetime.now(timezone.utc).date()
+    # Recupera la data specificata o odierna nel fuso orario UTC
+    if target_date is None:
+        target_date = datetime.now(timezone.utc).date()
     
     # Esegue una query per calcolare la somma di calorie, proteine, grassi e carboidrati
     somma_macro = session.query(
@@ -291,8 +292,8 @@ def get_todays_macros(user_id: int):
     ).filter(
         # Filtra i record associati allo specifico utente
         MealLog.user_id == user_id,
-        # Filtra i log relativi esclusivamente alla data odierna
-        func.date(MealLog.timestamp) == today_date
+        # Filtra i log relativi esclusivamente alla data richiesta
+        func.date(MealLog.timestamp) == target_date
     ).first()
     
     # Chiude la sessione per rilasciare le risorse
@@ -305,6 +306,47 @@ def get_todays_macros(user_id: int):
         "fats": somma_macro[2] or 0, 
         "carbohydrates": somma_macro[3] or 0
     }
+
+def get_recent_macros_history(user_id: int, days: int = 7):
+    """
+    Recupera i totali giornalieri dei macronutrienti per gli ultimi N giorni.
+    Utile per dare contesto agli agenti IA sui progressi recenti dell'utente.
+    """
+    session = get_session()
+    from datetime import timedelta
+    
+    today = datetime.now(timezone.utc).date()
+    start_date = today - timedelta(days=days-1)
+    
+    # Query raggruppata per data
+    results = session.query(
+        func.date(MealLog.timestamp).label("giorno"),
+        func.sum(MealLog.calories).label("calories"),
+        func.sum(MealLog.proteins).label("proteins"),
+        func.sum(MealLog.carbohydrates).label("carbs"),
+        func.sum(MealLog.fats).label("fats")
+    ).filter(
+        MealLog.user_id == user_id,
+        func.date(MealLog.timestamp) >= start_date,
+        func.date(MealLog.timestamp) < today # Escludiamo oggi, dato che viene passato a parte
+    ).group_by(
+        func.date(MealLog.timestamp)
+    ).order_by(
+        func.date(MealLog.timestamp).asc()
+    ).all()
+    
+    session.close()
+    
+    history = []
+    for row in results:
+        history.append({
+            "date": str(row.giorno),
+            "calories": round(row.calories or 0, 1),
+            "proteins": round(row.proteins or 0, 1),
+            "carbs": round(row.carbs or 0, 1),
+            "fats": round(row.fats or 0, 1)
+        })
+    return history
 
 def get_meals_by_category(user_id: int, category: str):
     """
