@@ -5,94 +5,102 @@ Autore: Stefano Bellan (20054330)
 
 """
 
-# Importa Pydantic per la validazione dei dati di input/output e la definizione degli schemi
 from pydantic import BaseModel, Field
-# Importa Optional per tipizzare i campi che potrebbero essere assenti nella risposta API
 from typing import Optional
-# Importa requests per effettuare le chiamate HTTP REST all'API esterna
 import requests
-# Importa os per leggere le variabili d'ambiente (es. configurazioni o token)
 import os
 
 class BarcodeSearchInput(BaseModel):
     """Schema di validazione per la richiesta di ricerca tramite codice a barre."""
-    # Campo obbligatorio (...) che rappresenta il barcode testuale/numerico del prodotto
     barcode: str = Field(..., description="Il codice a barre numerico del prodotto (EAN-13).")
+    weight_g: float = Field(100.0, description="La grammatura (peso in grammi) indicata dall'utente per cui calcolare i valori nutrizionali esatti.")
 
 class ProductOutput(BaseModel):
-    """Schema dei dati di output contenente i valori nutrizionali estratti."""
-    # Nome del prodotto, default a None in caso il dato sia mancante
-    product_name: Optional[str] = Field(None, description="Il nome del prodotto.")
-    # Calorie (kcal) per 100g di prodotto
-    energy_kcal_100g: Optional[float] = Field(None, description="Contenuto energetico in kcal per 100g.")
-    # Proteine in grammi calcolate su 100g
-    proteins_100g: Optional[float] = Field(None, description="Grammi di proteine per 100g.")
-    # Carboidrati in grammi calcolati su 100g
-    carbohydrates_100g: Optional[float] = Field(None, description="Grammi di carboidrati per 100g.")
-    # Grassi/Lipidi in grammi calcolati su 100g
-    fat_100g: Optional[float] = Field(None, description="Grammi di grassi per 100g.")
+    """Schema dei dati di output contenente i valori nutrizionali riproporzionati."""
+    product_name: Optional[str] = Field(None, description="Il nome del prodotto trovato su OpenFoodFacts.")
+    energy_kcal: Optional[float] = Field(None, description="Contenuto energetico in kcal, già riproporzionato per la grammatura richiesta.")
+    proteins: Optional[float] = Field(None, description="Grammi di proteine, già riproporzionati per la grammatura richiesta.")
+    carbohydrates: Optional[float] = Field(None, description="Grammi di carboidrati, già riproporzionati per la grammatura richiesta.")
+    fats: Optional[float] = Field(None, description="Grammi di grassi, già riproporzionati per la grammatura richiesta.")
+
+def safe_float(val, fallback=0.0):
+    """Converte un valore in float in modo sicuro, ritornando un fallback se fallisce."""
+    try:
+        if val is None or str(val).strip() == "":
+            return float(fallback)
+        return float(val)
+    except (ValueError, TypeError):
+        return float(fallback)
 
 def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput:
     """
-    Recupera le informazioni nutrizionali di un prodotto interrogando l'API di Open Food Facts.
+    Recupera le informazioni nutrizionali di un prodotto interrogando l'API di Open Food Facts
+    e ricalcola i valori in base alla grammatura (weight_g) fornita in input.
     
     Args:
-        input_data (BarcodeSearchInput): Il payload validato contenente il codice a barre.
+        input_data (BarcodeSearchInput): Il payload validato contenente il codice a barre e la grammatura.
         
     Returns:
-        ProductOutput: I dati nutrizionali estratti e mappati, o un oggetto con campi None se non trovato.
+        ProductOutput: I dati nutrizionali estratti e riproporzionati.
 
     Autore: Stefano Bellan (20054330)
-
     """
-    # Recupera il nome dell'app dalle variabili d'ambiente per configurare un User-Agent univoco
     app_name = os.getenv("OPENFOODFACTS_APP_NAME", "RepEats")
-    
-    # Configura gli header HTTP (le policy di Open Food Facts richiedono un User-Agent descrittivo)
     headers = {"User-Agent": f"{app_name} - Project University Version"}
-    
-    # Costruisce l'endpoint API v2 iniettando dinamicamente il barcode richiesto
     url = f"https://world.openfoodfacts.org/api/v2/product/{input_data.barcode}.json"
     
-    # Esegue la richiesta HTTP GET sincrona, impostando un timeout di sicurezza di 10 secondi
-    response = requests.get(url, headers=headers, timeout=10)
-    
-    # Gestione graceful degli errori HTTP:
-    # - 404: il prodotto non è nel database OpenFoodFacts (barcode sconosciuto)
-    # - Altri errori: problemi di rete o server
-    # NON usiamo raise_for_status() perché un 404 è un caso normale e atteso,
-    # non un errore critico. L'agente deve ricevere un risultato vuoto e poterlo
-    # comunicare all'utente, non crashare con un'eccezione.
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+    except requests.exceptions.RequestException:
+        return ProductOutput(product_name=f"Errore di rete durante la connessione a OpenFoodFacts. Usa stima visiva.")
+
     if response.status_code == 404:
         return ProductOutput(
-            product_name=f"Prodotto con barcode {input_data.barcode} non trovato nel database OpenFoodFacts. Prova a stimare i valori nutrizionali manualmente."
+            product_name=f"Prodotto con barcode {input_data.barcode} non trovato. Usa la stima visiva dell'immagine."
         )
     
     if response.status_code != 200:
         return ProductOutput(
-            product_name=f"Errore API OpenFoodFacts (HTTP {response.status_code}). Impossibile recuperare i dati del prodotto."
+            product_name=f"Errore API OpenFoodFacts (HTTP {response.status_code}). Usa stima visiva."
         )
     
-    # Deserializza il corpo della risposta JSON in un dizionario Python
     data = response.json()
     
-    # L'API restituisce status=1 se il prodotto è stato trovato; in caso contrario, ritorna un DTO descrittivo
     if data.get("status") != 1:
         return ProductOutput(
-            product_name=f"Prodotto con barcode {input_data.barcode} non presente nel database OpenFoodFacts."
+            product_name=f"Prodotto con barcode {input_data.barcode} non presente nel database OpenFoodFacts. Usa stima visiva."
         )
         
-    # Estrae il sotto-dizionario 'product' (con fallback su dict vuoto, programmazione difensiva)
     product_data = data.get("product", {})
-    
-    # Estrae il sotto-dizionario 'nutriments' contenente i valori macro e micro nutrizionali
     nutriments = product_data.get("nutriments", {})
     
-    # Mappa individualmente i dati JSON nel modello Pydantic di risposta, usando .get() per prevenire KeyError
+    # 1. Ricerca del Nome (logica a cascata per massima affidabilità)
+    name = (
+        product_data.get("product_name_it") or 
+        product_data.get("product_name") or 
+        product_data.get("product_name_en") or 
+        product_data.get("generic_name_it") or 
+        product_data.get("generic_name") or 
+        product_data.get("brands") or 
+        "Prodotto Sconosciuto"
+    )
+    
+    # 2. Parsing Valori per 100g con Fallback
+    kcal_100g = safe_float(nutriments.get("energy-kcal_100g"))
+    if kcal_100g == 0.0 and nutriments.get("energy_100g"):
+        kcal_100g = safe_float(nutriments.get("energy_100g")) / 4.184
+        
+    proteins_100g = safe_float(nutriments.get("proteins_100g"), fallback=safe_float(nutriments.get("proteins_value")))
+    carbs_100g = safe_float(nutriments.get("carbohydrates_100g"), fallback=safe_float(nutriments.get("carbohydrates_value")))
+    fats_100g = safe_float(nutriments.get("fat_100g"), fallback=safe_float(nutriments.get("fat_value")))
+    
+    # 3. Ricalcolo Matematico Assoluto (Partizione/Maggiorazione)
+    factor = input_data.weight_g / 100.0
+    
     return ProductOutput(
-        product_name=product_data.get("product_name"),
-        energy_kcal_100g=nutriments.get("energy-kcal_100g"),
-        proteins_100g=nutriments.get("proteins_100g"),
-        carbohydrates_100g=nutriments.get("carbohydrates_100g"),
-        fat_100g=nutriments.get("fat_100g")
+        product_name=name,
+        energy_kcal=round(kcal_100g * factor, 2),
+        proteins=round(proteins_100g * factor, 2),
+        carbohydrates=round(carbs_100g * factor, 2),
+        fats=round(fats_100g * factor, 2)
     )

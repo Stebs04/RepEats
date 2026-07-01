@@ -175,27 +175,27 @@ class VisionNutritionistAgent(Agent):
 
             "--- SE VEDI UN CODICE A BARRE ---",
             "1. Leggi il numero del codice a barre dall'immagine.",
-            "2. Usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode con quel numero, ma fallo in modo SILENZIOSO in background (non dire all'utente che lo stai usando).",
-            "3a. SE il tool restituisce valori nutrizionali validi: usa quei dati e ricalcola per la grammatura.",
-            "3b. SE il tool dice 'non trovato' o non ha valori: guarda l'etichetta nell'immagine per identificare il prodotto e stima i valori nutrizionali dal nome/categoria.",
-            "4. Calcola i valori proporzionali per la grammatura indicata dall'utente.",
-            "5. Riporta chiaramente: nome prodotto, calorie, proteine, carboidrati, grassi.",
+            "2. Usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode passando il 'barcode' numerico e la 'weight_g' (ovvero la grammatura fornita dall'utente, es. 50.0). Fallo in modo SILENZIOSO in background.",
+            "3a. SE il tool restituisce valori validi: usa ESATTAMENTE quei dati forniti dallo strumento. I valori ricevuti sono GIA' calcolati per la grammatura indicata (non fare ricalcoli manuali).",
+            "3b. SE il tool dice 'non trovato' o non ha valori: guarda l'etichetta nell'immagine per identificare il prodotto e STIMA tu i valori nutrizionali proporzionandoli alla grammatura indicata.",
+            "4. Riporta chiaramente: nome prodotto, calorie, proteine, carboidrati, grassi.",
+            "5. DEVI SEMPRE indicare la fonte dei dati scrivendo: 'Fonte: Database OpenFoodFacts' se hai usato il tool con successo, oppure 'Fonte: Stima Visiva AI' se hai stimato i valori tu.",
 
             "--- SE VEDI DEL CIBO ---",
             "1. Identifica il piatto o l'alimento.",
-            "2. Stima i valori nutrizionali medi per la grammatura indicata.",
+            "2. Stima i valori nutrizionali medi proporzionandoli per la grammatura indicata dall'utente.",
             "3. Riporta chiaramente: nome alimento, calorie stimate, proteine, carboidrati, grassi.",
+            "4. Indica la fonte dei dati scrivendo: 'Fonte: Stima Visiva AI'.",
 
             "--- IMPORTANTE: NON RESTITUIRE MAI TUTTI ZERO ---",
             "Se non riesci a trovare dati esatti, STIMA sempre i valori basandoti sulla categoria di alimento.",
-            "Esempio: se vedi 'Pesto Barilla' e il barcode non è nel database, stima ~500kcal/100g, 5g pro, 5g carb, 50g grassi.",
+            "Esempio: se vedi 'Pesto Barilla' e il barcode non è nel database, stima ~500kcal/100g, 5g pro, 5g carb, 50g grassi (e poi proporziona alla grammatura).",
 
             "--- FORMATO RISPOSTA ---",
-            "Rispondi con testo naturale in italiano, sii discorsivo e amichevole. NON descrivere il tuo processo interno (es. vietato dire 'ora cerco il codice a barre' o 'uso lo strumento'). Fallo in background e basta.",
+            "Rispondi con testo naturale in italiano, sii discorsivo e amichevole. NON descrivere il tuo processo interno.",
             "NON restituire mai codice JSON.",
-            "Includi sempre: nome del prodotto, calorie, proteine, carboidrati, grassi (con unità di misura).",
-            "Esempio: 'Ho trovato: Pasta Barilla. Per 80g: 284 kcal, 10g proteine, 57g carboidrati, 1.3g grassi.'",
-            "Se hai stimato i valori perché il barcode non era nel database, specificalo: 'Valori stimati per [nome prodotto]:'",
+            "Includi sempre: nome del prodotto, calorie, proteine, carboidrati, grassi (con unità di misura) e la FONTE.",
+            "Esempio corretto: 'Ho trovato: Pasta Barilla. Valori per 80g: 284 kcal, 10g proteine, 57g carboidrati, 1.3g grassi. (Fonte: Database OpenFoodFacts)'",
         ]
 
         super().__init__(
