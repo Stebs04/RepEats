@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan
+from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan, update_workout_plan_by_id
 
 router = APIRouter()
 
@@ -105,6 +105,30 @@ def delete_workout(plan_id: int, user_id: int = Query(...)):
         if not success:
             raise HTTPException(status_code=404, detail="Scheda non trovata o non autorizzato")
         return {"message": "Scheda eliminata con successo"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+from pydantic import BaseModel
+from typing import List, Dict, Any
+
+class WorkoutPlanUpdate(BaseModel):
+    name: str
+    exercises: List[Dict[str, Any]]
+
+@router.put("/workout/{plan_id}")
+def update_workout(plan_id: int, request: WorkoutPlanUpdate, user_id: int = Query(...)):
+    """
+    Modifica una scheda di allenamento esistente.
+    """
+    try:
+        success = update_workout_plan_by_id(user_id=user_id, plan_id=plan_id, plan_name=request.name, exercises=request.exercises)
+        if not success:
+            raise HTTPException(status_code=404, detail="Scheda non trovata o non autorizzato")
+        return {"message": "Scheda aggiornata con successo"}
     except HTTPException:
         raise
     except Exception as e:

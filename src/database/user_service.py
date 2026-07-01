@@ -571,3 +571,37 @@ def update_workout_plan(user_id: int, plan_name: str, exercises: list):
         
     session.commit()
     session.close()
+
+def update_workout_plan_by_id(user_id: int, plan_id: int, plan_name: str, exercises: list) -> bool:
+    """
+    Aggiorna il nome e gli esercizi di una scheda tramite il suo ID.
+    Ritorna True se l'operazione ha successo.
+    """
+    session = get_session()
+    plan = session.query(WorkoutPlan).filter_by(id=plan_id, user_id=user_id).first()
+    
+    if not plan:
+        session.close()
+        return False
+        
+    plan.name = plan_name
+    
+    # Elimina vecchi esercizi
+    session.query(WorkoutExercise).filter_by(plan_id=plan.id).delete()
+    
+    # Inserisce nuovi esercizi
+    for idx, ex in enumerate(exercises):
+        new_ex = WorkoutExercise(
+            plan_id=plan.id,
+            name=ex.get('name', 'Esercizio'),
+            muscle_group=ex.get('muscle_group', ''),
+            sets=int(ex.get('sets', 3)),
+            reps=str(ex.get('reps', '10')),
+            rest_time=str(ex.get('rest_time', '90s')),
+            order_index=idx
+        )
+        session.add(new_ex)
+        
+    session.commit()
+    session.close()
+    return True

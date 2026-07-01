@@ -273,6 +273,45 @@
     </div>
 </div>
 
+<!-- Modal Modifica Scheda -->
+<div id="editPlanModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-surface-container border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+        <div class="p-5 border-b border-white/10 flex justify-between items-center bg-surface-container-high">
+            <h3 class="text-lg font-bold text-on-surface flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary-container">edit_document</span> Modifica Scheda
+            </h3>
+            <button onclick="closeEditPlanModal()" class="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-on-surface-variant transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <div class="p-5 overflow-y-auto flex-1 flex flex-col gap-4 hide-scrollbar" id="editPlanForm">
+            <div>
+                <label class="block text-sm text-on-surface-variant mb-1 font-semibold">Nome Scheda</label>
+                <input type="text" id="editPlanName" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg px-4 py-2 text-on-surface focus:border-primary-container focus:outline-none" />
+            </div>
+            
+            <div class="flex justify-between items-end">
+                <label class="block text-sm text-on-surface-variant font-semibold">Esercizi</label>
+                <button type="button" onclick="addExerciseToEditForm()" class="text-xs bg-primary-container/20 text-primary-container px-3 py-1.5 rounded flex items-center gap-1 hover:bg-primary-container/30 transition-colors">
+                    <span class="material-symbols-outlined text-[16px]">add</span> Aggiungi Esercizio
+                </button>
+            </div>
+            
+            <div id="editExercisesContainer" class="flex flex-col gap-3">
+                <!-- Esercizi inseriti qui dinamicamente -->
+            </div>
+        </div>
+        
+        <div class="p-5 border-t border-white/10 bg-surface-container-high flex justify-end gap-3">
+            <button onclick="closeEditPlanModal()" class="px-5 py-2 rounded-lg text-on-surface border border-white/10 hover:bg-white/5 transition-colors text-sm font-medium">Annulla</button>
+            <button onclick="saveEditedPlan()" class="px-5 py-2 rounded-lg bg-primary-container text-on-primary-container hover:bg-primary-fixed transition-colors text-sm font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">save</span> Salva Modifiche
+            </button>
+        </div>
+    </div>
+</div>
+
 </main>
 
 <!-- BottomNavBar (Shared Component) - Mobile Only -->
@@ -659,6 +698,8 @@
         }, 300);
     }
     
+    let currentWorkouts = [];
+    
     // ---- Fetch and Display Workout Plans ----
     async function loadWorkoutPlans() {
         const container = document.getElementById('workoutPlansContainer');
@@ -666,6 +707,7 @@
             const res = await fetch(`/api/dashboard/workouts?user_id=${userId}`);
             if (res.ok) {
                 const data = await res.json();
+                currentWorkouts = data.workouts || [];
                 if (!data.workouts || data.workouts.length === 0) {
                     container.innerHTML = '<div class="text-on-surface-variant text-sm px-2">Nessuna scheda trovata. Chiedi a Lumina Coach di crearne una per te!</div>';
                     return;
@@ -730,7 +772,7 @@
                             <button onclick="deleteWorkoutPlan(${plan.id})" class="text-xs text-error hover:text-error flex items-center gap-1 py-1 px-2 rounded hover:bg-error/10 transition-colors">
                                 <span class="material-symbols-outlined text-[14px]">delete</span> Elimina
                             </button>
-                            <button onclick="sendQuickMessage('Voglio modificare la scheda ${plan.name}')" class="text-xs text-primary-container hover:text-primary-fixed flex items-center gap-1 py-1 px-2 rounded hover:bg-primary-container/10 transition-colors">
+                            <button onclick="openEditPlanModal(${plan.id})" class="text-xs text-primary-container hover:text-primary-fixed flex items-center gap-1 py-1 px-2 rounded hover:bg-primary-container/10 transition-colors">
                                 <span class="material-symbols-outlined text-[14px]">edit</span> Modifica questa scheda
                             </button>
                         </div>
@@ -765,6 +807,140 @@
         } catch (e) {
             console.error(e);
             alert("Errore di rete. Impossibile eliminare la scheda.");
+        }
+    }
+    
+    // ---- Edit Plan Logic ----
+    let currentEditingPlanId = null;
+
+    function openEditPlanModal(planId) {
+        const plan = currentWorkouts.find(p => p.id === planId);
+        if (!plan) return;
+        
+        currentEditingPlanId = planId;
+        document.getElementById('editPlanName').value = plan.name;
+        
+        const container = document.getElementById('editExercisesContainer');
+        container.innerHTML = '';
+        
+        if (plan.exercises && plan.exercises.length > 0) {
+            plan.exercises.forEach(ex => addExerciseToEditForm(ex));
+        } else {
+            addExerciseToEditForm();
+        }
+        
+        document.getElementById('editPlanModal').classList.remove('hidden');
+        document.getElementById('editPlanModal').classList.add('flex');
+    }
+    
+    function closeEditPlanModal() {
+        document.getElementById('editPlanModal').classList.add('hidden');
+        document.getElementById('editPlanModal').classList.remove('flex');
+        currentEditingPlanId = null;
+    }
+    
+    function addExerciseToEditForm(ex = null) {
+        const container = document.getElementById('editExercisesContainer');
+        const index = container.children.length;
+        
+        const exName = ex ? ex.name : '';
+        const exMuscle = ex ? ex.muscle_group : '';
+        const exSets = ex ? ex.sets : 3;
+        const exReps = ex ? ex.reps : '10';
+        const exRest = ex ? ex.rest_time : '90s';
+        
+        const html = \`
+            <div class="exercise-item bg-surface-container-lowest p-3 rounded-xl border border-white/5 flex flex-col gap-3 relative group">
+                <button type="button" onclick="this.closest('.exercise-item').remove()" class="absolute top-2 right-2 text-on-surface-variant hover:text-error transition-colors w-6 h-6 flex items-center justify-center rounded hover:bg-error/10">
+                    <span class="material-symbols-outlined text-[16px]">close</span>
+                </button>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pr-6">
+                    <div>
+                        <label class="text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 block">Esercizio</label>
+                        <input type="text" class="ex-name w-full bg-surface-container border border-white/10 rounded-md px-3 py-1.5 text-sm text-on-surface" placeholder="Es. Panca Piana" value="\${exName.replace(/"/g, '&quot;')}" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 block">Gruppo Muscolare</label>
+                        <input type="text" class="ex-muscle w-full bg-surface-container border border-white/10 rounded-md px-3 py-1.5 text-sm text-on-surface" placeholder="Es. Petto" value="\${exMuscle.replace(/"/g, '&quot;')}" />
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 block">Serie</label>
+                        <input type="number" class="ex-sets w-full bg-surface-container border border-white/10 rounded-md px-3 py-1.5 text-sm text-on-surface" value="\${exSets}" min="1" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 block">Ripetizioni</label>
+                        <input type="text" class="ex-reps w-full bg-surface-container border border-white/10 rounded-md px-3 py-1.5 text-sm text-on-surface" placeholder="Es. 8-10" value="\${exReps.replace(/"/g, '&quot;')}" />
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-on-surface-variant uppercase tracking-wider mb-1 block">Recupero</label>
+                        <input type="text" class="ex-rest w-full bg-surface-container border border-white/10 rounded-md px-3 py-1.5 text-sm text-on-surface" placeholder="Es. 90s" value="\${exRest.replace(/"/g, '&quot;')}" />
+                    </div>
+                </div>
+            </div>
+        \`;
+        
+        container.insertAdjacentHTML('beforeend', html);
+    }
+    
+    async function saveEditedPlan() {
+        if (!currentEditingPlanId) return;
+        
+        const name = document.getElementById('editPlanName').value.trim();
+        if (!name) {
+            alert('Inserisci un nome per la scheda.');
+            return;
+        }
+        
+        const items = document.querySelectorAll('.exercise-item');
+        const exercises = [];
+        
+        items.forEach(item => {
+            const exName = item.querySelector('.ex-name').value.trim();
+            if (exName) {
+                exercises.push({
+                    name: exName,
+                    muscle_group: item.querySelector('.ex-muscle').value.trim(),
+                    sets: parseInt(item.querySelector('.ex-sets').value) || 3,
+                    reps: item.querySelector('.ex-reps').value.trim() || '10',
+                    rest_time: item.querySelector('.ex-rest').value.trim() || '90s'
+                });
+            }
+        });
+        
+        if (exercises.length === 0) {
+            alert('Aggiungi almeno un esercizio.');
+            return;
+        }
+        
+        const btn = document.querySelector('#editPlanModal button[onclick="saveEditedPlan()"]');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span> Salvataggio...';
+        btn.disabled = true;
+        
+        try {
+            const res = await fetch(\`/api/dashboard/workout/\${currentEditingPlanId}?user_id=\${userId}\`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, exercises })
+            });
+            
+            if (res.ok) {
+                closeEditPlanModal();
+                loadWorkoutPlans();
+            } else {
+                const data = await res.json();
+                alert('Errore: ' + (data.detail || 'Impossibile salvare la scheda.'));
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Errore di rete durante il salvataggio.');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         }
     }
     

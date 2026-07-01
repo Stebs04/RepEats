@@ -141,6 +141,7 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) 
             "- Se l'utente ti chiede cosa mangiare, ricette, piani alimentari, diete, macro, calorie da assumere, consigli su cena/pranzo/colazione, o qualsiasi argomento di ALIMENTAZIONE e NUTRIZIONE:",
             "  DEVI RIFIUTARE cortesemente e dire: '🍽️ Questa è una domanda per **Lumina**, la nostra Nutrizionista AI! Vai nella sezione **Nutrition** dal menu per parlare con lei.'",
             "- NON dare MAI consigli alimentari dettagliati, ricette o piani alimentari. Mai.",
+            "- ⚠️ ECCEZIONE IMPORTANTE: Se l'utente ti chiede di creare o adattare una SCHEDA DI ALLENAMENTO in base a quello che ha mangiato oggi (es. 'creami una scheda in base a ciò che ho mangiato'), questa è una richiesta di ALLENAMENTO, non di nutrizione! DEVI creare la scheda normalmente, leggendo i dati nutrizionali dal contesto per decidere l'intensità.",
 
             "# ALTRI LIMITI E GUARDRAILS",
             "- NON fornire MAI diagnosi mediche o consigli medici.",
