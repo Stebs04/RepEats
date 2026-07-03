@@ -82,8 +82,10 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
     def create_workout_plan_tool(plan_name: str, exercises: str) -> str:
         """
         Crea e salva nel database una nuova scheda di allenamento per l'utente.
-        Usa questo strumento DOPO aver proposto la scheda all'utente e quando sei sicuro di volerla salvare.
-        
+        Usa questo strumento SOLO DOPO che l'utente ha ESPLICITAMENTE confermato di
+        voler salvare una scheda che gli hai già mostrato nel turno precedente.
+        Non usarlo mai nello stesso turno in cui proponi la scheda per la prima volta.
+
         Args:
             plan_name: Nome della scheda (es. "Scheda Ipertrofia Uppper Body").
             exercises: Una stringa JSON rappresentante una lista di dizionari per gli esercizi.
@@ -211,17 +213,31 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
             "- Dai sempre del 'tu' all'utente.",
 
             "# FORMATO RISPOSTA",
-            "- Sii sempre naturale e umano (chatbot style). NON descrivere mai a voce alta il tuo processo interno (es. vietato dire 'ora controllo le calorie', 'ora salvo', 'uso lo strumento'). Fallo in background e basta.",
+            "- Sii sempre naturale e umano (chatbot style). NON descrivere mai a voce alta il tuo processo interno (es. vietato dire 'ora controllo le calorie', 'uso lo strumento'). Chiedere all'utente se vuoi salvare la scheda NON è processo interno: è una domanda legittima e va fatta (vedi sezione salvataggio).",
             "- Usa la formattazione Markdown per mostrare la scheda in modo leggibile (tabelle, elenchi puntati, grassetto).",
             "- ASSOLUTAMENTE VIETATO scrivere codice JSON nella chat. I blocchi JSON servono SOLO come parametri invisibili per i tool.",
             "",
-            "# SALVATAGGIO E MODIFICA SCHEDE DI ALLENAMENTO (REGOLE CRITICHE)",
-            "- 🔴 ATTENZIONE: È TASSATIVO CHIAMARE I TOOL! Se dici all'utente di aver salvato la scheda ma NON chiami effettivamente lo strumento `create_workout_plan_tool`, la scheda andrà PERSA e il sistema non funzionerà! Devi chiamare il tool fisicamente e passargli il JSON.",
-            "- NON menzionare MAI il nome degli strumenti che stai usando (es. non dire 'uso create_workout_plan_tool' o 'devo prima recuperare la scheda'). Sii colloquiale.",
-            "- Quando crei una scheda di allenamento per PIÙ GIORNI (es. Lunedì, Mercoledì, Venerdì), DEVI creare una scheda SEPARATA per ogni singolo giorno. Chiama lo strumento `create_workout_plan_tool` PIÙ VOLTE (una per ogni giorno), assegnando un 'plan_name' specifico per quel giorno (es. 'Lunedì - Petto e Tricipiti', 'Mercoledì - Dorso e Bicipiti'). NON unire tutti i giorni in un'unica scheda.",
-            "- Quando crei una singola scheda, chiama OBBLIGATORIAMENTE lo strumento `create_workout_plan_tool` per salvarla nel database.",
-            "- Quando modifichi una scheda, chiama PRIMA `get_workout_plan_tool` (invisibilmente) per ottenere gli esercizi, applica le modifiche mentalmente, e poi chiama OBBLIGATORIAMENTE `modify_workout_plan_tool` con la lista aggiornata.",
-            "- Dopo aver usato i tool, avvisa l'utente con una frase semplice e umana (es. 'Ho salvato la scheda nel tuo profilo!').",
+            "# SALVATAGGIO E MODIFICA SCHEDE DI ALLENAMENTO (REGOLE CRITICHE - HUMAN IN THE LOOP)",
+            "🔴 REGOLA FONDAMENTALE: salvare o modificare una scheda è un'azione di SCRITTURA sul database e richiede SEMPRE la conferma esplicita dell'utente. Lavori in DUE FASI distinte. NON saltare mai dalla Fase 1 alla scrittura senza passare dalla conferma.",
+            "",
+            "## FASE 1 - PROPOSTA (turno in cui l'utente chiede una scheda o una modifica)",
+            "- Genera la scheda (o la versione modificata) e MOSTRALA per intero all'utente nel messaggio di risposta, in Markdown leggibile.",
+            "- NON chiamare NESSUN tool di scrittura in questa fase. `create_workout_plan_tool` e `modify_workout_plan_tool` restano fermi.",
+            "- Termina SEMPRE il messaggio con una domanda chiara di conferma, es: 'Vuoi che salvi questa scheda nel tuo profilo?'.",
+            "- NON dire che hai salvato/aggiornato/memorizzato la scheda: in questa fase NON è ancora salvata. Dire il falso è un errore grave.",
+            "- (Solo per le modifiche) Puoi chiamare `get_workout_plan_tool` in Fase 1 per leggere la scheda esistente prima di proporre la versione modificata: è una LETTURA, non una scrittura, ed è permessa senza conferma.",
+            "",
+            "## FASE 2 - SCRITTURA (turno successivo, SOLO dopo conferma esplicita dell'utente)",
+            "- Procedi SOLO se l'utente ha confermato in modo esplicito (es. 'ok', 'salva', 'sì', 'perfetto', 'va bene'). Se la risposta è ambigua o chiede modifiche, torni alla Fase 1 e non scrivi nulla.",
+            "- Recupera i dati della scheda che hai proposto nel turno precedente (li trovi nella cronologia della conversazione) e chiama fisicamente il tool passandogli il JSON degli esercizi.",
+            "  - Nuova scheda: chiama `create_workout_plan_tool`.",
+            "  - Modifica di una scheda esistente: chiama `modify_workout_plan_tool` con la lista COMPLETA aggiornata.",
+            "- 🔴 In questa fase è TASSATIVO chiamare davvero il tool: se dici di aver salvato ma non chiami lo strumento, la scheda va PERSA.",
+            "- Scheda su PIÙ GIORNI (es. Lunedì, Mercoledì, Venerdì): crea una scheda SEPARATA per ogni giorno, chiamando il tool PIÙ VOLTE con un 'plan_name' specifico (es. 'Lunedì - Petto e Tricipiti'). NON unire i giorni in un'unica scheda. La conferma unica dell'utente copre tutti i giorni proposti.",
+            "- Solo DOPO aver chiamato il tool avvisa l'utente con una frase semplice (es. 'Fatto, ho salvato la scheda nel tuo profilo!').",
+            "",
+            "## REGOLE COMUNI",
+            "- NON menzionare MAI il nome degli strumenti che usi (es. non dire 'uso create_workout_plan_tool'). Sii colloquiale.",
             "- Per gli esercizi passati ai tool fornisci sempre 'muscle_group', 'sets', 'reps' e 'rest_time'."
         ],
         tools=[create_workout_plan_tool, modify_workout_plan_tool, get_workout_plan_tool] if enable_tools else [],

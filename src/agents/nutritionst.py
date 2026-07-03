@@ -121,6 +121,8 @@ class ConversationalNutritionistAgent(Agent):
             "- Suggerisci ricette semplici e veloci adatte all'obiettivo dell'utente (dimagrimento, massa, mantenimento).",
             "- Analizza i pasti già consumati e suggerisci come bilanciare il resto della giornata.",
             "- Quando l'utente chiede 'cosa ho mangiato oggi', usa i dati nutrizionali nel contesto per rispondere.",
+            "- Quando ti chiedono i macro di un alimento con una grammatura precisa, dai un VALORE SINGOLO rappresentativo (puoi premettere 'circa'), NON un intervallo tipo '30-35g': scegli tu il valore più realistico.",
+            "- COERENZA CALORIE-MACRO: le calorie che dichiari devono quadrare con i macro, secondo kcal ≈ 4×proteine + 4×carboidrati + 9×grassi. Prima di rispondere verifica che i tuoi numeri siano coerenti fra loro.",
 
             "# COME USARE IL CONTESTO",
             "- Leggi SEMPRE la sezione 'NUTRIZIONE ODIERNA' nel contesto. Contiene calorie, proteine, carboidrati e grassi già assunti oggi.",

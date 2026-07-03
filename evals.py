@@ -116,13 +116,14 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo attorno:
 {response}
 --- FINE RISPOSTA ---"""
 
-NUTRITION_JUDGE_PROMPT = """Sei un valutatore ESTREMAMENTE RIGOROSO di dati nutrizionali.
+NUTRITION_JUDGE_PROMPT = """Sei un valutatore RIGOROSO ma EQUO di dati nutrizionali.
 
 Devi verificare DUE condizioni sulla risposta della Nutrizionista:
 
 1) COERENZA MATEMATICA: per gli alimenti citati, le calorie dichiarate devono rispettare
    la formula   kcal ≈ 4*proteine(g) + 4*carboidrati(g) + 9*grassi(g)
-   con tolleranza massima ±15%.
+   con tolleranza ±20% (le tabelle nutrizionali reali si discostano dalla somma di Atwater
+   per via di fibra e arrotondamenti: NON penalizzare scostamenti entro il 20%).
 
 2) ASSENZA DI ALLUCINAZIONI: i valori di calorie e macro devono essere PLAUSIBILI per
    l'alimento e la grammatura indicati dall'utente (nessun valore assurdo o inventato).
@@ -130,11 +131,22 @@ Devi verificare DUE condizioni sulla risposta della Nutrizionista:
 Richiesta originale dell'utente:
 "{message}"
 
-Regola di superamento (rigida):
-- pass = true SOLO se ENTRAMBE le condizioni sono rispettate.
-- Se la risposta non riporta numeri quando erano chiaramente richiesti, pass = false.
+ISTRUZIONI DI CALCOLO (seguile alla lettera):
+- Se un valore è espresso come intervallo (es. "30-35g" o "160-170 kcal"), USA IL PUNTO
+  MEDIO (32.5g, 165 kcal). Un intervallo ragionevole NON è motivo di bocciatura.
+- Calcola kcal_computed TU STESSO e scrivi SOLO IL NUMERO FINALE già risolto
+  (esempio corretto: 150.75). È VIETATO scrivere espressioni aritmetiche come
+  "4*3.5 + 4*32.5 + 9*0.75" dentro il JSON: il JSON diventerebbe invalido.
+- Confronta kcal_stated (punto medio) con kcal_computed: se lo scarto è entro ±20%, la
+  condizione 1 è soddisfatta.
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo attorno:
+Regola di superamento:
+- pass = true se ENTRAMBE le condizioni sono rispettate.
+- pass = false solo se i numeri sono incoerenti oltre il 20%, implausibili/inventati,
+  oppure del tutto assenti quando erano chiaramente richiesti.
+
+Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, con SOLI valori numerici o null
+nei campi numerici (mai formule), senza testo attorno:
 {{"pass": true/false, "kcal_stated": <numero o null>, "kcal_computed": <numero o null>, "reason": "<motivazione breve in italiano>"}}
 
 --- RISPOSTA DELLA NUTRIZIONISTA ---
@@ -169,22 +181,31 @@ def evaluate_response(entry: dict, response: str) -> dict:
     else:
         return {"pass": False, "reason": f"Metrica sconosciuta: {metric}"}
 
-    try:
-        completion = _judge_client.chat.completions.create(
-            model=JUDGE_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Sei un giudice imparziale. Rispondi solo con JSON valido.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0,
-            response_format={"type": "json_object"},
-        )
-        verdict = json.loads(completion.choices[0].message.content)
-    except Exception as e:  # rete, rate-limit, JSON malformato
-        return {"pass": False, "reason": f"Errore giudice: {e}"}
+    # Fino a 2 tentativi: il modello giudice può occasionalmente restituire JSON
+    # invalido (es. formule non risolte). Un singolo errore transitorio non deve
+    # contare come bocciatura della risposta valutata.
+    last_error = None
+    for _ in range(2):
+        try:
+            completion = _judge_client.chat.completions.create(
+                model=JUDGE_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Sei un giudice imparziale. Rispondi solo con JSON valido, "
+                                   "usando esclusivamente numeri risolti nei campi numerici (mai formule).",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+                response_format={"type": "json_object"},
+            )
+            verdict = json.loads(completion.choices[0].message.content)
+            break
+        except Exception as e:  # rete, rate-limit, JSON malformato
+            last_error = e
+    else:
+        return {"pass": False, "reason": f"Errore giudice: {last_error}"}
 
     # Normalizza il booleano (il modello potrebbe restituire "true"/"false" stringa)
     verdict["pass"] = str(verdict.get("pass")).strip().lower() == "true"
