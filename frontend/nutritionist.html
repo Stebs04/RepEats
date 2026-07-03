@@ -488,6 +488,20 @@
     }
 
 
+    // Crea una nuvoletta bot VUOTA e restituisce il div del contenuto,
+    // così lo streaming può riempirlo progressivamente token per token.
+    function createStreamingBotBubble() {
+        const container = document.getElementById('chatContainer') || document.getElementById('chatHistory');
+        const botDiv = document.createElement('div');
+        botDiv.className = "flex flex-col gap-1 w-[85%] md:w-2/3";
+        botDiv.innerHTML = `
+            <div class="glass-panel rounded-2xl rounded-tl-none p-4 text-on-surface font-body-md text-body-md relative overflow-hidden border border-tertiary-fixed/20 shadow-[0_4px_24px_-8px_rgba(0,246,246,0.15)]"></div>
+        `;
+        container.appendChild(botDiv);
+        container.scrollTop = container.scrollHeight;
+        return botDiv.firstElementChild;
+    }
+
     // Aggiunge la nuvoletta del "caricamento..."
     function appendLoading() {
         const html = `
@@ -521,7 +535,7 @@
         appendLoading();
 
         try {
-            // Chiamata all'API che abbiamo appena scritto!
+            // Chiamata all'API in streaming (Server-Sent Events).
             const response = await fetch('/api/chat/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -533,17 +547,55 @@
                 })
             });
 
-            const data = await response.json();
-            removeLoading();
-
-            if (response.ok) {
-                // Salviamo l'ID della conversazione per i prossimi messaggi
-                currentConversationId = data.conversation_id;
-                // Mostriamo la risposta dell'IA
-                appendBotMessage(data.reply);
-            } else {
-                appendBotMessage("Scusa, ho avuto un problema di connessione ai miei circuiti. 🤖 Errore: " + (data.detail || 'Sconosciuto'));
+            if (!response.ok || !response.body) {
+                removeLoading();
+                let detail = 'Sconosciuto';
+                try { detail = (await response.json()).detail || detail; } catch (e) {}
+                appendBotMessage("Scusa, ho avuto un problema di connessione ai miei circuiti. 🤖 Errore: " + detail);
+                return;
             }
+
+            // Consumo dello stream SSE token-per-token.
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let contentEl = null;   // div del contenuto bot, creato al primo token
+            let acc = '';           // testo accumulato
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                // Ogni evento SSE è separato da una riga vuota (\n\n).
+                let sep;
+                while ((sep = buffer.indexOf('\n\n')) >= 0) {
+                    const frame = buffer.slice(0, sep);
+                    buffer = buffer.slice(sep + 2);
+                    const dataLine = frame.split('\n').find(l => l.startsWith('data:'));
+                    if (!dataLine) continue;
+
+                    let evt;
+                    try { evt = JSON.parse(dataLine.slice(5).trim()); } catch (e) { continue; }
+
+                    if (evt.type === 'start') {
+                        currentConversationId = evt.conversation_id;
+                    } else if (evt.type === 'content') {
+                        if (!contentEl) { removeLoading(); contentEl = createStreamingBotBubble(); }
+                        acc += evt.delta;
+                        contentEl.innerHTML = parseMarkdown(acc);
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    } else if (evt.type === 'error') {
+                        if (!contentEl) { removeLoading(); contentEl = createStreamingBotBubble(); }
+                        acc += (acc ? '\n\n' : '') + '⚠️ Errore: ' + evt.detail;
+                        contentEl.innerHTML = parseMarkdown(acc);
+                    }
+                    // evt.type === 'end': nessuna azione extra per il nutrizionista
+                }
+            }
+
+            removeLoading();
+            if (!contentEl) appendBotMessage("Mi dispiace, non ho ricevuto una risposta.");
 
         } catch (error) {
             removeLoading();

@@ -450,6 +450,22 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
+    // Crea una nuvoletta bot VUOTA e restituisce il div del contenuto,
+    // così lo streaming può riempirlo progressivamente token per token.
+    function createStreamingBotBubble() {
+        const botDiv = document.createElement('div');
+        botDiv.className = 'flex items-start gap-gutter w-full';
+        botDiv.innerHTML = `
+            <div class="relative shrink-0">
+                <img class="w-12 h-12 rounded-full object-cover border border-tertiary-container/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlrUM8QRyxwPtdV3pN_Kb5BiTYpvQSSocTfT5tRFUEiSUQORP2qoU9ypgPgjSK3Chd0s_1xWLnqfPNDfvIhlemquidz2lpTVGTgzI_SkDQf1t5dx2SLdhbFbN36MIZg7p3awk6ZAS40QnaHMjUrQWD-3n5x_cLX5Vdc_XCGBRvlfWIehYaIj4vQj-iMnEBG7EyxkGE0cxMgz0GKcbia22JimrHgYWkdIB51T7ovid9T9Rr93a5DbTosoRL-5Tl9_QECFQz-ar-lQax"/>
+            </div>
+            <div class="bg-surface-variant/50 rounded-2xl rounded-tl-none p-sm border border-white/5 text-on-surface font-body-md"></div>
+        `;
+        chatHistory.appendChild(botDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        return botDiv.lastElementChild;
+    }
+
     function removeLoading() {
         const loading = document.getElementById('loadingBubble');
         if (loading) loading.remove();
@@ -476,20 +492,60 @@
                 })
             });
 
-            const data = await response.json();
-            removeLoading();
-
-            if (response.ok) {
-                currentConversationId = data.conversation_id;
-                appendBotMessage(data.reply);
-                // Il backend segnala se la run dell'agente ha creato/modificato schede nel DB:
-                // in quel caso ricarichiamo subito la lista per mostrarle senza refresh manuale.
-                if (data.workouts_updated) {
-                    loadWorkoutPlans();
-                }
-            } else {
-                appendBotMessage("Errore: " + (data.detail || 'Sconosciuto'));
+            if (!response.ok || !response.body) {
+                removeLoading();
+                let detail = 'Sconosciuto';
+                try { detail = (await response.json()).detail || detail; } catch (e) {}
+                appendBotMessage("Errore: " + detail);
+                return;
             }
+
+            // Consumo dello stream SSE token-per-token.
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let contentEl = null;   // div del contenuto bot, creato al primo token
+            let acc = '';           // testo accumulato
+            let workoutsUpdated = false;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                // Ogni evento SSE è separato da una riga vuota (\n\n).
+                let sep;
+                while ((sep = buffer.indexOf('\n\n')) >= 0) {
+                    const frame = buffer.slice(0, sep);
+                    buffer = buffer.slice(sep + 2);
+                    const dataLine = frame.split('\n').find(l => l.startsWith('data:'));
+                    if (!dataLine) continue;
+
+                    let evt;
+                    try { evt = JSON.parse(dataLine.slice(5).trim()); } catch (e) { continue; }
+
+                    if (evt.type === 'start') {
+                        currentConversationId = evt.conversation_id;
+                    } else if (evt.type === 'content') {
+                        if (!contentEl) { removeLoading(); contentEl = createStreamingBotBubble(); }
+                        acc += evt.delta;
+                        contentEl.innerHTML = parseMarkdown(acc);
+                        chatHistory.scrollTop = chatHistory.scrollHeight;
+                    } else if (evt.type === 'end') {
+                        workoutsUpdated = evt.workouts_updated;
+                    } else if (evt.type === 'error') {
+                        if (!contentEl) { removeLoading(); contentEl = createStreamingBotBubble(); }
+                        acc += (acc ? '\n\n' : '') + '⚠️ Errore: ' + evt.detail;
+                        contentEl.innerHTML = parseMarkdown(acc);
+                    }
+                }
+            }
+
+            removeLoading();
+            if (!contentEl) appendBotMessage("Mi dispiace, non ho ricevuto una risposta.");
+            // Il backend segnala se la run dell'agente ha creato/modificato schede nel DB:
+            // in quel caso ricarichiamo subito la lista per mostrarle senza refresh manuale.
+            if (workoutsUpdated) loadWorkoutPlans();
 
         } catch (error) {
             removeLoading();

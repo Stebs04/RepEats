@@ -202,4 +202,8 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_hi
         markdown=True,
         description=routing_description,
         show_members_responses=True,
+        # Streaming abilitato: run(stream=True) restituisce un iteratore di eventi.
+        # In mode=route gli eventi RunContentEvent di livello team trasportano
+        # il testo dell'agente instradato, permettendo lo streaming token-per-token.
+        stream=True,
     )

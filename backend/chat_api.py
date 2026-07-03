@@ -3,11 +3,14 @@ Router per la gestione della chat AI.
 Gestisce l'invio dei messaggi, il recupero del contesto utente e l'interazione con l'agente.
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import tempfile
 import os
 import re
+import json
+from agno.run.team import RunContentEvent
 from agno.models.message import Image as AgnoImage
 from agno.agent import Agent
 from agno.models.groq import Groq as GroqModel
@@ -74,19 +77,31 @@ def _extract_ai_text(response) -> str:
     return str(response.content) if response.content else "Mi dispiace, non ho ricevuto una risposta."
 
 
+def _sse(payload: dict) -> str:
+    """Serializza un evento come frame Server-Sent Events."""
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
 @router.post("/send")
 def send_chat_message(request: ChatMessageRequest):
     """
-    Elabora un nuovo messaggio dell'utente.
-    Inizializza una nuova conversazione se assente e inietta il contesto nutrizionale all'agente.
+    Elabora un nuovo messaggio dell'utente in STREAMING (Server-Sent Events).
+    Inizializza una nuova conversazione se assente e inietta il contesto all'agente.
+
+    Protocollo eventi (pattern start-content-end):
+    - {"type": "start", "conversation_id": <id>}  → una volta, prima del testo
+    - {"type": "content", "delta": "<pezzo>"}      → N volte, token per token
+    - {"type": "end", "workouts_updated": <bool>}  → una volta, a fine risposta
+    - {"type": "error", "detail": "<msg>"}         → in caso di errore
     """
+    # Preparazione SINCRONA (fuori dal generatore) così che un errore qui
+    # produca ancora un 500 pulito prima di aprire lo stream.
     try:
         user_data = get_user_data(request.user_id)
         macros_odierni = get_macros_by_date(request.user_id)
         daily_targets = calculate_daily_macros(request.user_id)
 
         conv_id = request.conversation_id
-        
         if not conv_id:
             titolo = request.message[:30] + "..." if len(request.message) > 30 else request.message
             nuova_conv = create_new_conversation(request.user_id, title=titolo, chat_type=request.chat_type)
@@ -96,54 +111,71 @@ def send_chat_message(request: ChatMessageRequest):
 
         history = get_chat_history(conv_id)
         team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, history, request.chat_type)
-
-        # Fotografia delle schede PRIMA della run: permette di verificare
-        # deterministicamente se l'agente ha davvero scritto sul database.
-        is_coach = request.chat_type == "coach"
-        snapshot_prima = _workout_snapshot(request.user_id) if is_coach else None
-
-        response = team_agent.run(request.message)
-        ai_text = _extract_ai_text(response)
-
-        # ============================================================
-        # RETE DI SICUREZZA (solo Coach): se l'agente DICHIARA di aver
-        # salvato/modificato una scheda ma il database risulta invariato,
-        # significa che non ha chiamato il tool. Gli inviamo un messaggio
-        # di sistema (invisibile all'utente) che lo obbliga a chiamare
-        # il tool con la scheda appena proposta. La risposta originale
-        # resta quella mostrata all'utente.
-        # ============================================================
-        workouts_updated = False
-        if is_coach:
-            workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
-            low = ai_text.lower()
-            claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
-            if claims_save and not workouts_updated:
-                recovery_prompt = (
-                    "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
-                    "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una scheda di allenamento, "
-                    "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
-                    "Questa era la tua ultima risposta:\n\n"
-                    f"{ai_text}\n\n"
-                    "Ricava da questa risposta il nome della scheda e i suoi esercizi, e chiama ADESSO lo strumento "
-                    "`create_workout_plan_tool` (oppure `modify_workout_plan_tool` se si trattava della modifica di "
-                    "una scheda esistente) per salvarla davvero. Rispondi solo con una breve conferma."
-                )
-                team_agent.run(recovery_prompt)
-                workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
-
-        save_message(conv_id, "assistant", ai_text)
-
-        return {
-            "reply": ai_text,
-            "conversation_id": conv_id,
-            "workouts_updated": workouts_updated
-        }
-        
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Errore nell'elaborazione del messaggio: {str(e)}")
+
+    # Fotografia delle schede PRIMA della run: permette di verificare
+    # deterministicamente se l'agente ha davvero scritto sul database.
+    is_coach = request.chat_type == "coach"
+    snapshot_prima = _workout_snapshot(request.user_id) if is_coach else None
+
+    def event_stream():
+        try:
+            yield _sse({"type": "start", "conversation_id": conv_id})
+
+            # Streaming token-per-token: in mode=route gli eventi RunContentEvent
+            # di livello team trasportano il testo dell'agente instradato.
+            chunks = []
+            for event in team_agent.run(request.message, stream=True):
+                if isinstance(event, RunContentEvent) and isinstance(event.content, str) and event.content:
+                    chunks.append(event.content)
+                    yield _sse({"type": "content", "delta": event.content})
+
+            ai_text = "".join(chunks).strip() or "Mi dispiace, non ho ricevuto una risposta."
+
+            # ============================================================
+            # RETE DI SICUREZZA (solo Coach): se l'agente DICHIARA di aver
+            # salvato/modificato una scheda ma il database risulta invariato,
+            # significa che non ha chiamato il tool. Gli inviamo un messaggio
+            # di sistema (invisibile all'utente) che lo obbliga a chiamare
+            # il tool con la scheda appena proposta. La risposta originale
+            # resta quella già mostrata all'utente.
+            # ============================================================
+            workouts_updated = False
+            if is_coach:
+                workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
+                low = ai_text.lower()
+                claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
+                if claims_save and not workouts_updated:
+                    recovery_prompt = (
+                        "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
+                        "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una scheda di allenamento, "
+                        "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
+                        "Questa era la tua ultima risposta:\n\n"
+                        f"{ai_text}\n\n"
+                        "Ricava da questa risposta il nome della scheda e i suoi esercizi, e chiama ADESSO lo strumento "
+                        "`create_workout_plan_tool` (oppure `modify_workout_plan_tool` se si trattava della modifica di "
+                        "una scheda esistente) per salvarla davvero. Rispondi solo con una breve conferma."
+                    )
+                    team_agent.run(recovery_prompt, stream=False)
+                    workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
+
+            save_message(conv_id, "assistant", ai_text)
+
+            yield _sse({"type": "end", "workouts_updated": workouts_updated})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            yield _sse({"type": "error", "detail": str(e)})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 @router.post("/vision")
 async def analyze_food_image(
