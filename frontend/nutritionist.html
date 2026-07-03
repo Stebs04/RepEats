@@ -774,9 +774,14 @@
                     <option value="Spuntino" selected>Spuntino</option>
                 </select>
             </div>
-            <div class="flex flex-col gap-1 mb-6">
+            <div class="flex flex-col gap-1 mb-4">
                 <label class="text-sm text-on-surface-variant">Grammatura (g)</label>
                 <input type="number" id="mealWeight" value="100" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:outline-none focus:border-tertiary-fixed">
+            </div>
+            <div class="flex flex-col gap-1 mb-6">
+                <label class="text-sm text-on-surface-variant">Codice a barre (opzionale)</label>
+                <input type="text" inputmode="numeric" id="mealBarcode" placeholder="Se la foto non viene letta, digita qui il numero" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-3 text-on-surface focus:outline-none focus:border-tertiary-fixed">
+                <span class="text-xs text-on-surface-variant/70">Le 8-13 cifre sotto le barre. Ha la priorità sulla lettura automatica.</span>
             </div>
             <button onclick="submitImage()" class="w-full bg-tertiary-fixed text-on-tertiary-fixed py-3 rounded-xl font-bold uppercase tracking-wider flex justify-center items-center gap-2 active:scale-95 transition-transform">
                 <span class="material-symbols-outlined">analytics</span> Analizza Ora
@@ -831,6 +836,7 @@
         document.getElementById('scannerResult').classList.add('hidden');
         document.getElementById('scannerResult').classList.remove('flex');
         document.getElementById('imageInput').value = '';
+        document.getElementById('mealBarcode').value = '';
         selectedImageFile = null;
     }
 
@@ -839,7 +845,8 @@
         
         const cat = document.getElementById('mealCategory').value;
         const weight = document.getElementById('mealWeight').value;
-        
+        const barcodeManuale = document.getElementById('mealBarcode').value.replace(/\D/g, '');
+
         document.getElementById('scannerForm').classList.add('hidden');
         document.getElementById('scannerLoading').classList.remove('hidden');
         document.getElementById('scannerLoading').classList.add('flex');
@@ -849,6 +856,7 @@
         formData.append('user_id', userId);
         formData.append('grammatura', weight);
         formData.append('categoria', cat);
+        formData.append('barcode_manuale', barcodeManuale);
         
         try {
             const res = await fetch('/api/chat/vision', {

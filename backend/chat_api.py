@@ -150,6 +150,7 @@ async def analyze_food_image(
     user_id: int = Form(...),
     grammatura: int = Form(...),
     categoria: str = Form("Spuntino"),
+    barcode_manuale: str = Form(""),
     file: UploadFile = File(...)
 ):
     contents = await file.read()
@@ -162,11 +163,19 @@ async def analyze_food_image(
         obiettivo = user_data.get("goal_type", "mantenimento") if user_data else "mantenimento"
 
         # ================================================================
-        # FASE 0: Rilevamento barcode deterministico sui pixel (OpenCV).
-        # Nessun LLM: se l'immagine è cibo senza codice a barre, scan_barcode
-        # restituisce None e si passa alla stima visiva. Zero allucinazioni.
+        # FASE 0: Rilevamento barcode.
+        # Priorità al codice inserito a mano dall'utente (fallback robusto
+        # quando la foto è troppo sfocata/rumorosa per l'OCR): se presente e
+        # plausibile (8-14 cifre) lo usiamo direttamente, saltando lo scan.
+        # Altrimenti detection deterministica sui pixel (OpenCV), nessun LLM:
+        # se l'immagine è cibo senza codice a barre scan_barcode restituisce
+        # None e si passa alla stima visiva. Zero allucinazioni.
         # ================================================================
-        barcode = scan_barcode(tmp_path)
+        barcode_pulito = "".join(filter(str.isdigit, barcode_manuale or ""))
+        if 8 <= len(barcode_pulito) <= 14:
+            barcode = barcode_pulito
+        else:
+            barcode = scan_barcode(tmp_path)
 
         fonte = "stima"
         testo_analisi = None
