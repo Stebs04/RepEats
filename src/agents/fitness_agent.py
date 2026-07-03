@@ -57,20 +57,23 @@ def _parse_exercises(exercises) -> list:
     return parsed
 
 
-def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) -> Agent:
+def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, enable_tools: bool = True) -> Agent:
     """
     Crea e restituisce l'agente Personal Trainer di RepEats.
-    
+
     L'agente è configurato con:
     - Knowledge Base RAG per protocolli di allenamento.
     - Contesto utente (biometria, nutrizione, cronologia chat).
     - Guardrails per limitare le risposte al solo dominio fitness.
-    
+
     Args:
         user_context: Stringa con il contesto condiviso (dati utente, macro, cronologia).
         knowledge_base: Knowledge Base configurata con i protocolli di allenamento.
         user_data: Dizionario con i dati dell'utente, incluso l'ID.
-    
+        enable_tools: Se False l'agente non registra i tool di persistenza (create/modify/get
+                      workout plan). Utile per valutazioni/test dove si vuole la sola risposta
+                      testuale senza scritture sul database. In produzione resta True.
+
     Returns:
         Agent: L'agente Personal Trainer configurato.
     """
@@ -161,6 +164,16 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) 
             "- Dai consigli su recupero, stretching, mobilità e prevenzione infortuni.",
             "- Motiva l'utente con un tono energico ma professionale.",
 
+            "# ⏱️ BUDGET TEMPORALE (VINCOLO RIGIDO E OBBLIGATORIO)",
+            "La scheda DEVE stare DENTRO il 'Tempo a disposizione' indicato nel contesto (o quello chiesto esplicitamente dall'utente). Sforare il tempo è un ERRORE GRAVE.",
+            "Prima di finalizzare, calcola mentalmente la durata totale con questa stima:",
+            "- Riscaldamento + defaticamento/stretching = circa 10 minuti totali (5+5). Se il tempo disponibile è <= 15 minuti, riducili a 2+2.",
+            "- Per OGNI esercizio: durata = numero_serie × (esecuzione + recupero). Stima l'esecuzione di una serie a ~45 secondi (0,75 min) e usa il tempo di recupero che assegni.",
+            "- Somma riscaldamento + tutti gli esercizi + defaticamento. Questa somma DEVE essere <= tempo disponibile.",
+            "Se sfori: TAGLIA. Riduci il numero di esercizi, le serie o i tempi di recupero finché la somma rientra. Meglio una scheda più corta ma nei tempi che una completa ma fuori tempo.",
+            "Regole pratiche per rientrare: con poco tempo (<=30 min) prediligi circuiti/superserie con recuperi brevi (30-45s) e 4-6 esercizi max. Con tempi molto ridotti (<=10 min) proponi un solo circuito breve, niente carichi pesanti.",
+            "NON dichiarare durate parziali che poi non tornano (es. 'Parte centrale 35 min' se gli esercizi ne richiedono 50): i minuti che scrivi devono essere coerenti con serie e recuperi reali.",
+
             "# ⚠️ CONTROLLO NUTRIZIONALE PRE-ALLENAMENTO (OBBLIGATORIO)",
             "PRIMA di creare qualsiasi scheda di allenamento, DEVI seguire questa procedura:",
             "",
@@ -211,7 +224,7 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) 
             "- Dopo aver usato i tool, avvisa l'utente con una frase semplice e umana (es. 'Ho salvato la scheda nel tuo profilo!').",
             "- Per gli esercizi passati ai tool fornisci sempre 'muscle_group', 'sets', 'reps' e 'rest_time'."
         ],
-        tools=[create_workout_plan_tool, modify_workout_plan_tool, get_workout_plan_tool],
+        tools=[create_workout_plan_tool, modify_workout_plan_tool, get_workout_plan_tool] if enable_tools else [],
         pre_hooks=[PromptInjectionGuardrail()],
         markdown=True
     )

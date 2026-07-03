@@ -1,0 +1,125 @@
+{
+  "description": "Dataset di valutazione per gli agenti di RepEats (LLM-as-a-Judge). Meta' casi Fitness Coach (vincolo temporale), meta' Nutrizionista (correttezza macronutrienti).",
+  "conversations": [
+    {
+      "id": "fit_01_standard_45",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Preparami una scheda di ipertrofia per il petto. Ho 45 minuti a disposizione.",
+      "max_minutes": 45,
+      "user_data": { "workout_duration": 45, "workout_preference": "Ipertrofia" }
+    },
+    {
+      "id": "fit_02_standard_60",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Voglio una scheda gambe completa, ho circa un'ora.",
+      "max_minutes": 60,
+      "user_data": { "workout_duration": 60, "workout_preference": "Ipertrofia" }
+    },
+    {
+      "id": "fit_03_edge_short_20",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Oggi ho pochissimo tempo, solo 20 minuti. Dammi un full body veloce.",
+      "max_minutes": 20,
+      "user_data": { "workout_duration": 20, "workout_preference": "Dimagrimento" }
+    },
+    {
+      "id": "fit_04_edge_extreme_5",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Ho letteralmente 5 minuti prima di uscire, cosa posso fare?",
+      "max_minutes": 5,
+      "user_data": { "workout_duration": 5, "workout_preference": "Dimagrimento" }
+    },
+    {
+      "id": "fit_05_hiit_30",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Scheda HIIT per dimagrire, ho 30 minuti.",
+      "max_minutes": 30,
+      "user_data": { "workout_duration": 30, "workout_preference": "Dimagrimento" }
+    },
+    {
+      "id": "fit_06_long_forza_90",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Ho 90 minuti liberi, voglio una scheda forza upper body pesante.",
+      "max_minutes": 90,
+      "user_data": { "workout_duration": 90, "workout_preference": "Forza" }
+    },
+    {
+      "id": "fit_07_context_default_60",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Creami una scheda per il dorso adatta al tempo che ho di solito.",
+      "max_minutes": 60,
+      "user_data": { "workout_duration": 60, "workout_preference": "Ipertrofia" }
+    },
+    {
+      "id": "fit_08_edge_tight_25",
+      "agent": "coach",
+      "metric": "time_constraint",
+      "message": "Ho solo 25 minuti in pausa pranzo, dammi qualcosa di efficace per le braccia.",
+      "max_minutes": 25,
+      "user_data": { "workout_duration": 25, "workout_preference": "Ipertrofia" }
+    },
+    {
+      "id": "nut_01_pollo_150g",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "Ho mangiato 150g di petto di pollo alla griglia. Quante proteine, carboidrati, grassi e calorie sono?",
+      "user_data": {}
+    },
+    {
+      "id": "nut_02_pasta_100g",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "Dammi i macronutrienti di 100g di pasta di semola cotta.",
+      "user_data": {}
+    },
+    {
+      "id": "nut_03_uovo",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "Quanti macro ha un uovo grande da circa 60g?",
+      "user_data": {}
+    },
+    {
+      "id": "nut_04_edge_combo",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "Ho mangiato 200g di riso bianco cotto e 100g di tonno al naturale sgocciolato. Dammi il totale dei macro e delle calorie.",
+      "user_data": {}
+    },
+    {
+      "id": "nut_05_mandorle_50g",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "50g di mandorle: quante calorie e quanti grassi?",
+      "user_data": {}
+    },
+    {
+      "id": "nut_06_banana_120g",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "Una banana da 120g, dammi calorie e macronutrienti.",
+      "user_data": {}
+    },
+    {
+      "id": "nut_07_pane_60g",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "2 fette di pane integrale, in tutto 60g. Quali sono i macro?",
+      "user_data": {}
+    },
+    {
+      "id": "nut_08_edge_advice",
+      "agent": "nutritionist",
+      "metric": "macro_accuracy",
+      "message": "Mi mancano 40g di proteine per oggi. Consigliami un pasto e dimmi quante proteine, carboidrati, grassi e calorie ha con le grammature.",
+      "user_data": {}
+    }
+  ]
+}
