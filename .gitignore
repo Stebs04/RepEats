@@ -29,3 +29,5 @@ src/database/lancedb_vectors/protocolli_allenamento.lance/_transactions/0-aa41f4
 src/database/lancedb_vectors/__manifest/_versions/latest_version_hint.json
 src/database/lancedb_vectors/protocolli_allenamento.lance/_versions/latest_version_hint.json
 CLAUDE.md
+src/database/lancedb_vectors/__manifest/_transactions/0-801160a4-db12-4870-996c-563610d8356f.txn
+src/database/lancedb_vectors/protocolli_allenamento.lance/_transactions/0-f8a86174-fe39-4ddb-ba7b-25be071633fb.txn
