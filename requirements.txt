@@ -39,3 +39,7 @@ python-multipart
 # Suite di Evals (LLM-as-a-Judge): report tabellare in console (evals.py).
 # groq, agno e python-dotenv sono gia' presenti sopra e vengono riutilizzati.
 tabulate
+
+# Test di sicurezza (tests/test_prompt_injection.py): asserzioni automatiche.
+# Opzionale: il runner manuale gira anche senza pytest.
+pytest
