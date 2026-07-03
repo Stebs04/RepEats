@@ -132,7 +132,7 @@ CRONOLOGIA CONVERSAZIONE:
     return user_context
 
 
-def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_history: list, chat_type: str = "coach"):
+def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_history: list, chat_type: str = "coach", enable_tools: bool = True):
     """
     Crea e restituisce l'Orchestratore centrale di RepEats.
     
@@ -161,7 +161,7 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_hi
     user_context = build_user_context(user_data, macros, daily_targets, chat_history, chat_type)
 
     # Creazione degli agenti specializzati con il contesto iniettato
-    pt_agent = get_pt_agent(user_context=user_context, knowledge_base=kb, user_data=user_data)
+    pt_agent = get_pt_agent(user_context=user_context, knowledge_base=kb, user_data=user_data, enable_tools=enable_tools)
     nutrizionista_chat = ConversationalNutritionistAgent(user_context=user_context)
 
     # Selezione dei membri in base alla pagina corrente dell'utente.

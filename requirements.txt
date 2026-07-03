@@ -30,8 +30,12 @@ tantivy
 
 torchvision
 
-fastapi 
+fastapi
 
 uvicorn
 
 python-multipart
+
+# Suite di Evals (LLM-as-a-Judge): report tabellare in console (evals.py).
+# groq, agno e python-dotenv sono gia' presenti sopra e vengono riutilizzati.
+tabulate
