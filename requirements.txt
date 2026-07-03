@@ -13,6 +13,13 @@ requests
 
 pillow
 
+# Lettura codici a barre dalle immagini.
+# zxing-cpp: decoder primario, legge molte simbologie (incluso Code 128) e
+# gli screenshot renderizzati che cv2 non decodifica. Wheel self-contained.
+zxing-cpp
+# opencv: fallback + pre-processing immagini.
+opencv-contrib-python-headless
+
 bcrypt
 
 lancedb
