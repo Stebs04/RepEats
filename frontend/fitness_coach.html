@@ -482,6 +482,11 @@
             if (response.ok) {
                 currentConversationId = data.conversation_id;
                 appendBotMessage(data.reply);
+                // Il backend segnala se la run dell'agente ha creato/modificato schede nel DB:
+                // in quel caso ricarichiamo subito la lista per mostrarle senza refresh manuale.
+                if (data.workouts_updated) {
+                    loadWorkoutPlans();
+                }
             } else {
                 appendBotMessage("Errore: " + (data.detail || 'Sconosciuto'));
             }
@@ -660,19 +665,29 @@
     }
     
     // ---- Fetch and Display Workout Plans ----
+    // Cache locale delle schede: serve al form di modifica per ricostruire i dati senza rifare fetch
+    let plansCache = {};
+
+    // Escape HTML per valori dinamici inseriti nei template (nomi schede/esercizi)
+    function escHtml(s) {
+        return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     async function loadWorkoutPlans() {
         const container = document.getElementById('workoutPlansContainer');
         try {
             const res = await fetch(`/api/dashboard/workouts?user_id=${userId}`);
             if (res.ok) {
                 const data = await res.json();
+                plansCache = {};
                 if (!data.workouts || data.workouts.length === 0) {
                     container.innerHTML = '<div class="text-on-surface-variant text-sm px-2">Nessuna scheda trovata. Chiedi a Lumina Coach di crearne una per te!</div>';
                     return;
                 }
-                
+
                 container.innerHTML = '';
                 data.workouts.forEach(plan => {
+                    plansCache[plan.id] = plan;
                     const planDiv = document.createElement('div');
                     planDiv.className = 'glass-panel rounded-xl overflow-hidden border border-white/10';
                     
@@ -684,7 +699,7 @@
                                     <span class="material-symbols-outlined">assignment</span>
                                 </div>
                                 <div>
-                                    <h4 class="font-bold text-on-surface text-lg">${plan.name}</h4>
+                                    <h4 class="font-bold text-on-surface text-lg">${escHtml(plan.name)}</h4>
                                     <p class="text-xs text-on-surface-variant">${new Date(plan.created_at).toLocaleDateString()} • ${plan.exercises.length} esercizi</p>
                                 </div>
                             </div>
@@ -694,7 +709,7 @@
                     
                     // Corpo della scheda con esercizi (nascosto di default se non è il primo)
                     const isFirst = data.workouts.indexOf(plan) === 0;
-                    let bodyHtml = `<div class="${isFirst ? '' : 'hidden'} flex flex-col gap-2 p-4">`;
+                    let bodyHtml = `<div id="planBody-${plan.id}" class="${isFirst ? '' : 'hidden'} flex flex-col gap-2 p-4">`;
                     
                     if (plan.exercises.length === 0) {
                         bodyHtml += `<div class="text-sm text-on-surface-variant italic">Nessun esercizio presente in questa scheda.</div>`;
@@ -703,10 +718,10 @@
                             bodyHtml += `
                                 <div class="bg-surface-container-high/50 rounded-lg p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border border-white/5">
                                     <div class="flex-1">
-                                        <h5 class="font-semibold text-on-surface">${ex.name}</h5>
+                                        <h5 class="font-semibold text-on-surface">${escHtml(ex.name)}</h5>
                                         <div class="flex gap-3 text-xs text-on-surface-variant mt-1">
-                                            ${ex.muscle_group ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">accessibility_new</span>${ex.muscle_group}</span>` : ''}
-                                            ${ex.rest_time ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">timer</span>${ex.rest_time}</span>` : ''}
+                                            ${ex.muscle_group ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">accessibility_new</span>${escHtml(ex.muscle_group)}</span>` : ''}
+                                            ${ex.rest_time ? `<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">timer</span>${escHtml(ex.rest_time)}</span>` : ''}
                                         </div>
                                     </div>
                                     <div class="flex gap-4 items-center bg-surface-container-lowest/50 px-3 py-1.5 rounded-md self-end sm:self-auto border border-white/5">
@@ -717,7 +732,7 @@
                                         <div class="w-px h-6 bg-white/10"></div>
                                         <div class="text-center">
                                             <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">REP</span>
-                                            <span class="font-bold text-tertiary-fixed">${ex.reps}</span>
+                                            <span class="font-bold text-tertiary-fixed">${escHtml(ex.reps)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -730,7 +745,7 @@
                             <button onclick="deleteWorkoutPlan(${plan.id})" class="text-xs text-error hover:text-error flex items-center gap-1 py-1 px-2 rounded hover:bg-error/10 transition-colors">
                                 <span class="material-symbols-outlined text-[14px]">delete</span> Elimina
                             </button>
-                            <button onclick="sendQuickMessage('Voglio modificare la scheda ${plan.name}')" class="text-xs text-primary-container hover:text-primary-fixed flex items-center gap-1 py-1 px-2 rounded hover:bg-primary-container/10 transition-colors">
+                            <button onclick="enterEditMode(${plan.id})" class="text-xs text-primary-container hover:text-primary-fixed flex items-center gap-1 py-1 px-2 rounded hover:bg-primary-container/10 transition-colors">
                                 <span class="material-symbols-outlined text-[14px]">edit</span> Modifica questa scheda
                             </button>
                         </div>
@@ -768,17 +783,116 @@
         }
     }
     
+    // ---- Modifica locale delle schede (senza passare per la chat/agente) ----
+    const EDIT_INPUT_CLS = 'bg-surface-container-lowest/60 border border-white/10 rounded-md px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary-container w-full';
+
+    function exerciseEditRow(ex = {}) {
+        return `
+            <div class="exercise-edit-row bg-surface-container-high/50 rounded-lg p-3 flex flex-col gap-2 border border-white/5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">Esercizio</span>
+                        <input data-field="name" placeholder="Nome esercizio" value="${escHtml(ex.name || '')}" class="${EDIT_INPUT_CLS}"/>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">Gruppo muscolare</span>
+                        <input data-field="muscle_group" placeholder="Es. Petto" value="${escHtml(ex.muscle_group || '')}" class="${EDIT_INPUT_CLS}"/>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">Set</span>
+                        <input data-field="sets" type="number" min="1" value="${escHtml(ex.sets ?? 3)}" class="${EDIT_INPUT_CLS}"/>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">Rep</span>
+                        <input data-field="reps" placeholder="Es. 10-12" value="${escHtml(ex.reps || '10')}" class="${EDIT_INPUT_CLS}"/>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">Recupero</span>
+                        <input data-field="rest_time" placeholder="Es. 90s" value="${escHtml(ex.rest_time || '90s')}" class="${EDIT_INPUT_CLS}"/>
+                    </div>
+                </div>
+                <button onclick="this.closest('.exercise-edit-row').remove()" class="self-end text-xs text-error flex items-center gap-1 py-1 px-2 rounded hover:bg-error/10 transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">delete</span> Rimuovi
+                </button>
+            </div>`;
+    }
+
+    function enterEditMode(planId) {
+        const plan = plansCache[planId];
+        const body = document.getElementById(`planBody-${planId}`);
+        if (!plan || !body) return;
+
+        body.classList.remove('hidden');
+        let html = `
+            <span class="block text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1 px-1">Nome scheda</span>
+            <input id="editPlanName-${planId}" value="${escHtml(plan.name)}" class="${EDIT_INPUT_CLS} mb-2"/>
+            <div id="editRows-${planId}" class="flex flex-col gap-2">`;
+        plan.exercises.forEach(ex => { html += exerciseEditRow(ex); });
+        html += `</div>
+            <button onclick="addExerciseRow(${planId})" class="self-start text-xs text-tertiary-container flex items-center gap-1 py-1.5 px-2 rounded hover:bg-tertiary-container/10 transition-colors mt-1">
+                <span class="material-symbols-outlined text-[14px]">add</span> Aggiungi esercizio
+            </button>
+            <div class="mt-2 flex justify-end gap-2">
+                <button onclick="loadWorkoutPlans()" class="text-xs text-on-surface-variant flex items-center gap-1 py-1 px-2 rounded hover:bg-surface-container transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">close</span> Annulla
+                </button>
+                <button onclick="saveWorkoutEdits(${planId})" class="text-xs text-primary-container font-bold flex items-center gap-1 py-1 px-3 rounded bg-primary-container/10 hover:bg-primary-container/20 border border-primary-container/30 transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">save</span> Salva modifiche
+                </button>
+            </div>`;
+        body.innerHTML = html;
+    }
+
+    function addExerciseRow(planId) {
+        document.getElementById(`editRows-${planId}`).insertAdjacentHTML('beforeend', exerciseEditRow());
+    }
+
+    async function saveWorkoutEdits(planId) {
+        const name = document.getElementById(`editPlanName-${planId}`).value.trim();
+        if (!name) {
+            alert('Il nome della scheda non può essere vuoto.');
+            return;
+        }
+
+        const exercises = [];
+        document.querySelectorAll(`#editRows-${planId} .exercise-edit-row`).forEach(row => {
+            const get = f => row.querySelector(`[data-field="${f}"]`).value.trim();
+            const exName = get('name');
+            if (!exName) return; // Righe senza nome vengono ignorate
+            exercises.push({
+                name: exName,
+                muscle_group: get('muscle_group'),
+                sets: parseInt(get('sets'), 10) || 3,
+                reps: get('reps') || '10',
+                rest_time: get('rest_time') || '90s'
+            });
+        });
+
+        if (exercises.length === 0) {
+            alert('La scheda deve contenere almeno un esercizio.');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/dashboard/workout/${planId}?user_id=${userId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, exercises })
+            });
+            if (res.ok) {
+                loadWorkoutPlans();
+            } else {
+                alert("Errore durante il salvataggio delle modifiche.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Errore di rete. Impossibile salvare le modifiche.');
+        }
+    }
+
     // Call when page loads
     document.addEventListener('DOMContentLoaded', loadWorkoutPlans);
-    
-    // Reload plans whenever a message from bot might have changed them
-    const originalAppendBotMessage = appendBotMessage;
-    appendBotMessage = function(text) {
-        originalAppendBotMessage(text);
-        // If the agent mentions saving or modifying, reload the list
-        if (text.toLowerCase().includes('salvat') || text.toLowerCase().includes('modificat') || text.toLowerCase().includes('scheda')) {
-            loadWorkoutPlans();
-        }
-    };
 </script>
 </body></html>

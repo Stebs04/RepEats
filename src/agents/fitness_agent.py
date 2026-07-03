@@ -15,6 +15,46 @@ from agno.models.groq import Groq
 from agno.knowledge.knowledge import Knowledge
 from src.database.user_service import save_workout_plan, update_workout_plan, get_user_workout_plans
 import json
+import ast
+
+
+def _parse_exercises(exercises) -> list:
+    """
+    Converte il parametro 'exercises' ricevuto dall'LLM in una lista di dizionari.
+    Tollera i formati imperfetti più comuni prodotti dai modelli: code fence
+    markdown (```json ... ```), apici singoli in stile Python, un singolo
+    oggetto invece di una lista, o una lista già deserializzata.
+
+    Raises:
+        ValueError: se il contenuto non è interpretabile come lista di esercizi.
+    """
+    if isinstance(exercises, (list, dict)):
+        parsed = exercises
+    else:
+        raw = str(exercises).strip()
+        # Rimozione di eventuali code fence markdown attorno al JSON
+        if raw.startswith("```"):
+            raw = raw.strip("`").strip()
+            if raw[:4].lower() == "json":
+                raw = raw[4:].strip()
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            # Fallback per liste/dizionari scritti con sintassi Python (apici singoli)
+            try:
+                parsed = ast.literal_eval(raw)
+            except (ValueError, SyntaxError):
+                raise ValueError("il parametro 'exercises' non è una lista JSON valida")
+
+    # Un singolo esercizio passato come oggetto viene avvolto in una lista
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+
+    if not isinstance(parsed, list) or not parsed or not all(isinstance(e, dict) for e in parsed):
+        raise ValueError("il parametro 'exercises' deve essere una lista JSON non vuota di oggetti esercizio")
+
+    return parsed
+
 
 def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) -> Agent:
     """
@@ -46,9 +86,11 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) 
                        Ogni dizionario deve avere le chiavi: "name" (str), "muscle_group" (str), "sets" (int), "reps" (str), "rest_time" (str).
         """
         try:
-            ex_list = json.loads(exercises)
-            if not isinstance(ex_list, list):
-                return "Errore: exercises deve essere una lista JSON di oggetti."
+            ex_list = _parse_exercises(exercises)
+        except ValueError as ve:
+            return (f"Errore: {ve}. Richiama subito questo strumento passando 'exercises' come lista JSON "
+                    f"di oggetti con chiavi: name, muscle_group, sets, reps, rest_time.")
+        try:
             save_workout_plan(user_id, plan_name, ex_list)
             return f"Scheda '{plan_name}' salvata con successo nel database!"
         except Exception as e:
@@ -65,9 +107,11 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict) 
                        Ogni dizionario deve avere le chiavi: "name" (str), "muscle_group" (str), "sets" (int), "reps" (str), "rest_time" (str).
         """
         try:
-            ex_list = json.loads(exercises)
-            if not isinstance(ex_list, list):
-                return "Errore: exercises deve essere una lista JSON di oggetti."
+            ex_list = _parse_exercises(exercises)
+        except ValueError as ve:
+            return (f"Errore: {ve}. Richiama subito questo strumento passando 'exercises' come lista JSON "
+                    f"di oggetti con chiavi: name, muscle_group, sets, reps, rest_time.")
+        try:
             update_workout_plan(user_id, plan_name, ex_list)
             return f"Scheda '{plan_name}' modificata e aggiornata con successo nel database!"
         except Exception as e:

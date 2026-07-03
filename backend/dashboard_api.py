@@ -1,9 +1,23 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from pydantic import BaseModel
+from typing import Optional, List
 from datetime import datetime, timezone, date as date_type
-from src.database.user_service import get_user_data, get_macros_by_date, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan
+from src.database.user_service import get_user_data, get_macros_by_date, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan, update_workout_plan_by_id
 
 router = APIRouter()
+
+class ExercisePayload(BaseModel):
+    """Singolo esercizio inviato dal frontend durante la modifica manuale di una scheda."""
+    name: str
+    muscle_group: Optional[str] = ""
+    sets: int = 3
+    reps: str = "10"
+    rest_time: Optional[str] = "90s"
+
+class WorkoutUpdateRequest(BaseModel):
+    """Payload per l'aggiornamento manuale di una scheda di allenamento."""
+    name: str
+    exercises: List[ExercisePayload]
 
 @router.get("/stats")
 def get_dashboard_stats(user_id: int = Query(...), date: Optional[str] = Query(None, description="Data nel formato YYYY-MM-DD; se assente usa oggi")):
@@ -93,6 +107,34 @@ def get_workouts(user_id: int = Query(...)):
     try:
         plans = get_user_workout_plans(user_id)
         return {"workouts": plans}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/workout/{plan_id}")
+def update_workout(plan_id: int, request: WorkoutUpdateRequest, user_id: int = Query(...)):
+    """
+    Aggiorna manualmente una scheda di allenamento (nome ed esercizi).
+    Usato dal form di modifica locale del frontend, senza passare per l'agente AI.
+    """
+    try:
+        if not request.name.strip():
+            raise HTTPException(status_code=422, detail="Il nome della scheda non può essere vuoto")
+        if not request.exercises:
+            raise HTTPException(status_code=422, detail="La scheda deve contenere almeno un esercizio")
+
+        success = update_workout_plan_by_id(
+            user_id=user_id,
+            plan_id=plan_id,
+            plan_name=request.name.strip(),
+            exercises=[e.model_dump() for e in request.exercises]
+        )
+        if not success:
+            raise HTTPException(status_code=404, detail="Scheda non trovata o non autorizzato")
+        return {"message": "Scheda aggiornata con successo"}
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         traceback.print_exc()

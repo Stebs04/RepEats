@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional
 import tempfile
 import os
+import re
 from agno.models.message import Image as AgnoImage
 from agno.agent import Agent
 from agno.models.groq import Groq as GroqModel
@@ -23,7 +24,8 @@ from src.database.user_service import (
     save_meal_log,
     get_user_conversations,
     rename_conversation,
-    delete_conversation
+    delete_conversation,
+    get_user_workout_plans
 )
 from src.orchestrator import get_orchestrator
 
@@ -35,6 +37,41 @@ class ChatMessageRequest(BaseModel):
     conversation_id: Optional[int] = None
     message: str
     chat_type: Optional[str] = "nutritionist"
+
+
+def _workout_snapshot(user_id: int) -> list:
+    """
+    Crea una "fotografia" delle schede di allenamento dell'utente (nomi ed esercizi).
+    Serve a verificare in modo deterministico se una run dell'agente Coach
+    ha davvero scritto qualcosa nel database, senza fidarsi del testo della risposta.
+    """
+    return [
+        (
+            p["id"],
+            p["name"],
+            tuple((e["name"], e["muscle_group"], e["sets"], e["reps"], e["rest_time"]) for e in p["exercises"])
+        )
+        for p in get_user_workout_plans(user_id)
+    ]
+
+
+def _extract_ai_text(response) -> str:
+    """
+    Estrazione robusta del testo dalla risposta del team agent.
+    Con show_members_responses=True, response.content potrebbe essere:
+    - una stringa (il caso normale)
+    - None se l'output è strutturato in modo diverso
+    - un oggetto non-stringa
+    """
+    if isinstance(response.content, str) and response.content.strip():
+        return response.content
+    if hasattr(response, 'messages') and response.messages:
+        # Prende l'ultimo messaggio assistant disponibile
+        assistant_msgs = [m for m in response.messages if getattr(m, 'role', '') == 'assistant']
+        if assistant_msgs:
+            return getattr(assistant_msgs[-1], 'content', str(response.content))
+        return str(response.content)
+    return str(response.content) if response.content else "Mi dispiace, non ho ricevuto una risposta."
 
 
 @router.post("/send")
@@ -60,30 +97,47 @@ def send_chat_message(request: ChatMessageRequest):
         history = get_chat_history(conv_id)
         team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, history, request.chat_type)
 
+        # Fotografia delle schede PRIMA della run: permette di verificare
+        # deterministicamente se l'agente ha davvero scritto sul database.
+        is_coach = request.chat_type == "coach"
+        snapshot_prima = _workout_snapshot(request.user_id) if is_coach else None
+
         response = team_agent.run(request.message)
-        
-        # Estrazione robusta del testo dalla risposta del team agent.
-        # Con show_members_responses=True, response.content potrebbe essere:
-        # - una stringa (il caso normale)
-        # - None se l'output è strutturato in modo diverso
-        # - un oggetto non-stringa
-        if isinstance(response.content, str) and response.content.strip():
-            ai_text = response.content
-        elif hasattr(response, 'messages') and response.messages:
-            # Prende l'ultimo messaggio assistant disponibile
-            assistant_msgs = [m for m in response.messages if getattr(m, 'role', '') == 'assistant']
-            if assistant_msgs:
-                ai_text = getattr(assistant_msgs[-1], 'content', str(response.content))
-            else:
-                ai_text = str(response.content)
-        else:
-            ai_text = str(response.content) if response.content else "Mi dispiace, non ho ricevuto una risposta."
+        ai_text = _extract_ai_text(response)
+
+        # ============================================================
+        # RETE DI SICUREZZA (solo Coach): se l'agente DICHIARA di aver
+        # salvato/modificato una scheda ma il database risulta invariato,
+        # significa che non ha chiamato il tool. Gli inviamo un messaggio
+        # di sistema (invisibile all'utente) che lo obbliga a chiamare
+        # il tool con la scheda appena proposta. La risposta originale
+        # resta quella mostrata all'utente.
+        # ============================================================
+        workouts_updated = False
+        if is_coach:
+            workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
+            low = ai_text.lower()
+            claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
+            if claims_save and not workouts_updated:
+                recovery_prompt = (
+                    "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
+                    "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una scheda di allenamento, "
+                    "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
+                    "Questa era la tua ultima risposta:\n\n"
+                    f"{ai_text}\n\n"
+                    "Ricava da questa risposta il nome della scheda e i suoi esercizi, e chiama ADESSO lo strumento "
+                    "`create_workout_plan_tool` (oppure `modify_workout_plan_tool` se si trattava della modifica di "
+                    "una scheda esistente) per salvarla davvero. Rispondi solo con una breve conferma."
+                )
+                team_agent.run(recovery_prompt)
+                workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
 
         save_message(conv_id, "assistant", ai_text)
 
         return {
             "reply": ai_text,
-            "conversation_id": conv_id
+            "conversation_id": conv_id,
+            "workouts_updated": workouts_updated
         }
         
     except Exception as e:

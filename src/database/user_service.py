@@ -499,6 +499,49 @@ def delete_workout_plan(user_id: int, plan_id: int) -> bool:
     session.close()
     return False
 
+def update_workout_plan_by_id(user_id: int, plan_id: int, plan_name: str, exercises: list) -> bool:
+    """
+    Aggiorna una scheda di allenamento esistente identificata dal suo ID.
+    Usata dalle modifiche manuali effettuate dall'utente via interfaccia (non dall'agente).
+    Verifica che la scheda appartenga all'utente, aggiorna il nome e
+    sostituisce tutti gli esercizi con quelli forniti.
+
+    Args:
+        user_id (int): L'identificativo dell'utente proprietario della scheda.
+        plan_id (int): L'identificativo della scheda da aggiornare.
+        plan_name (str): Il nuovo nome della scheda.
+        exercises (list): Lista di dizionari con chiavi: name, muscle_group, sets, reps, rest_time.
+
+    Returns:
+        bool: True se la scheda è stata trovata e aggiornata, False altrimenti.
+    """
+    session = get_session()
+    plan = session.query(WorkoutPlan).filter_by(id=plan_id, user_id=user_id).first()
+
+    if not plan:
+        session.close()
+        return False
+
+    plan.name = plan_name
+
+    # Sostituisce integralmente gli esercizi della scheda con quelli nuovi
+    session.query(WorkoutExercise).filter_by(plan_id=plan.id).delete()
+    for idx, ex in enumerate(exercises):
+        new_ex = WorkoutExercise(
+            plan_id=plan.id,
+            name=ex.get('name', 'Esercizio'),
+            muscle_group=ex.get('muscle_group', ''),
+            sets=ex.get('sets', 3),
+            reps=str(ex.get('reps', '10')),
+            rest_time=str(ex.get('rest_time', '90s')),
+            order_index=idx
+        )
+        session.add(new_ex)
+
+    session.commit()
+    session.close()
+    return True
+
 def update_workout_plan(user_id: int, plan_name: str, exercises: list):
     """
     Aggiorna una scheda di allenamento esistente (ricerca per nome e utente).
