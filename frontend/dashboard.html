@@ -187,7 +187,7 @@
 </button>
 </div>
 <!-- Rings Section (Bento Grid Area 1) -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
 <!-- Calories Ring -->
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
 <div class="absolute inset-0 bg-primary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -218,27 +218,33 @@
 </div>
 </div>
 </div>
-<!-- Carbs/Fat Split -->
+<!-- Carbs Ring -->
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
 <div class="absolute inset-0 bg-secondary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-<h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Carbo / Grassi</h3>
+<h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Carboidrati</h3>
 <div class="relative w-32 h-32">
 <svg class="w-full h-full" viewbox="0 0 100 100">
 <circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
-<!-- Carbs Arc -->
-<circle id="carbCircle" class="text-secondary-container progress-ring-circle stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(250,92,28,0.8));"></circle>
-<!-- Fats Arc (offset for demo) -->
-<circle id="fatCircle" class="text-secondary progress-ring-circle stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(255,181,156,0.8)); transform-origin: 50% 50%; transform: rotate(20deg);" transform="rotate(45 50 50)"></circle>
+<circle id="carbCircle" class="text-secondary-container progress-ring-circle stroke-current shadow-[0_0_15px_rgba(250,92,28,0.5)]" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(250,92,28,0.8));"></circle>
 </svg>
-<div class="absolute inset-0 flex flex-col items-center justify-center gap-1">
-<div class="flex items-center gap-1 text-secondary-container">
-<span class="w-2 h-2 rounded-full bg-secondary-container shadow-[0_0_5px_currentColor]"></span>
-<span id="carbsOggi" class="font-label-sm text-label-sm">0g</span>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span id="carbsOggi" class="font-stat-value text-stat-value text-on-surface">0g</span>
+<span id="carbTarget" class="font-label-sm text-label-sm text-on-surface-variant">/ 0g</span>
 </div>
-<div class="flex items-center gap-1 text-secondary">
-<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_5px_currentColor]"></span>
-<span id="fatsOggi" class="font-label-sm text-label-sm">0g</span>
 </div>
+</div>
+<!-- Fats Ring -->
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
+<div class="absolute inset-0 bg-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+<h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Grassi</h3>
+<div class="relative w-32 h-32">
+<svg class="w-full h-full" viewbox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle id="fatCircle" class="text-secondary progress-ring-circle stroke-current shadow-[0_0_15px_rgba(255,181,156,0.5)]" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 4px rgba(255,181,156,0.8));"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span id="fatsOggi" class="font-stat-value text-stat-value text-on-surface">0g</span>
+<span id="fatTarget" class="font-label-sm text-label-sm text-on-surface-variant">/ 0g</span>
 </div>
 </div>
 </div>
@@ -568,7 +574,9 @@
                 document.getElementById('proTarget').innerText = `/ ${Math.round(data.targets.target_proteins)}g`;
 
                 document.getElementById('carbsOggi').innerText = `${Math.round(data.today.carbohydrates)}g`;
+                document.getElementById('carbTarget').innerText = `/ ${Math.round(data.targets.target_carbohydrates)}g`;
                 document.getElementById('fatsOggi').innerText = `${Math.round(data.today.fats)}g`;
+                document.getElementById('fatTarget').innerText = `/ ${Math.round(data.targets.target_fats)}g`;
 
                 // Animiamo i cerchi con un piccolo delay per l'effetto wow
                 setTimeout(() => {
