@@ -99,10 +99,19 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
         or f"Prodotto {input_data.barcode}"
     )
 
+    # Energia: OpenFoodFacts espone 'energy-kcal_100g', ma molti prodotti hanno
+    # solo l'energia in kJ ('energy_100g'). Fallback: convertiamo kJ -> kcal
+    # (1 kcal = 4.184 kJ) così lo scanner riceve sempre un valore utilizzabile.
+    energy_kcal = nutriments.get("energy-kcal_100g")
+    if energy_kcal is None:
+        energy_kj = nutriments.get("energy_100g")
+        if energy_kj is not None:
+            energy_kcal = round(energy_kj / 4.184, 1)
+
     # Mappa individualmente i dati JSON nel modello Pydantic di risposta, usando .get() per prevenire KeyError
     return ProductOutput(
         product_name=product_name,
-        energy_kcal_100g=nutriments.get("energy-kcal_100g"),
+        energy_kcal_100g=energy_kcal,
         proteins_100g=nutriments.get("proteins_100g"),
         carbohydrates_100g=nutriments.get("carbohydrates_100g"),
         fat_100g=nutriments.get("fat_100g")

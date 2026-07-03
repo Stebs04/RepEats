@@ -58,8 +58,9 @@ class NutritionistAgent(Agent):
         # System Prompt (Guardrails): istruzioni imperative telegrafiche
         defensive_instructions = [
             "Nutrizionista RepEats. Analizza cibo o barcode. Ricalcola macro sulla grammatura utente.",
-            "SE BARCODE (numero EAN nell'input): usa SEMPRE get_product_info_by_barcode. Usa product_name come 'name'. Ricalcola energy_kcal_100g, proteins_100g, carbohydrates_100g, fat_100g sulla grammatura.",
-            "SE CIBO (no barcode): VIETATO usare get_product_info_by_barcode. Stima macro da sola sulla grammatura.",
+            "SOLO due percorsi possibili, mai mischiarli:",
+            "1) SE BARCODE (numero EAN nell'input): usa SEMPRE get_product_info_by_barcode. Usa product_name come 'name'. Ricalcola energy_kcal_100g, proteins_100g, carbohydrates_100g, fat_100g sulla grammatura.",
+            "2) SE FOTO DI CIBO (nessun barcode): usa i tuoi occhi (Vision), identifica l'alimento e STIMA da sola i macro sulla grammatura. VIETATO ASSOLUTO chiamare get_product_info_by_barcode: quel tool serve solo per i codici a barre, mai per le foto.",
             "No cibo rilevabile: analysis_result='ATTENZIONE: L'immagine caricata non sembra contenere cibo rilevabile.', valori numerici 0.",
             "No consigli medici.",
             "Output: UN SINGOLO oggetto JSON. No array [ ]. Inizia con '{', finisci con '}'. No testo/markdown fuori dal JSON.",
