@@ -13,7 +13,7 @@ from agno.models.groq import Groq as GroqModel
 from src.agents.nutritionst import NutritionistAgent, VisionNutritionistAgent, MealAnalysis
 from src.database.user_service import (
     get_user_data, 
-    get_todays_macros, 
+    get_macros_by_date,
     save_message, 
     get_chat_history, 
     create_new_conversation,
@@ -43,7 +43,7 @@ def send_chat_message(request: ChatMessageRequest):
     """
     try:
         user_data = get_user_data(request.user_id)
-        macros_odierni = get_todays_macros(request.user_id)
+        macros_odierni = get_macros_by_date(request.user_id)
         daily_targets = calculate_daily_macros(request.user_id)
 
         conv_id = request.conversation_id

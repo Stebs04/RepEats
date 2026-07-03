@@ -173,6 +173,19 @@
 <h1 class="font-headline-lg text-headline-lg text-on-surface">Bentornato, Alex.</h1>
 <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Pronto per distruggere i tuoi obiettivi oggi?</p>
 </div>
+<!-- Selettore Data -->
+<div class="glass-card rounded-xl p-sm mb-lg flex items-center justify-center gap-sm">
+<button id="giornoPrecedenteBtn" title="Giorno precedente" class="w-10 h-10 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-fixed hover:bg-white/5 active:scale-90 transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="flex flex-col items-center">
+<span id="etichettaGiorno" class="font-body-md text-body-md text-on-surface font-bold">Oggi</span>
+<input type="date" id="selettoreData" class="bg-transparent border-none text-on-surface-variant font-label-sm text-label-sm text-center outline-none cursor-pointer p-0 focus:text-primary-fixed [color-scheme:dark]"/>
+</div>
+<button id="giornoSuccessivoBtn" title="Giorno successivo" class="w-10 h-10 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-fixed hover:bg-white/5 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
 <!-- Rings Section (Bento Grid Area 1) -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
 <!-- Calories Ring -->
@@ -482,10 +495,68 @@
         circle.style.strokeDashoffset = offset;
     }
 
+    // --- SELETTORE DATA: stato del giorno attualmente visualizzato ---
+    // Formatta una Date locale in stringa YYYY-MM-DD (senza conversioni di fuso orario)
+    function formattaData(d) {
+        const anno = d.getFullYear();
+        const mese = String(d.getMonth() + 1).padStart(2, '0');
+        const giorno = String(d.getDate()).padStart(2, '0');
+        return `${anno}-${mese}-${giorno}`;
+    }
+
+    let dataSelezionata = formattaData(new Date());
+
+    // Aggiorna etichetta ("Oggi" / "Ieri" / data estesa), input date e stato del bottone "successivo"
+    function aggiornaSelettoreData() {
+        const oggi = formattaData(new Date());
+        const ieri = formattaData(new Date(Date.now() - 86400000));
+
+        const etichetta = document.getElementById('etichettaGiorno');
+        if (dataSelezionata === oggi) {
+            etichetta.innerText = 'Oggi';
+        } else if (dataSelezionata === ieri) {
+            etichetta.innerText = 'Ieri';
+        } else {
+            const [a, m, g] = dataSelezionata.split('-').map(Number);
+            etichetta.innerText = new Date(a, m - 1, g).toLocaleDateString('it-IT', {
+                weekday: 'short', day: 'numeric', month: 'short'
+            });
+        }
+
+        const selettore = document.getElementById('selettoreData');
+        selettore.value = dataSelezionata;
+        selettore.max = oggi; // Non ha senso consultare giorni futuri
+
+        // Disabilita "Giorno Successivo" se siamo già a oggi
+        document.getElementById('giornoSuccessivoBtn').disabled = (dataSelezionata >= oggi);
+    }
+
+    // Sposta il giorno selezionato di +1/-1 e ricarica i dati
+    function cambiaGiorno(delta) {
+        const [a, m, g] = dataSelezionata.split('-').map(Number);
+        const nuovaData = new Date(a, m - 1, g + delta);
+        const oggi = formattaData(new Date());
+        const nuovaStringa = formattaData(nuovaData);
+        if (nuovaStringa > oggi) return; // Blocca la navigazione nel futuro
+        dataSelezionata = nuovaStringa;
+        aggiornaSelettoreData();
+        loadDashboardData();
+    }
+
+    document.getElementById('giornoPrecedenteBtn').addEventListener('click', () => cambiaGiorno(-1));
+    document.getElementById('giornoSuccessivoBtn').addEventListener('click', () => cambiaGiorno(1));
+    document.getElementById('selettoreData').addEventListener('change', (e) => {
+        if (!e.target.value) return;
+        const oggi = formattaData(new Date());
+        dataSelezionata = e.target.value > oggi ? oggi : e.target.value;
+        aggiornaSelettoreData();
+        loadDashboardData();
+    });
+
     async function loadDashboardData() {
         if (!userId) return;
         try {
-            const res = await fetch(`/api/dashboard/stats?user_id=${userId}`);
+            const res = await fetch(`/api/dashboard/stats?user_id=${userId}&date=${dataSelezionata}`);
             if (res.ok) {
                 const data = await res.json();
                 
@@ -516,6 +587,7 @@
     }
 
     // Avvia caricamento
+    aggiornaSelettoreData();
     loadDashboardData();
 
     async function checkProfileCompletion() {

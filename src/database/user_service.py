@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from src.database.models import User, UserProfile, Conversation, Message, MealLog, WorkoutPlan, WorkoutExercise
 from src.database.database import get_session
 from sqlalchemy import func
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 import bcrypt
 
 """
@@ -271,17 +271,19 @@ def calculate_daily_macros(user_id: int):
         "target_carbohydrates": round(carbohydrates, 1)
     }
 
-def get_todays_macros(user_id: int):
+def get_macros_by_date(user_id: int, target_date: date | None = None):
     """
-    Calcola e restituisce la somma totale dei macronutrienti e delle calorie assunte da un utente nella giornata odierna.
+    Calcola e restituisce la somma totale dei macronutrienti e delle calorie assunte da un utente
+    in una data specifica. Se `target_date` non viene fornita, usa la giornata odierna (UTC).
     Autore: Stefano Bellan (20054330)
     """
     # Ottiene un'istanza della sessione del database
     session = get_session()
-    
-    # Recupera la data odierna nel fuso orario UTC
-    today_date = datetime.now(timezone.utc).date()
-    
+
+    # Se non viene specificata una data, usa quella odierna nel fuso orario UTC
+    if target_date is None:
+        target_date = datetime.now(timezone.utc).date()
+
     # Esegue una query per calcolare la somma di calorie, proteine, grassi e carboidrati
     somma_macro = session.query(
         func.sum(MealLog.calories),
@@ -291,8 +293,8 @@ def get_todays_macros(user_id: int):
     ).filter(
         # Filtra i record associati allo specifico utente
         MealLog.user_id == user_id,
-        # Filtra i log relativi esclusivamente alla data odierna
-        func.date(MealLog.timestamp) == today_date
+        # Filtra i log relativi esclusivamente alla data richiesta
+        func.date(MealLog.timestamp) == target_date
     ).first()
     
     # Chiude la sessione per rilasciare le risorse

@@ -28,3 +28,4 @@ src/database/lancedb_vectors/__manifest/_versions/18446744073709551614.manifest
 src/database/lancedb_vectors/protocolli_allenamento.lance/_transactions/0-aa41f4e1-edb6-4ec1-813c-b3d29250c2de.txn
 src/database/lancedb_vectors/__manifest/_versions/latest_version_hint.json
 src/database/lancedb_vectors/protocolli_allenamento.lance/_versions/latest_version_hint.json
+CLAUDE.md

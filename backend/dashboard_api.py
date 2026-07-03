@@ -1,35 +1,44 @@
 from fastapi import APIRouter, HTTPException, Query
-from src.database.user_service import get_user_data, get_todays_macros, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan
+from typing import Optional
+from datetime import datetime, timezone, date as date_type
+from src.database.user_service import get_user_data, get_macros_by_date, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan
 
 router = APIRouter()
 
 @router.get("/stats")
-def get_dashboard_stats(user_id: int = Query(...)):
+def get_dashboard_stats(user_id: int = Query(...), date: Optional[str] = Query(None, description="Data nel formato YYYY-MM-DD; se assente usa oggi")):
     try:
         # Recuperiamo i dati del profilo e l'obiettivo (es. "dimagrimento")
         user_data = get_user_data(user_id)
         if not user_data:
             raise HTTPException(status_code=404, detail="Utente non trovato")
-            
-        # Recuperiamo quello che l'utente ha effettivamente mangiato oggi
-        macros_odierni = get_todays_macros(user_id)
-        
+
+        # Determiniamo la data richiesta (default: oggi in UTC)
+        if date:
+            try:
+                data_selezionata = date_type.fromisoformat(date)
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Formato data non valido, usare YYYY-MM-DD")
+        else:
+            data_selezionata = datetime.now(timezone.utc).date()
+
+        # Recuperiamo quello che l'utente ha effettivamente mangiato nella data selezionata
+        macros_odierni = get_macros_by_date(user_id, data_selezionata)
+
         # Calcoliamo matematicamente i suoi limiti in base al metabolismo
         target_macros = calculate_daily_macros(user_id)
-        
+
         # Uniamo tutto in un unico "pacchetto" JSON pronto per la pagina HTML
-        
-        # Recupero i pasti di oggi per categoria
-        from datetime import datetime, timezone
+
+        # Recupero i pasti della data selezionata per categoria
         from sqlalchemy import func
         from src.database.database import get_session
         from src.database.models import MealLog
 
         session = get_session()
-        today_date = datetime.now(timezone.utc).date()
         meals_today_records = session.query(MealLog).filter(
             MealLog.user_id == user_id,
-            func.date(MealLog.timestamp) == today_date
+            func.date(MealLog.timestamp) == data_selezionata
         ).all()
         session.close()
 
@@ -46,6 +55,7 @@ def get_dashboard_stats(user_id: int = Query(...)):
             })
 
         return {
+            "date": data_selezionata.isoformat(),
             "meals": meals_by_cat,
             "user": user_data,
             "today": macros_odierni,
