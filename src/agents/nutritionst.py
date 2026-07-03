@@ -55,22 +55,15 @@ class NutritionistAgent(Agent):
         Args:
             model_id (str): Identificativo del modello Google Gemini da utilizzare.
         """
-        # Creazione del System Prompt (Guardrails): blocco di istruzioni imperative che delimitano e guidano l'operato dell'LLM
+        # System Prompt (Guardrails): istruzioni imperative telegrafiche
         defensive_instructions = [
-           "Sei un Nutrizionista esperto di RepEats. Il tuo compito è analizzare le immagini o i codici a barre.",
-            "Calcola calorie e macro in base alla grammatura esatta specificata dall'utente.",
-            "--- SE IL PAST0 È UN CODICE A BARRE ---",
-            "1. Usa lo strumento a tua disposizione per cercare il codice a barre.",
-            "2. LEGGI ATTENTAMENTE i dati restituiti dallo strumento (product_name, energy_kcal_100g, proteins_100g, ecc.).",
-            "3. RICALCOLA i valori in base alla grammatura esatta fornita dall'utente (es: se l'utente dice 50g e il tool ti dà i valori per 100g, devi dimezzare i valori).",
-            "4. Usa il 'product_name' trovato dallo strumento come campo 'name' della tua risposta finale.",
-            "Se l'immagine non contiene cibo, scrivi nel campo analysis_result: 'ATTENZIONE: L'immagine caricata non sembra contenere cibo rilevabile.' e metti i valori numerici a 0.",
-            "Non fornire mai consigli medici o diagnosi.",
-            "-- REGOLE CRITICHE DI FORMATTAZIONE:",
-            "1. DEVI rispondere con UN SINGOLO OGGETTO JSON. NON RACCHIUDERLO MAI IN UNA LISTA O UN ARRAY. NON USARE LE PARENTESI QUADRE [ ].",
-            "2. La tua risposta DEVE iniziare con la parentesi graffa '{' e finire con '}'.",
-            "3. NON aggiungere nessun testo, nessun saluto e nessun markdown prima o dopo il JSON.",
-            "Ecco il template esatto che devi riempire e restituire:",
+            "Nutrizionista RepEats. Analizza cibo o barcode. Ricalcola macro sulla grammatura utente.",
+            "SE BARCODE (numero EAN nell'input): usa SEMPRE get_product_info_by_barcode. Usa product_name come 'name'. Ricalcola energy_kcal_100g, proteins_100g, carbohydrates_100g, fat_100g sulla grammatura.",
+            "SE CIBO (no barcode): VIETATO usare get_product_info_by_barcode. Stima macro da sola sulla grammatura.",
+            "No cibo rilevabile: analysis_result='ATTENZIONE: L'immagine caricata non sembra contenere cibo rilevabile.', valori numerici 0.",
+            "No consigli medici.",
+            "Output: UN SINGOLO oggetto JSON. No array [ ]. Inizia con '{', finisci con '}'. No testo/markdown fuori dal JSON.",
+            "Template:",
             """
             {
               "name": "nome prodotto",
@@ -168,40 +161,26 @@ class VisionNutritionistAgent(Agent):
     Autore: Stefano Bellan (20054330)
     """
 
-    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct"):
+    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct", with_barcode_tool: bool = True):
+        """
+        Args:
+            model_id (str): Modello Groq da utilizzare.
+            with_barcode_tool (bool): Se False il tool OpenFoodFacts non viene
+                registrato: l'agente può solo stimare (usato per foto di cibo).
+        """
         vision_instructions = [
-            "Sei un Nutrizionista esperto di RepEats specializzato nell'analisi di immagini alimentari.",
-            "Il tuo compito è identificare il contenuto dell'immagine e raccogliere i dati nutrizionali.",
-
-            "--- SE VEDI UN CODICE A BARRE ---",
-            "1. Leggi il numero del codice a barre dall'immagine.",
-            "2. Usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode con quel numero, ma fallo in modo SILENZIOSO in background (non dire all'utente che lo stai usando).",
-            "3a. SE il tool restituisce valori nutrizionali validi: usa quei dati e ricalcola per la grammatura.",
-            "3b. SE il tool dice 'non trovato' o non ha valori: guarda l'etichetta nell'immagine per identificare il prodotto e stima i valori nutrizionali dal nome/categoria.",
-            "4. Calcola i valori proporzionali per la grammatura indicata dall'utente.",
-            "5. Riporta chiaramente: nome prodotto, calorie, proteine, carboidrati, grassi.",
-
-            "--- SE VEDI DEL CIBO ---",
-            "1. Identifica il piatto o l'alimento.",
-            "2. Stima i valori nutrizionali medi per la grammatura indicata.",
-            "3. Riporta chiaramente: nome alimento, calorie stimate, proteine, carboidrati, grassi.",
-
-            "--- IMPORTANTE: NON RESTITUIRE MAI TUTTI ZERO ---",
-            "Se non riesci a trovare dati esatti, STIMA sempre i valori basandoti sulla categoria di alimento.",
-            "Esempio: se vedi 'Pesto Barilla' e il barcode non è nel database, stima ~500kcal/100g, 5g pro, 5g carb, 50g grassi.",
-
-            "--- FORMATO RISPOSTA ---",
-            "Rispondi con testo naturale in italiano, sii discorsivo e amichevole. NON descrivere il tuo processo interno (es. vietato dire 'ora cerco il codice a barre' o 'uso lo strumento'). Fallo in background e basta.",
-            "NON restituire mai codice JSON.",
-            "Includi sempre: nome del prodotto, calorie, proteine, carboidrati, grassi (con unità di misura).",
-            "Esempio: 'Ho trovato: Pasta Barilla. Per 80g: 284 kcal, 10g proteine, 57g carboidrati, 1.3g grassi.'",
-            "Se hai stimato i valori perché il barcode non era nel database, specificalo: 'Valori stimati per [nome prodotto]:'",
+            "Nutrizionista Vision RepEats. Identifica l'alimento nell'immagine.",
+            "Stima i macro per 100g dalla categoria di alimento, poi scala proporzionalmente sulla grammatura indicata dall'utente.",
+            "Mai tutti zero: se mancano dati esatti, stima dalla categoria (es. pesto ~500kcal/100g, 5g pro, 5g carb, 50g grassi).",
+            "Output: testo naturale italiano, discorsivo. No JSON. No descrivere il processo interno. Includi sempre nome, calorie, proteine, carboidrati, grassi con unità.",
         ]
+        if with_barcode_tool:
+            vision_instructions.insert(1, "SE CODICE A BARRE nell'immagine: leggi il numero, usa SEMPRE get_product_info_by_barcode (silenzioso). Tool 'non trovato': leggi l'etichetta e stima. SE CIBO senza barcode: VIETATO usare il tool.")
 
         super().__init__(
             model=Groq(id=model_id),
             description="Agente Vision per identificazione alimenti e raccolta dati nutrizionali tramite immagini e barcode.",
-            tools=[get_product_info_by_barcode],
+            tools=[get_product_info_by_barcode] if with_barcode_tool else [],
             instructions=vision_instructions,
             markdown=False,
         )

@@ -11,6 +11,8 @@ from agno.models.message import Image as AgnoImage
 from agno.agent import Agent
 from agno.models.groq import Groq as GroqModel
 from src.agents.nutritionst import NutritionistAgent, VisionNutritionistAgent, MealAnalysis
+from src.tools.openfoodfacts_tool import get_product_info_by_barcode, BarcodeSearchInput
+from src.tools.barcode_scanner import scan_barcode
 from src.database.user_service import (
     get_user_data, 
     get_macros_by_date,
@@ -106,34 +108,54 @@ async def analyze_food_image(
         obiettivo = user_data.get("goal_type", "mantenimento") if user_data else "mantenimento"
 
         # ================================================================
-        # FASE 1: Agente Vision con Tool Calling (testo libero)
-        # Groq non supporta vision + tool + structured output insieme.
-        # Prima lasciamo che l'agente veda l'immagine e chiami il tool
-        # per il barcode, restituendo dati grezzi come testo.
+        # FASE 0: Rilevamento barcode deterministico sui pixel (OpenCV).
+        # Nessun LLM: se l'immagine è cibo senza codice a barre, scan_barcode
+        # restituisce None e si passa alla stima visiva. Zero allucinazioni.
         # ================================================================
-        agent_fase1 = VisionNutritionistAgent()
-        prompt_fase1 = (
-            f"Analizza questa immagine. "
-            f"SE vedi un CODICE A BARRE: leggi il numero e usa OBBLIGATORIAMENTE lo strumento get_product_info_by_barcode per trovare il prodotto. "
-            f"SE vedi del CIBO: identifica il piatto e stima i valori nutrizionali per {grammatura}g. "
-            f"Rispondi con un testo che contenga chiaramente: "
-            f"1) Il nome del prodotto/piatto "
-            f"2) Le calorie, proteine, carboidrati e grassi per {grammatura}g "
-            f"(se hai i valori per 100g dal barcode, fai la proporzione: valore * {grammatura} / 100) "
-            f"3) Una breve descrizione. "
-            f"Sii preciso con i numeri. Non restituire JSON, solo testo descrittivo."
-        )
+        barcode = scan_barcode(tmp_path)
 
-        response_fase1 = agent_fase1.run(
-            prompt_fase1,
-            images=[AgnoImage(filepath=tmp_path)],
-        )
+        fonte = "stima"
+        testo_analisi = None
 
-        # Estrai il testo dalla risposta della fase 1
-        if isinstance(response_fase1.content, str):
-            testo_analisi = response_fase1.content
-        else:
-            testo_analisi = str(response_fase1.content)
+        if barcode:
+            # Percorso barcode: tool chiamato direttamente dal codice,
+            # proporzione calcolata in Python (nessuna stima LLM).
+            prod = get_product_info_by_barcode(BarcodeSearchInput(barcode=barcode))
+            if prod.energy_kcal_100g is not None:
+                fattore = grammatura / 100.0
+                fonte = "openfoodfacts"
+                testo_analisi = (
+                    f"Prodotto: {prod.product_name}. Dati OpenFoodFacts per {grammatura}g: "
+                    f"{round((prod.energy_kcal_100g or 0) * fattore, 1)} kcal, "
+                    f"{round((prod.proteins_100g or 0) * fattore, 1)}g proteine, "
+                    f"{round((prod.carbohydrates_100g or 0) * fattore, 1)}g carboidrati, "
+                    f"{round((prod.fat_100g or 0) * fattore, 1)}g grassi."
+                )
+            # Prodotto non trovato: si prosegue con la stima visiva qui sotto.
+
+        if testo_analisi is None:
+            # ================================================================
+            # FASE 1: Stima visiva pura. L'agente NON ha il tool OpenFoodFacts
+            # registrato, quindi non può usarlo nemmeno per errore.
+            # ================================================================
+            agent_fase1 = VisionNutritionistAgent(with_barcode_tool=False)
+            prompt_fase1 = (
+                f"Riconosci l'alimento in questa immagine. "
+                f"Stima i valori nutrizionali per 100g, poi scala per {grammatura}g (valore_100g * {grammatura} / 100). "
+                f"Rispondi con un testo che contenga chiaramente: "
+                f"1) Il nome del piatto "
+                f"2) Le calorie, proteine, carboidrati e grassi per {grammatura}g "
+                f"3) Una breve descrizione. "
+                f"Sii preciso con i numeri. Non restituire JSON, solo testo descrittivo."
+            )
+            response_fase1 = agent_fase1.run(
+                prompt_fase1,
+                images=[AgnoImage(filepath=tmp_path)],
+            )
+            if isinstance(response_fase1.content, str):
+                testo_analisi = response_fase1.content
+            else:
+                testo_analisi = str(response_fase1.content)
 
         # ================================================================
         # FASE 2: Agente Parser - converte il testo in MealAnalysis JSON
@@ -193,9 +215,11 @@ async def analyze_food_image(
             fats=analysis.fats
         )
         
+        data_out = analysis.model_dump()
+        data_out["fonte"] = fonte  # "openfoodfacts" o "stima"
         return {
             "message": "Pasto analizzato e salvato con successo!",
-            "data": analysis.model_dump()
+            "data": data_out
         }
     except Exception as e:
         import traceback

@@ -87,10 +87,21 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
     
     # Estrae il sotto-dizionario 'nutriments' contenente i valori macro e micro nutrizionali
     nutriments = product_data.get("nutriments", {})
-    
+
+    # Fallback a catena: OpenFoodFacts spesso lascia 'product_name' vuoto.
+    # Prova varianti localizzate, poi nome generico, poi marca, infine il barcode.
+    product_name = (
+        product_data.get("product_name")
+        or product_data.get("product_name_it")
+        or product_data.get("product_name_en")
+        or product_data.get("generic_name")
+        or product_data.get("brands")
+        or f"Prodotto {input_data.barcode}"
+    )
+
     # Mappa individualmente i dati JSON nel modello Pydantic di risposta, usando .get() per prevenire KeyError
     return ProductOutput(
-        product_name=product_data.get("product_name"),
+        product_name=product_name,
         energy_kcal_100g=nutriments.get("energy-kcal_100g"),
         proteins_100g=nutriments.get("proteins_100g"),
         carbohydrates_100g=nutriments.get("carbohydrates_100g"),

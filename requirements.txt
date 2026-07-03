@@ -13,6 +13,9 @@ requests
 
 pillow
 
+# Lettura codici a barre dalle immagini (decoder nativo cv2.barcode)
+opencv-contrib-python-headless
+
 bcrypt
 
 lancedb

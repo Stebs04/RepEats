@@ -874,9 +874,9 @@
                     return;
                 }
 
-                // Determina se i valori sono stati trovati dal barcode o stimati
-                const analysis = meal.analysis_result || "";
-                const isStimato = analysis.toLowerCase().includes("stim") || tuttiZero;
+                // La fonte è decisa dal backend: "openfoodfacts" solo se il tool
+                // barcode è stato realmente usato, altrimenti "stima" (foto di cibo).
+                const isStimato = meal.fonte !== "openfoodfacts";
                 const badge = isStimato ? '<span class="text-xs text-on-surface-variant italic">(valori stimati)</span>' : '<span class="text-xs text-tertiary-fixed italic">(dati OpenFoodFacts)</span>';
 
                 let resultHTML = `
