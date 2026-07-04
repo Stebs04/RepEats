@@ -48,22 +48,24 @@ def create_user(username: str, email: str, password: str):
 
 
 """Dopo aver creato un nuovo utente e un nuovo profilo, bisogna aggiornare i dati inerenti a quell'utente"""
-def update_user_profile(user_id: int, weight: float, height: float, age: int, gender: str, activity_level: float, target_weight: float, target_weeks: int, goal_type: str, workout_duration: int = 60, workout_preference: str = "Ipertrofia"):
+def update_user_profile(user_id: int, weight: float, height: float, age: int, gender: str, activity_level: float, target_weight: float, target_weeks: int, goal_type: str, workout_duration: int = 60, workout_preference: str = "Ipertrofia", allergies: str = None, dietary_preferences: str = None):
 
     session = get_session()
     profile = session.query(UserProfile).filter_by(user_id = user_id).first()
 
-    if profile: 
+    if profile:
         profile.weight = weight
         profile.height = height
         profile.age = age
         profile.gender = gender
         profile.activity_level = activity_level
-        profile.target_weight = target_weight 
+        profile.target_weight = target_weight
         profile.target_weeks = target_weeks
         profile.goal_type = goal_type
         profile.workout_duration = workout_duration
         profile.workout_preference = workout_preference
+        profile.allergies = allergies or ""
+        profile.dietary_preferences = dietary_preferences or ""
         session.commit()
     session.close()
 
@@ -91,7 +93,9 @@ def get_user_data(user_id: int):
         "target_weeks": (profile.target_weeks if profile else None) or 12,
         "goal_type": profile.goal_type if profile else None,
         "workout_duration": (profile.workout_duration if profile else None) or 60,
-        "workout_preference": (profile.workout_preference if profile else None) or "Ipertrofia"
+        "workout_preference": (profile.workout_preference if profile else None) or "Ipertrofia",
+        "allergies": (profile.allergies if profile else None) or "",
+        "dietary_preferences": (profile.dietary_preferences if profile else None) or ""
         }
     session.close()
     return data

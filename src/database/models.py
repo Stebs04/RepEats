@@ -81,7 +81,11 @@ class UserProfile(Base):
     #Preferenze per le schede di allenamento generate
     workout_duration = Column(Integer, default=60)
     workout_preference = Column(String(100), default="Ipertrofia")
-    
+
+    # Allergie alimentari e preferenze/restrizioni dietetiche dell'utente (testo libero)
+    allergies = Column(String(500), default="")
+    dietary_preferences = Column(String(500), default="")
+
     # Back-reference alla proprietà profile di User. 
     # Mantiene coerenza nella navigazione bidirezionale in memoria.
     user = relationship("User", back_populates="profile")

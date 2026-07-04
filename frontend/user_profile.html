@@ -262,6 +262,31 @@
 </section>
 
 <section class="glass-card rounded-xl p-md space-y-4 mt-4">
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Allergie e Restrizioni Alimentari</h2>
+
+    <div class="grid grid-cols-1 gap-4">
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Allergie (separate da virgola)</label>
+            <input type="text" id="allergies" placeholder="Es. arachidi, lattosio, glutine" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+        </div>
+        <div>
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Restrizioni Alimentari</label>
+            <select id="dietaryPreferences" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
+                <option value="">Nessuna</option>
+                <option value="Vegetariana">Vegetariana</option>
+                <option value="Vegana">Vegana</option>
+                <option value="Pescetariana">Pescetariana</option>
+                <option value="Senza glutine">Senza glutine</option>
+                <option value="Senza lattosio">Senza lattosio</option>
+                <option value="Chetogenica">Chetogenica</option>
+                <option value="Halal">Halal</option>
+                <option value="Kosher">Kosher</option>
+            </select>
+        </div>
+    </div>
+</section>
+
+<section class="glass-card rounded-xl p-md space-y-4 mt-4">
     <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Preferenze Allenamento</h2>
     
     <div class="grid grid-cols-2 gap-4">
@@ -382,6 +407,9 @@
                 if (data.goal_type) document.getElementById('goalType').value = data.goal_type;
                 if (data.workout_duration) document.getElementById('workoutDuration').value = data.workout_duration;
                 if (data.workout_preference) document.getElementById('workoutPreference').value = data.workout_preference;
+
+                if (data.allergies) document.getElementById('allergies').value = data.allergies;
+                if (data.dietary_preferences) document.getElementById('dietaryPreferences').value = data.dietary_preferences;
             }
         } catch (e) {
             console.error("Errore caricamento profilo", e);
@@ -401,7 +429,9 @@
             target_weeks: parseInt(document.getElementById('targetWeeks').value) || 0,
             goal_type: document.getElementById('goalType').value,
             workout_duration: parseInt(document.getElementById('workoutDuration').value) || 60,
-            workout_preference: document.getElementById('workoutPreference').value || 'Ipertrofia'
+            workout_preference: document.getElementById('workoutPreference').value || 'Ipertrofia',
+            allergies: document.getElementById('allergies').value.trim(),
+            dietary_preferences: document.getElementById('dietaryPreferences').value
         };
 
         const btn = document.getElementById('saveBtn');
