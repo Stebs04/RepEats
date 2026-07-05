@@ -89,7 +89,10 @@ def generate_response(entry: dict) -> str:
         # dovuti a tool call malformate del modello.
         enable_tools=False,
     )
-    result = team.run(entry["message"])
+    # stream=False forza il ritorno di un RunOutput (con `.content`) invece
+    # dell'iteratore di eventi: il Team e' costruito con stream=True per la chat
+    # live, ma in valutazione serve la sola risposta testuale completa.
+    result = team.run(entry["message"], stream=False)
     # Agno restituisce un RunOutput con l'attributo `.content`
     return getattr(result, "content", str(result)) or ""
 
