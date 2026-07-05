@@ -177,7 +177,11 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_hi
 
     # Creazione degli agenti specializzati con il contesto iniettato
     pt_agent = get_pt_agent(user_context=user_context, knowledge_base=kb, user_data=user_data, enable_tools=enable_tools)
-    nutrizionista_chat = ConversationalNutritionistAgent(user_context=user_context)
+    nutrizionista_chat = ConversationalNutritionistAgent(
+        user_context=user_context,
+        allergies=user_data.get("allergies", ""),
+        dietary_preferences=user_data.get("dietary_preferences", "")
+    )
 
     # Selezione dei membri in base alla pagina corrente dell'utente.
     # Questa è una scelta STRUTTURALE: evitiamo di affidarci alle istruzioni dell'orchestratore

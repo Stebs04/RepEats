@@ -254,36 +254,41 @@
             <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Tempo (Settimane)</label>
             <input type="number" id="targetWeeks" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
         </div>
+        <div class="col-span-2">
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Allergie</label>
+            <div class="flex gap-2">
+                <input type="text" id="allergyInput" placeholder="Es. arachidi (invio per aggiungere)" class="flex-1 bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+                <button type="button" id="addAllergyBtn" class="bg-surface-container-high border border-white/10 rounded-lg px-4 text-on-surface hover:brightness-110 flex items-center">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+            </div>
+            <div id="allergiesChips" class="flex flex-wrap gap-2 mt-2"></div>
+        </div>
+        <div class="col-span-2">
+            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Restrizioni Alimentari</label>
+            <div class="flex gap-2">
+                <input type="text" id="dietaryInput" list="dietarySuggestions" placeholder="Es. Vegetariana (invio per aggiungere)" class="flex-1 bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
+                <button type="button" id="addDietaryBtn" class="bg-surface-container-high border border-white/10 rounded-lg px-4 text-on-surface hover:brightness-110 flex items-center">
+                    <span class="material-symbols-outlined">add</span>
+                </button>
+            </div>
+            <datalist id="dietarySuggestions">
+                <option value="Vegetariana"></option>
+                <option value="Vegana"></option>
+                <option value="Pescetariana"></option>
+                <option value="Senza glutine"></option>
+                <option value="Senza lattosio"></option>
+                <option value="Chetogenica"></option>
+                <option value="Halal"></option>
+                <option value="Kosher"></option>
+            </datalist>
+            <div id="dietaryChips" class="flex flex-wrap gap-2 mt-2"></div>
+        </div>
     </div>
-    
+
     <button id="saveBtn" class="w-full mt-6 bg-primary-container text-on-primary-container font-bold py-3 rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2">
         <span class="material-symbols-outlined">save</span> Salva Dati e Ricalcola Dieta
     </button>
-</section>
-
-<section class="glass-card rounded-xl p-md space-y-4 mt-4">
-    <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Allergie e Restrizioni Alimentari</h2>
-
-    <div class="grid grid-cols-1 gap-4">
-        <div>
-            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Allergie (separate da virgola)</label>
-            <input type="text" id="allergies" placeholder="Es. arachidi, lattosio, glutine" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface" />
-        </div>
-        <div>
-            <label class="font-label-sm text-label-sm text-on-surface-variant block mb-1">Restrizioni Alimentari</label>
-            <select id="dietaryPreferences" class="w-full bg-surface-container-high border border-white/10 rounded-lg p-2 text-on-surface">
-                <option value="">Nessuna</option>
-                <option value="Vegetariana">Vegetariana</option>
-                <option value="Vegana">Vegana</option>
-                <option value="Pescetariana">Pescetariana</option>
-                <option value="Senza glutine">Senza glutine</option>
-                <option value="Senza lattosio">Senza lattosio</option>
-                <option value="Chetogenica">Chetogenica</option>
-                <option value="Halal">Halal</option>
-                <option value="Kosher">Kosher</option>
-            </select>
-        </div>
-    </div>
 </section>
 
 <section class="glass-card rounded-xl p-md space-y-4 mt-4">
@@ -389,6 +394,82 @@
         window.location.href = '/login.html';
     });
 
+    // Stato: lista accumulata delle allergie dell'utente
+    let allergiesList = [];
+
+    // Renderizza le allergie come chip rosse rimovibili
+    function renderAllergies() {
+        const container = document.getElementById('allergiesChips');
+        container.innerHTML = '';
+        allergiesList.forEach((item, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-label-sm bg-error-container/40 text-error border border-error/30';
+            chip.innerHTML = `<span class="material-symbols-outlined text-[16px]">warning</span>${item}`;
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'material-symbols-outlined text-[16px] hover:brightness-125';
+            rm.textContent = 'close';
+            rm.addEventListener('click', () => { allergiesList.splice(idx, 1); renderAllergies(); });
+            chip.appendChild(rm);
+            container.appendChild(chip);
+        });
+    }
+
+    // Aggiunge un'allergia alla lista (evita duplicati case-insensitive)
+    function addAllergy() {
+        const input = document.getElementById('allergyInput');
+        const val = input.value.trim();
+        if (val && !allergiesList.some(a => a.toLowerCase() === val.toLowerCase())) {
+            allergiesList.push(val);
+            renderAllergies();
+        }
+        input.value = '';
+        input.focus();
+    }
+
+    document.getElementById('addAllergyBtn').addEventListener('click', addAllergy);
+    document.getElementById('allergyInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addAllergy(); }
+    });
+
+    // Stato: lista accumulata dei regimi alimentari dell'utente
+    let dietaryList = [];
+
+    // Renderizza i regimi alimentari come chip verdi rimovibili
+    function renderDietary() {
+        const container = document.getElementById('dietaryChips');
+        container.innerHTML = '';
+        dietaryList.forEach((item, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 rounded-full px-3 py-1 text-label-sm font-label-sm bg-primary-container/20 text-primary-fixed border border-primary-fixed/30';
+            chip.innerHTML = `<span class="material-symbols-outlined text-[16px]">eco</span>${item}`;
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'material-symbols-outlined text-[16px] hover:brightness-125';
+            rm.textContent = 'close';
+            rm.addEventListener('click', () => { dietaryList.splice(idx, 1); renderDietary(); });
+            chip.appendChild(rm);
+            container.appendChild(chip);
+        });
+    }
+
+    // Aggiunge un regime alla lista (evita duplicati case-insensitive)
+    function addDietary() {
+        const input = document.getElementById('dietaryInput');
+        const val = input.value.trim();
+        if (val && !dietaryList.some(d => d.toLowerCase() === val.toLowerCase())) {
+            dietaryList.push(val);
+            renderDietary();
+        }
+        input.value = '';
+        input.focus();
+    }
+
+    document.getElementById('addDietaryBtn').addEventListener('click', addDietary);
+    document.getElementById('dietaryInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addDietary(); }
+    });
+
     // Carica dati del profilo
     async function loadProfile() {
         try {
@@ -408,8 +489,10 @@
                 if (data.workout_duration) document.getElementById('workoutDuration').value = data.workout_duration;
                 if (data.workout_preference) document.getElementById('workoutPreference').value = data.workout_preference;
 
-                if (data.allergies) document.getElementById('allergies').value = data.allergies;
-                if (data.dietary_preferences) document.getElementById('dietaryPreferences').value = data.dietary_preferences;
+                if (data.allergies) allergiesList = data.allergies.split(',').map(s => s.trim()).filter(Boolean);
+                if (data.dietary_preferences) dietaryList = data.dietary_preferences.split(',').map(s => s.trim()).filter(Boolean);
+                renderAllergies();
+                renderDietary();
             }
         } catch (e) {
             console.error("Errore caricamento profilo", e);
@@ -430,8 +513,8 @@
             goal_type: document.getElementById('goalType').value,
             workout_duration: parseInt(document.getElementById('workoutDuration').value) || 60,
             workout_preference: document.getElementById('workoutPreference').value || 'Ipertrofia',
-            allergies: document.getElementById('allergies').value.trim(),
-            dietary_preferences: document.getElementById('dietaryPreferences').value
+            allergies: allergiesList.join(', '),
+            dietary_preferences: dietaryList.join(', ')
         };
 
         const btn = document.getElementById('saveBtn');
@@ -451,6 +534,8 @@
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
+                renderAllergies();
+                renderDietary();
                 btn.innerHTML = `<span class="material-symbols-outlined">check_circle</span> Salvato!`;
                 setTimeout(() => { btn.innerHTML = originalText; }, 2000);
             } else {
