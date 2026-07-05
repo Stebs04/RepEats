@@ -301,27 +301,29 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 <script>
-    let userId = sessionStorage.getItem('repEats_userId');
-    if (!userId) {
-        userId = localStorage.getItem('repEats_userId');
+    let token = sessionStorage.getItem('repEats_token');
+    if (!token) {
+        token = localStorage.getItem('repEats_token');
         const expires = localStorage.getItem('repEats_expires');
         if (expires && Date.now() > parseInt(expires)) {
-            localStorage.removeItem('repEats_userId');
-            localStorage.removeItem('repEats_username');
+            localStorage.removeItem('repEats_token');
             localStorage.removeItem('repEats_expires');
-            userId = null;
+            token = null;
         }
     }
 
-    if (!userId) {
+    if (!token) {
         window.location.replace('/login.html');
         throw new Error('AUTH_REDIRECT');
     }
 
+    // Header di autenticazione riutilizzato in tutte le fetch protette.
+    const authHeaders = { 'Authorization': `Bearer ${token}` };
+
     // Controllo completamento profilo obbligatorio
     async function checkProfileGuard() {
         try {
-            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            const res = await fetch(`/api/profile/get`, { headers: authHeaders });
             if (res.ok) {
                 const json = await res.json();
                 if (!json.data.age || json.data.age === 0 || !json.data.weight || json.data.weight === 0) {
@@ -483,9 +485,8 @@
             // L'Orchestratore capirà dal contesto e dal prompt che stiamo parlando di allenamento!
             const response = await fetch('/api/chat/send', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({
-                    user_id: parseInt(userId),
                     conversation_id: currentConversationId,
                     message: "Al Coach: " + message, // trucco per forzare l'orchestratore verso il fitness agent
                     chat_type: "coach"
@@ -587,7 +588,7 @@
         const list = document.getElementById('sessionList');
         list.innerHTML = '<div class="flex items-center justify-center py-4 gap-2"><span class="material-symbols-outlined animate-spin text-primary-container text-[20px]">progress_activity</span><span class="text-on-surface-variant text-sm">Caricamento...</span></div>';
         try {
-            const res = await fetch(`/api/chat/sessions?user_id=${userId}&chat_type=coach`);
+            const res = await fetch(`/api/chat/sessions?chat_type=coach`, { headers: authHeaders });
             if (res.ok) {
                 const data = await res.json();
                 list.innerHTML = '';
@@ -732,7 +733,7 @@
     async function loadWorkoutPlans() {
         const container = document.getElementById('workoutPlansContainer');
         try {
-            const res = await fetch(`/api/dashboard/workouts?user_id=${userId}`);
+            const res = await fetch(`/api/dashboard/workouts`, { headers: authHeaders });
             if (res.ok) {
                 const data = await res.json();
                 plansCache = {};
@@ -825,8 +826,9 @@
         }
         
         try {
-            const res = await fetch(`/api/dashboard/workout/${planId}?user_id=${userId}`, {
-                method: 'DELETE'
+            const res = await fetch(`/api/dashboard/workout/${planId}`, {
+                method: 'DELETE',
+                headers: authHeaders
             });
             if (res.ok) {
                 loadWorkoutPlans();
@@ -932,9 +934,9 @@
         }
 
         try {
-            const res = await fetch(`/api/dashboard/workout/${planId}?user_id=${userId}`, {
+            const res = await fetch(`/api/dashboard/workout/${planId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({ name, exercises })
             });
             if (res.ok) {

@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from src.database.user_service import update_user_profile, get_user_data
 from pydantic import BaseModel
+from backend.security import get_current_user
 
 router = APIRouter()
 
 class ProfileUpdate(BaseModel):
-    user_id: int
     age: int
     weight: float
     height: float
@@ -20,10 +20,10 @@ class ProfileUpdate(BaseModel):
     dietary_preferences: str | None = None
 
 @router.post("/update")
-def update_profile(data: ProfileUpdate):
+def update_profile(data: ProfileUpdate, user_id: int = Depends(get_current_user)):
     try:
         update_user_profile(
-            user_id=data.user_id,
+            user_id=user_id,
             weight=data.weight,
             height=data.height,
             age=data.age,
@@ -42,7 +42,7 @@ def update_profile(data: ProfileUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/get")
-def get_profile(user_id: int = Query(...)):
+def get_profile(user_id: int = Depends(get_current_user)):
     try:
         user_data = get_user_data(user_id)
         if not user_data:

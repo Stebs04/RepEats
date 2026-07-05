@@ -2,7 +2,7 @@
 Router per la gestione della chat AI.
 Gestisce l'invio dei messaggi, il recupero del contesto utente e l'interazione con l'agente.
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -31,12 +31,12 @@ from src.database.user_service import (
     get_user_workout_plans
 )
 from src.orchestrator import get_orchestrator
+from backend.security import get_current_user
 
 router = APIRouter()
 
 class ChatMessageRequest(BaseModel):
     """Payload per l'invio di un messaggio nella chat."""
-    user_id: int
     conversation_id: Optional[int] = None
     message: str
     chat_type: Optional[str] = "nutritionist"
@@ -83,7 +83,7 @@ def _sse(payload: dict) -> str:
 
 
 @router.post("/send")
-def send_chat_message(request: ChatMessageRequest):
+def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(get_current_user)):
     """
     Elabora un nuovo messaggio dell'utente in STREAMING (Server-Sent Events).
     Inizializza una nuova conversazione se assente e inietta il contesto all'agente.
@@ -96,15 +96,17 @@ def send_chat_message(request: ChatMessageRequest):
     """
     # Preparazione SINCRONA (fuori dal generatore) così che un errore qui
     # produca ancora un 500 pulito prima di aprire lo stream.
+    # Identità ricavata esclusivamente dal JWT, mai dal client.
+    user_id = current_user
     try:
-        user_data = get_user_data(request.user_id)
-        macros_odierni = get_macros_by_date(request.user_id)
-        daily_targets = calculate_daily_macros(request.user_id)
+        user_data = get_user_data(user_id)
+        macros_odierni = get_macros_by_date(user_id)
+        daily_targets = calculate_daily_macros(user_id)
 
         conv_id = request.conversation_id
         if not conv_id:
             titolo = request.message[:30] + "..." if len(request.message) > 30 else request.message
-            nuova_conv = create_new_conversation(request.user_id, title=titolo, chat_type=request.chat_type)
+            nuova_conv = create_new_conversation(user_id, title=titolo, chat_type=request.chat_type)
             conv_id = nuova_conv.id
 
         save_message(conv_id, "user", request.message)
@@ -119,7 +121,7 @@ def send_chat_message(request: ChatMessageRequest):
     # Fotografia delle schede PRIMA della run: permette di verificare
     # deterministicamente se l'agente ha davvero scritto sul database.
     is_coach = request.chat_type == "coach"
-    snapshot_prima = _workout_snapshot(request.user_id) if is_coach else None
+    snapshot_prima = _workout_snapshot(user_id) if is_coach else None
 
     def event_stream():
         try:
@@ -145,7 +147,7 @@ def send_chat_message(request: ChatMessageRequest):
             # ============================================================
             workouts_updated = False
             if is_coach:
-                workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
+                workouts_updated = _workout_snapshot(user_id) != snapshot_prima
                 low = ai_text.lower()
                 claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
                 if claims_save and not workouts_updated:
@@ -160,7 +162,7 @@ def send_chat_message(request: ChatMessageRequest):
                         "una scheda esistente) per salvarla davvero. Rispondi solo con una breve conferma."
                     )
                     team_agent.run(recovery_prompt, stream=False)
-                    workouts_updated = _workout_snapshot(request.user_id) != snapshot_prima
+                    workouts_updated = _workout_snapshot(user_id) != snapshot_prima
 
             save_message(conv_id, "assistant", ai_text)
 
@@ -179,12 +181,14 @@ def send_chat_message(request: ChatMessageRequest):
 
 @router.post("/vision")
 async def analyze_food_image(
-    user_id: int = Form(...),
     grammatura: int = Form(...),
     categoria: str = Form("Spuntino"),
     barcode_manuale: str = Form(""),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    current_user: int = Depends(get_current_user)
 ):
+    # Identità ricavata esclusivamente dal JWT, mai dal client.
+    user_id = current_user
     contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         tmp.write(contents)
@@ -325,9 +329,9 @@ async def analyze_food_image(
 
 
 @router.get("/sessions")
-def get_sessions(user_id: int, chat_type: Optional[str] = None):
+def get_sessions(chat_type: Optional[str] = None, current_user: int = Depends(get_current_user)):
     try:
-        convs = get_user_conversations(user_id, chat_type)
+        convs = get_user_conversations(current_user, chat_type)
         return {"sessions": [{"id": c.id, "title": c.title, "created_at": c.created_at} for c in convs]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

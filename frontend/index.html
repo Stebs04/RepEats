@@ -5,18 +5,17 @@
     <title>RepEats</title>
     <script>
         // Controlliamo prima sessionStorage, poi localStorage
-        let userId = sessionStorage.getItem('repEats_userId');
-        if (!userId) {
-            userId = localStorage.getItem('repEats_userId');
+        let token = sessionStorage.getItem('repEats_token');
+        if (!token) {
+            token = localStorage.getItem('repEats_token');
             const expires = localStorage.getItem('repEats_expires');
             if (expires && Date.now() > parseInt(expires)) {
-                localStorage.removeItem('repEats_userId');
-                localStorage.removeItem('repEats_username');
+                localStorage.removeItem('repEats_token');
                 localStorage.removeItem('repEats_expires');
-                userId = null;
+                token = null;
             }
         }
-        if (userId) {
+        if (token) {
             window.location.replace('/dashboard.html');
         } else {
             window.location.replace('/login.html');

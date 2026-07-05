@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, date as date_type
 from src.database.user_service import get_user_data, get_macros_by_date, calculate_daily_macros, delete_meal_log, get_user_workout_plans, delete_workout_plan, update_workout_plan_by_id
+from backend.security import get_current_user
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ class WorkoutUpdateRequest(BaseModel):
     exercises: List[ExercisePayload]
 
 @router.get("/stats")
-def get_dashboard_stats(user_id: int = Query(...), date: Optional[str] = Query(None, description="Data nel formato YYYY-MM-DD; se assente usa oggi")):
+def get_dashboard_stats(date: Optional[str] = Query(None, description="Data nel formato YYYY-MM-DD; se assente usa oggi"), user_id: int = Depends(get_current_user)):
     try:
         # Recuperiamo i dati del profilo e l'obiettivo (es. "dimagrimento")
         user_data = get_user_data(user_id)
@@ -82,10 +83,10 @@ def get_dashboard_stats(user_id: int = Query(...), date: Optional[str] = Query(N
 
 
 @router.delete("/meal/{meal_id}")
-def delete_meal(meal_id: int, user_id: int = Query(...)):
+def delete_meal(meal_id: int, user_id: int = Depends(get_current_user)):
     """
     Elimina un pasto specifico dal database.
-    Richiede user_id come query param per sicurezza (ownership check nel DB service).
+    L'utente è ricavato dal JWT (ownership check nel DB service).
     """
     try:
         success = delete_meal_log(user_id=user_id, meal_id=meal_id)
@@ -100,7 +101,7 @@ def delete_meal(meal_id: int, user_id: int = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/workouts")
-def get_workouts(user_id: int = Query(...)):
+def get_workouts(user_id: int = Depends(get_current_user)):
     """
     Recupera tutte le schede di allenamento dell'utente.
     """
@@ -113,7 +114,7 @@ def get_workouts(user_id: int = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/workout/{plan_id}")
-def update_workout(plan_id: int, request: WorkoutUpdateRequest, user_id: int = Query(...)):
+def update_workout(plan_id: int, request: WorkoutUpdateRequest, user_id: int = Depends(get_current_user)):
     """
     Aggiorna manualmente una scheda di allenamento (nome ed esercizi).
     Usato dal form di modifica locale del frontend, senza passare per l'agente AI.
@@ -141,7 +142,7 @@ def update_workout(plan_id: int, request: WorkoutUpdateRequest, user_id: int = Q
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/workout/{plan_id}")
-def delete_workout(plan_id: int, user_id: int = Query(...)):
+def delete_workout(plan_id: int, user_id: int = Depends(get_current_user)):
     """
     Elimina una scheda di allenamento specifica dal database.
     """

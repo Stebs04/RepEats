@@ -347,30 +347,29 @@
 </nav>
 
 <script>
-    let userId = sessionStorage.getItem('repEats_userId');
-    let username = sessionStorage.getItem('repEats_username');
-    if (!userId) {
-        userId = localStorage.getItem('repEats_userId');
-        username = localStorage.getItem('repEats_username');
+    let token = sessionStorage.getItem('repEats_token');
+    if (!token) {
+        token = localStorage.getItem('repEats_token');
         const expires = localStorage.getItem('repEats_expires');
         if (expires && Date.now() > parseInt(expires)) {
-            localStorage.removeItem('repEats_userId');
-            localStorage.removeItem('repEats_username');
+            localStorage.removeItem('repEats_token');
             localStorage.removeItem('repEats_expires');
-            userId = null;
-            username = null;
+            token = null;
         }
     }
 
-    if (!userId) {
+    if (!token) {
         window.location.replace('/login.html');
         throw new Error('AUTH_REDIRECT');
     }
 
+    // Header di autenticazione riutilizzato in tutte le fetch protette.
+    const authHeaders = { 'Authorization': `Bearer ${token}` };
+
     // Controllo completamento profilo obbligatorio
     async function checkProfileGuard() {
         try {
-            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            const res = await fetch(`/api/profile/get`, { headers: authHeaders });
             if (res.ok) {
                 const json = await res.json();
                 if (!json.data.age || json.data.age === 0 || !json.data.weight || json.data.weight === 0) {
@@ -381,11 +380,8 @@
     }
     checkProfileGuard();
 
-    // Nomi utente (si potrebbe prendere dinamicamente anche questo)
+    // Nome utente ricavato dinamicamente dal profilo (vedi loadProfile).
     const usernameDisplay = document.querySelector('h1');
-    if (username) {
-        usernameDisplay.innerText = username;
-    }
 
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -473,10 +469,11 @@
     // Carica dati del profilo
     async function loadProfile() {
         try {
-            const res = await fetch(`/api/profile/get?user_id=${userId}`);
+            const res = await fetch(`/api/profile/get`, { headers: authHeaders });
             if (res.ok) {
                 const json = await res.json();
                 const data = json.data;
+                if (data.username) usernameDisplay.innerText = data.username;
                 if (data.age) document.getElementById('age').value = data.age;
                 if (data.height) document.getElementById('height').value = data.height;
                 if (data.weight) document.getElementById('weight').value = data.weight;
@@ -502,7 +499,6 @@
     // Salva dati del profilo
     document.getElementById('saveBtn').addEventListener('click', async () => {
         const payload = {
-            user_id: parseInt(userId),
             age: parseInt(document.getElementById('age').value) || 0,
             height: parseFloat(document.getElementById('height').value) || 0,
             weight: parseFloat(document.getElementById('weight').value) || 0,
@@ -530,7 +526,7 @@
         try {
             const res = await fetch('/api/profile/update', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify(payload)
             });
             if (res.ok) {

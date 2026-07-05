@@ -22,6 +22,9 @@ opencv-contrib-python-headless
 
 bcrypt
 
+# Creazione/decodifica dei token JWT per l'autenticazione stateless (Bearer).
+PyJWT
+
 lancedb
 
 sentence-transformers

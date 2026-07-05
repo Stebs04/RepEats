@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from src.database.user_service import authenticate_user, create_user
+from backend.security import create_access_token
 
 router = APIRouter()
 
@@ -34,12 +35,11 @@ def login(request: LoginRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Username o Password errati"
         )
-    
-    return {
-        "message": "Login effettuato con successo",
-        "user_id": user.id,
-        "username": user.username
-    }
+
+    # Genera un JWT firmato con l'ID utente nel claim standard `sub`.
+    # Non esponiamo più l'ID né lo username in chiaro nel payload di risposta.
+    access_token = create_access_token(data={"sub": str(user.id)})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register")
 def register(request: RegisterRequest):

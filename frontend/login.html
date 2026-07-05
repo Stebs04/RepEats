@@ -138,19 +138,17 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Salviamo sempre in sessionStorage (valido finché il tab/browser non viene chiuso)
-                    sessionStorage.setItem('repEats_username', data.username);
-                    sessionStorage.setItem('repEats_userId', data.user_id);
+                    // Salviamo il solo token JWT (nessun dato utente in chiaro).
+                    // sessionStorage: valido finché il tab/browser non viene chiuso.
+                    sessionStorage.setItem('repEats_token', data.access_token);
 
                     if (rememberMe) {
                         // "Ricordami" attivo: salviamo anche in localStorage con scadenza 7 giorni
-                        localStorage.setItem('repEats_username', data.username);
-                        localStorage.setItem('repEats_userId', data.user_id);
+                        localStorage.setItem('repEats_token', data.access_token);
                         localStorage.setItem('repEats_expires', Date.now() + 7 * 24 * 60 * 60 * 1000);
                     } else {
                         // "Ricordami" disattivato: puliamo eventuali vecchi dati in localStorage
-                        localStorage.removeItem('repEats_username');
-                        localStorage.removeItem('repEats_userId');
+                        localStorage.removeItem('repEats_token');
                         localStorage.removeItem('repEats_expires');
                     }
 
