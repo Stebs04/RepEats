@@ -26,7 +26,11 @@ lancedb
 
 sentence-transformers
 
-tantivy
+# Reader documenti per l'ingestion RAG multi-formato (PDF e DOCX).
+pypdf
+python-docx
+# Richiesto da pypdf per aprire PDF cifrati (AES).
+cryptography
 
 torchvision
 

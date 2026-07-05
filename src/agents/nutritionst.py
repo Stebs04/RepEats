@@ -104,7 +104,7 @@ class ConversationalNutritionistAgent(Agent):
     adattare i pasti ai macro rimanenti e collaborare con il Fitness Agent.
     """
 
-    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct", user_context: str = "", allergies: str = "", dietary_preferences: str = ""):
+    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct", user_context: str = "", allergies: str = "", dietary_preferences: str = "", knowledge=None):
         # Iniezione dei dati alimentari del profilo direttamente nel system prompt
         allergies_txt = allergies.strip() if allergies else "Nessuna allergia dichiarata"
         dietary_txt = dietary_preferences.strip() if dietary_preferences else "Nessuna restrizione dichiarata"
@@ -134,6 +134,11 @@ class ConversationalNutritionistAgent(Agent):
             "- Quando ti chiedono i macro di un alimento con una grammatura precisa, dai un VALORE SINGOLO rappresentativo (puoi premettere 'circa'), NON un intervallo tipo '30-35g': scegli tu il valore più realistico.",
             "- COERENZA CALORIE-MACRO: le calorie che dichiari devono quadrare con i macro, secondo kcal ≈ 4×proteine + 4×carboidrati + 9×grassi. Prima di rispondere verifica che i tuoi numeri siano coerenti fra loro.",
 
+            "# COME USARE LA KNOWLEDGE BASE",
+            "- Quando ti servono dati nutrizionali di riferimento (fabbisogni, valori nutrizionali, linee guida, tabelle SINU), DEVI cercare nella knowledge base e basare la risposta su quei dati.",
+            "- Cita sempre la fonte quando usi un dato preso dalla knowledge base.",
+            "- Se la knowledge base non contiene l'informazione, usa le tue conoscenze generali senza inventare numeri precisi non verificati.",
+
             "# COME USARE IL CONTESTO",
             "- Leggi SEMPRE la sezione 'NUTRIZIONE ODIERNA' nel contesto. Contiene calorie, proteine, carboidrati e grassi già assunti oggi.",
             "- Calcola i macro RIMANENTI sottraendo quelli assunti dal fabbisogno giornaliero.",
@@ -158,6 +163,14 @@ class ConversationalNutritionistAgent(Agent):
             "- NON chiamare MAI tool o funzioni. Rispondi direttamente con il tuo testo.",
         ]
 
+        # Parametri RAG condizionali: RAG classico (add_knowledge_to_context) che
+        # inietta i documenti pertinenti nel prompt SENZA usare tool. Necessario
+        # perché questo agente ha l'istruzione di non chiamare mai tool/funzioni.
+        kb_kwargs = (
+            {"knowledge": knowledge, "add_knowledge_to_context": True, "search_knowledge": False}
+            if knowledge is not None else {}
+        )
+
         super().__init__(
             name="nutrizionista",
             role="Nutrizionista esperto in consigli alimentari, creazione di piani alimentari personalizzati, suggerimento ricette e gestione dei macronutrienti.",
@@ -165,7 +178,8 @@ class ConversationalNutritionistAgent(Agent):
             description="Esperto in consigli alimentari discorsivi, creazione di menu e gestione dinamica dei macronutrienti.",
             instructions=instructions,
             pre_hooks=[PromptInjectionGuardrail()],
-            markdown=True
+            markdown=True,
+            **kb_kwargs
         )
 
 

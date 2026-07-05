@@ -146,7 +146,11 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
         role="Personal Trainer specializzato in programmazione dell'allenamento, esercizi, recupero muscolare e motivazione sportiva.",
         model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
         knowledge=knowledge_base,
-        search_knowledge=True,
+        # RAG classico: i documenti pertinenti vengono recuperati e iniettati nel
+        # prompt ad ogni turno, SENZA dipendere dal fatto che il modello decida di
+        # chiamare un tool di ricerca (llama-4-scout è inaffidabile in quello).
+        add_knowledge_to_context=True,
+        search_knowledge=False,
         instructions=[
             user_context,
 

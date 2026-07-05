@@ -17,6 +17,12 @@ load_dotenv()
 from src.database.init_db import init_database
 init_database()
 
+# Sincronizzazione della Knowledge Base RAG: allinea l'indice LanceDB con la
+# cartella src/knowledge_base/docs/ prima di servire le richieste. Rileva i file
+# aggiunti, modificati ed eliminati; i documenti invariati vengono saltati.
+from src.knowledge_base.ingest import sync
+sync()
+
 # Inizializzazione dell'istanza principale FastAPI
 app = FastAPI(title="RepEats API")
 

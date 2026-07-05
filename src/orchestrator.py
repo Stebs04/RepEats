@@ -19,8 +19,12 @@ from agno.team.mode import TeamMode
 
 # Importazione dei componenti nativi di Agno per la gestione dell'architettura RAG
 from agno.knowledge.knowledge import Knowledge
-from agno.vectordb.lancedb import LanceDb
-from agno.knowledge.embedder.sentence_transformer import SentenceTransformerEmbedder
+
+# Builder centralizzato della Knowledge Base (Hybrid Search + cache singleton).
+# La configurazione del vector store e l'ingestion dei documenti sono state
+# estratte rispettivamente in src/database/knowledge_base.py e
+# src/knowledge_base/ingest.py per separare le responsabilità.
+from src.database.knowledge_base import build_knowledge
 
 # Importazione degli agenti specializzati
 from src.agents.fitness_agent import get_pt_agent
@@ -29,32 +33,14 @@ from src.agents.nutritionst import ConversationalNutritionistAgent
 
 def setup_knowledge_base() -> Knowledge:
     """
-    Configura e inizializza la Knowledge Base per il sistema RAG.
-    La funzione si appoggia a LanceDB per l'archiviazione vettoriale locale 
-    e a un modello all-MiniLM leggero per calcolare embedding semantici.
+    Restituisce la Knowledge Base condivisa per il sistema RAG.
+
+    La costruzione effettiva (LanceDB con Hybrid Search, embedder, reranker
+    opzionale) e la relativa cache a singleton sono delegate a
+    `src.database.knowledge_base.build_knowledge`. L'ingestion dei documenti
+    avviene separatamente (all'avvio, in main.py), non più nel path di richiesta.
     """
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    kb_dir = os.path.join(base_dir, "knowledge_base")
-    db_dir = os.path.join(base_dir, "database", "lancedb_vectors")
-
-    #Controllo che la cartella per il database esista, prevenendo errori a runtime
-    os.makedirs(db_dir, exist_ok=True)
-
-    #Inizializzazione dell'oggetto KnowledgeBase nativo di agno
-    knowledge_base = Knowledge(
-        vector_db=LanceDb(
-            table_name="protocolli_allenamento",
-            uri=db_dir,
-            embedder=SentenceTransformerEmbedder(id="sentence-transformers/all-MiniLM-L6-v2")
-        )
-    )
-
-    lancedb_table_path = os.path.join(db_dir, "protocolli_allenamento.lance")
-    if not os.path.exists(lancedb_table_path):
-        print("⚙️ Primo avvio rilevato: Vettorializzazione dei documenti in corso...")
-        knowledge_base.insert(path=kb_dir)
-    
-    return knowledge_base
+    return build_knowledge()
 
 
 def build_user_context(user_data: dict, macros: dict, daily_targets: dict, chat_history: list, chat_type: str = "coach") -> str:
@@ -169,18 +155,21 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_hi
     Returns:
         Team: L'orchestratore configurato pronto per ricevere messaggi.
     """
-    # Setup della knowledge base per il fitness agent
-    kb = setup_knowledge_base()
+    # Setup delle knowledge base per dominio (cache condivisa fra le richieste):
+    # il Coach interroga i documenti di fitness, il Nutritionist quelli di nutrizione.
+    kb_fitness = build_knowledge(domain="fitness")
+    kb_nutrition = build_knowledge(domain="nutrition")
 
     # Costruzione del contesto condiviso
     user_context = build_user_context(user_data, macros, daily_targets, chat_history, chat_type)
 
     # Creazione degli agenti specializzati con il contesto iniettato
-    pt_agent = get_pt_agent(user_context=user_context, knowledge_base=kb, user_data=user_data, enable_tools=enable_tools)
+    pt_agent = get_pt_agent(user_context=user_context, knowledge_base=kb_fitness, user_data=user_data, enable_tools=enable_tools)
     nutrizionista_chat = ConversationalNutritionistAgent(
         user_context=user_context,
         allergies=user_data.get("allergies", ""),
-        dietary_preferences=user_data.get("dietary_preferences", "")
+        dietary_preferences=user_data.get("dietary_preferences", ""),
+        knowledge=kb_nutrition
     )
 
     # Selezione dei membri in base alla pagina corrente dell'utente.
