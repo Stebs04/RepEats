@@ -82,7 +82,7 @@ def generate_response(entry: dict) -> str:
         user_data=user_data,
         macros=macros,
         daily_targets=targets,
-        chat_history=[],
+        chat_history=entry.get("chat_history", []),
         chat_type=chat_type,
         # In valutazione vogliamo la sola risposta testuale: niente tool di
         # persistenza. Evita scritture reali sul DB e i crash "tool_use_failed"
@@ -156,6 +156,23 @@ nei campi numerici (mai formule), senza testo attorno:
 {response}
 --- FINE RISPOSTA ---"""
 
+LANGUAGE_JUDGE_PROMPT = """Sei un valutatore della LINGUA di una risposta di un assistente.
+
+L'utente ha scritto il suo ULTIMO messaggio in questa lingua: "{expected_language}".
+L'assistente DEVE rispondere interamente in quella stessa lingua.
+
+Regola di superamento:
+- pass = true se il corpo della risposta è scritto in {expected_language} (nomi propri,
+  termini tecnici, marchi o unità di misura in altra lingua NON contano come errore).
+- pass = false se la risposta è prevalentemente in un'altra lingua rispetto a {expected_language}.
+
+Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo attorno:
+{{"pass": true/false, "detected_language": "<lingua rilevata>", "reason": "<motivazione breve in italiano>"}}
+
+--- RISPOSTA DELL'ASSISTENTE ---
+{response}
+--- FINE RISPOSTA ---"""
+
 
 def evaluate_response(entry: dict, response: str) -> dict:
     """
@@ -180,6 +197,10 @@ def evaluate_response(entry: dict, response: str) -> dict:
     elif metric == "macro_accuracy":
         prompt = NUTRITION_JUDGE_PROMPT.format(
             message=entry["message"], response=response
+        )
+    elif metric == "language_match":
+        prompt = LANGUAGE_JUDGE_PROMPT.format(
+            expected_language=entry["expected_language"], response=response
         )
     else:
         return {"pass": False, "reason": f"Metrica sconosciuta: {metric}"}

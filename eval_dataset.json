@@ -120,6 +120,54 @@
       "metric": "macro_accuracy",
       "message": "Mi mancano 40g di proteine per oggi. Consigliami un pasto e dimmi quante proteine, carboidrati, grassi e calorie ha con le grammature.",
       "user_data": {}
+    },
+    {
+      "id": "lang_01_coach_english",
+      "agent": "coach",
+      "metric": "language_match",
+      "message": "Give me a quick full body workout, I only have 30 minutes.",
+      "expected_language": "inglese",
+      "user_data": { "workout_duration": 30, "workout_preference": "Dimagrimento" }
+    },
+    {
+      "id": "lang_02_nutri_spanish",
+      "agent": "nutritionist",
+      "metric": "language_match",
+      "message": "Me quedan 40g de proteínas para hoy. ¿Qué comida me recomiendas?",
+      "expected_language": "spagnolo",
+      "user_data": {}
+    },
+    {
+      "id": "lang_03_nutri_japanese",
+      "agent": "nutritionist",
+      "metric": "language_match",
+      "message": "鶏むね肉150gのタンパク質とカロリーを教えてください。",
+      "expected_language": "giapponese",
+      "user_data": {}
+    },
+    {
+      "id": "lang_04_coach_switch_it_to_es",
+      "agent": "coach",
+      "metric": "language_match",
+      "message": "Perdona, ¿me lo puedes dar en español? Tengo 40 minutos.",
+      "expected_language": "spagnolo",
+      "chat_history": [
+        { "role": "user", "content": "Ciao, voglio una scheda per le gambe." },
+        { "role": "assistant", "content": "Certo! Dimmi quanto tempo hai a disposizione e ti preparo una scheda gambe su misura." }
+      ],
+      "user_data": { "workout_duration": 40, "workout_preference": "Ipertrofia" }
+    },
+    {
+      "id": "lang_05_nutri_switch_en_to_ja",
+      "agent": "nutritionist",
+      "metric": "language_match",
+      "message": "日本語で答えてください。100gのゆでパスタのマクロは？",
+      "expected_language": "giapponese",
+      "chat_history": [
+        { "role": "user", "content": "How many calories are in 150g of grilled chicken breast?" },
+        { "role": "assistant", "content": "About 250 kcal, with roughly 46g of protein, 0g carbs and 5g of fat." }
+      ],
+      "user_data": {}
     }
   ]
 }
