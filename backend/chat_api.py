@@ -44,9 +44,27 @@ class ChatMessageRequest(BaseModel):
 
 def _workout_snapshot(user_id: int) -> list:
     """
-    Crea una "fotografia" delle schede di allenamento dell'utente (nomi ed esercizi).
-    Serve a verificare in modo deterministico se una run dell'agente Coach
-    ha davvero scritto qualcosa nel database, senza fidarsi del testo della risposta.
+    Crea una "fotografia" immutabile (tupla di tuple) dello stato attuale delle
+    schede di allenamento dell'utente: id, nome e, per ogni esercizio, nome +
+    gruppo muscolare + set/reps/recupero.
+
+    PERCHE' ESISTE — Action hallucination del Tool Calling
+    ------------------------------------------------------
+    Il Coach opera in Tool Calling autonomo: decide *da solo* se e quando
+    invocare `create_workout_plan_tool` / `modify_workout_plan_tool`. Un limite
+    intrinseco degli LLM in questa modalita' e' l'"action hallucination":
+    l'agente genera un testo perfettamente plausibile ("Ho salvato la tua scheda
+    Push A") SENZA aver effettivamente emesso la tool call. Il testo mente, ma
+    e' indistinguibile da un successo reale.
+
+    Non possiamo fidarci della risposta in linguaggio naturale per sapere se il
+    DB e' cambiato. L'UNICO segnale deterministico e' lo stato del database
+    stesso: fotografiamo le schede PRIMA della run e le riconfrontiamo DOPO
+    (`snapshot_dopo != snapshot_prima`). Se lo stato non e' cambiato, nessun
+    tool e' stato chiamato — a prescindere da cosa afferma il testo.
+
+    La tupla e' hashable/comparabile per uguaglianza cosi' il confronto e' un
+    semplice `!=`, senza diffing manuale.
     """
     return [
         (
@@ -118,8 +136,11 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Errore nell'elaborazione del messaggio: {str(e)}")
 
-    # Fotografia delle schede PRIMA della run: permette di verificare
-    # deterministicamente se l'agente ha davvero scritto sul database.
+    # Fotografia delle schede PRIMA della run: e' il termine di paragone della
+    # rete di sicurezza. Non ci fidiamo di cio' che l'agente DICE di aver fatto;
+    # confrontiamo lo stato reale del DB prima/dopo per sapere cosa ha fatto
+    # DAVVERO (vedi _workout_snapshot per il razionale sull'action hallucination).
+    # Solo il Coach scrive schede: per il Nutritionist lo snapshot e' inutile.
     is_coach = request.chat_type == "coach"
     snapshot_prima = _workout_snapshot(user_id) if is_coach else None
 
@@ -138,19 +159,39 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             ai_text = "".join(chunks).strip() or "Mi dispiace, non ho ricevuto una risposta."
 
             # ============================================================
-            # RETE DI SICUREZZA (solo Coach): se l'agente DICHIARA di aver
-            # salvato/modificato una scheda ma il database risulta invariato,
-            # significa che non ha chiamato il tool. Gli inviamo un messaggio
-            # di sistema (invisibile all'utente) che lo obbliga a chiamare
-            # il tool con la scheda appena proposta. La risposta originale
-            # resta quella già mostrata all'utente.
+            # RETE DI SICUREZZA AUTO-RIPARANTE (solo Coach)
+            # ------------------------------------------------------------
+            # Difesa deterministica contro l'action hallucination del Tool
+            # Calling: l'agente puo' produrre un testo che AFFERMA il salvataggio
+            # senza aver emesso la tool call. Rileviamo la discrepanza incrociando
+            # due segnali:
+            #   1) claims_save  — il TESTO dichiara un salvataggio/modifica
+            #      (segnale semantico, di per se' inaffidabile);
+            #   2) workouts_updated — il DB e' CAMBIATO davvero rispetto allo
+            #      snapshot iniziale (segnale deterministico, fonte di verita').
+            # Testo che promette + DB invariato == tool NON chiamato.
+            #
+            # In quel caso iniettiamo un recovery_prompt: un messaggio di sistema
+            # invisibile all'utente che re-innesca l'agente forzandolo a emettere
+            # ORA la tool call con la scheda che ha appena proposto a parole. E'
+            # il meccanismo di fallback che "ripara" la run fallita senza mostrare
+            # errori all'utente: la risposta originale resta quella gia' mostrata,
+            # il salvataggio avviene dietro le quinte. Dopo il recovery
+            # ri-fotografiamo il DB per riflettere l'esito reale nel flag finale.
             # ============================================================
             workouts_updated = False
             if is_coach:
                 workouts_updated = _workout_snapshot(user_id) != snapshot_prima
                 low = ai_text.lower()
+                # Segnale semantico: l'agente parla di una "scheda" e usa un
+                # verbo di persistenza. Volutamente ampio — un falso positivo
+                # costa solo una run di recovery in piu', un falso negativo
+                # lascerebbe l'utente con una scheda fantasma mai salvata.
                 claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
                 if claims_save and not workouts_updated:
+                    # Prompt di recovery: NON e' rivolto all'utente. Ordina
+                    # all'agente di ricavare scheda+esercizi dal proprio testo
+                    # precedente e di chiamare adesso il tool corretto.
                     recovery_prompt = (
                         "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
                         "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una scheda di allenamento, "

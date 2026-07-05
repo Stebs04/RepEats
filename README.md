@@ -24,6 +24,45 @@ L'applicazione dipende fortemente da variabili d'ambiente (come ad esempio chiav
 
 ---
 
+## LLM Hallucination Mitigation & Safety Net
+
+Il Coach IA salva le schede di allenamento tramite **Tool Calling autonomo**:
+decide da solo quando invocare `create_workout_plan_tool` /
+`modify_workout_plan_tool`. Questa modalita' e' la scelta corretta per un flusso
+ibrido (chat in linguaggio naturale + azioni sul DB), ma soffre di un limite
+intrinseco degli LLM: l'**action hallucination**. L'agente puo' generare un
+testo perfettamente plausibile — *"Ho salvato la tua scheda Push A"* — **senza
+aver realmente emesso la tool call**. Il testo mente ed e' indistinguibile da un
+successo reale.
+
+Fidarsi della risposta in linguaggio naturale non e' un'opzione. L'unica fonte
+di verita' e' lo **stato del database**. La rete di sicurezza (in
+`backend/chat_api.py`) funziona cosi':
+
+1. **Snapshot deterministico (`_workout_snapshot`)** — prima di ogni run del
+   Coach fotografiamo lo stato delle schede (id, nomi, esercizi con
+   set/reps/recupero) in una tupla immutabile e comparabile. A fine run
+   rifotografiamo. `snapshot_dopo != snapshot_prima` e' **l'unico modo
+   deterministico** per sapere se un tool ha davvero scritto sul DB — a
+   prescindere da cosa afferma il testo.
+
+2. **Rilevazione della discrepanza** — incrociamo due segnali: il testo
+   *dichiara* un salvataggio (`claims_save`, semantico e inaffidabile) **e** il
+   DB risulta *invariato* (`workouts_updated == False`, deterministico). Testo
+   che promette + DB fermo = tool non chiamato.
+
+3. **`recovery_prompt` auto-riparante** — in caso di discrepanza iniettiamo un
+   messaggio di sistema **invisibile all'utente** che re-innesca l'agente
+   forzandolo a ricavare scheda ed esercizi dal proprio testo e a chiamare
+   *adesso* il tool corretto. La risposta gia' mostrata all'utente resta intatta;
+   il salvataggio avviene dietro le quinte. Dopo il recovery ri-verifichiamo lo
+   snapshot per riflettere l'esito reale.
+
+> Perche' Tool Calling e non Structured Output nativo? Vedi
+> [`docs/LLM_ARCHITECTURE.md`](docs/LLM_ARCHITECTURE.md).
+
+---
+
 ## Struttura del Progetto
 
 Il progetto è diviso principalmente in due sezioni:
