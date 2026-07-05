@@ -1,29 +1,36 @@
 # modified by Stefano Bellan 20054330 - Correzione importazioni assolute per esecuzione da radice progetto
+# La creazione dello schema NON avviene piu' qui: la gestione delle tabelle e'
+# ora delegata ad Alembic (vedi cartella alembic/ e sezione "Gestione Database"
+# del README). Questo modulo si limita a verificare la raggiungibilita' del DB.
+from sqlalchemy import text
 # Importa la funzione factory per ottenere l'istanza dell'engine del database
 from src.database.database import get_engine
-# Importa la classe Base dichiarativa di SQLAlchemy che contiene il registro di tutti i modelli
-from src.database.models import Base
+
 
 def init_database():
     """
-    Inizializza lo schema del database creando fisicamente le tabelle definite nei modelli ORM.
-    Questa funzione dovrebbe essere invocata al primo avvio dell'applicativo.
-    
+    Verifica la connettivita' al database SENZA crearne lo schema.
+
+    Storicamente questa funzione eseguiva Base.metadata.create_all(engine),
+    creando implicitamente le tabelle al primo avvio. La creazione/evoluzione
+    dello schema e' ora responsabilita' di Alembic (`alembic upgrade head`),
+    per avere migrazioni versionate e riproducibili. Qui eseguiamo solo un
+    controllo di raggiungibilita' fail-fast, cosi' un DB non configurato viene
+    segnalato all'avvio invece di fallire piu' avanti durante le query.
+
     Autori: Stefano Bellan, Timothy Giolito
     """
-    # Stampa a terminale che l'operazione di creazione dello schema è iniziata
-    print("Iniziando la creazione dello schema del database...")
-    
-    # Ottiene l'oggetto Engine che funge da interfaccia centrale verso il database e ne gestisce il connection pool
+    print("Verifica connessione al database (schema gestito da Alembic)...")
+
     engine = get_engine()
-    
-    # Attraverso la classe Base, si recuperano i metadati dei modelli registrati 
-    # per tradurli ed inviare al DBMS le corrispondenti istruzioni DDL (es. CREATE TABLE).
-    # Il metodo create_all crea in modo sicuro solo le tabelle non ancora esistenti.
-    Base.metadata.create_all(engine)
-    
-    # Conferma testuale della corretta terminazione dell'operazione
-    print("Database e tabelle creati con successo!")
+
+    # Apertura e chiusura immediata di una connessione: valida URL/driver e
+    # raggiungibilita' del DB senza emettere alcuna istruzione DDL.
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+
+    print("Database raggiungibile. Applicare le migrazioni con 'alembic upgrade head' se necessario.")
+
 
 # Entry point locale: protegge da esecuzioni accidentali in caso il modulo venga solo importato altrove
 if __name__ == "__main__":

@@ -7,6 +7,9 @@ python-dotenv
 # ORM e Database (Per la persistenza SQLite richiesta)
 SQLAlchemy
 
+# Migrazioni schema database (versionamento DDL, sostituisce create_all()).
+alembic
+
 groq
 
 requests

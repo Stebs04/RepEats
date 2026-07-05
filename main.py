@@ -13,7 +13,9 @@ from backend.profile_api import router as profile_router
 # Caricamento configurazioni dal file .env
 load_dotenv()
 
-# Inizializziamo il database se non esiste!
+# Verifica di raggiungibilita' del database. NB: lo schema NON viene piu' creato
+# qui: la gestione delle tabelle e' delegata ad Alembic. Prima del primo avvio
+# eseguire le migrazioni con `alembic upgrade head` (vedi README).
 from src.database.init_db import init_database
 init_database()
 
