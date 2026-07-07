@@ -100,7 +100,9 @@ python -m src.knowledge_base.ingest --delete NOME --domain fitness   # rimuove u
 
 #### 2.2.5 RAG "classico" senza tool
 
-Entrambi gli agenti usano `add_knowledge_to_context=True` con `search_knowledge=False`: i documenti pertinenti vengono recuperati e **iniettati direttamente nel prompt ad ogni turno**, senza dipendere dal fatto che il modello decida di chiamare un tool di ricerca. Scelta deliberata: `llama-4-scout` è inaffidabile nel decidere *quando* interrogare la KB, quindi togliamo la decisione all'LLM.
+Il **Coach** usa `add_knowledge_to_context=True` con `search_knowledge=False`: i documenti pertinenti vengono recuperati e **iniettati direttamente nel prompt ad ogni turno**, senza dipendere dal fatto che il modello decida di chiamare un tool di ricerca. Scelta deliberata: `llama-4-scout` è inaffidabile nel decidere *quando* interrogare la KB, quindi togliamo la decisione all'LLM.
+
+Il **Nutrizionista conversazionale** parte dalla stessa iniezione a contesto ma abilita anche `search_knowledge=True`: oltre ai documenti pre-caricati può interrogare autonomamente la KB e sfrutta il tool di ricerca ricette online (§3.5) quando l'utente chiede cosa mangiare.
 
 ---
 
@@ -157,7 +159,7 @@ L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMod
 
 Diviso in classi distinte per aggirare un limite dell'API Groq: **vision + function calling + structured output non coesistono in una singola chiamata**. Separando le fasi, ogni agente fa una cosa sola.
 
-* **`ConversationalNutritionistAgent`** — chat discorsiva. Legge l'intake odierno dal contesto, calcola i **macro rimanenti** rispetto al target e suggerisce pasti/ricette coerenti. Rispetta **allergie e restrizioni dietetiche** del profilo (vincolo obbligatorio iniettato nel prompt). RAG su `conoscenza_nutrizione` (tabelle SINU, linee guida). Non chiama mai tool: risponde solo testo.
+* **`ConversationalNutritionistAgent`** — chat discorsiva. Legge l'intake odierno dal contesto, calcola i **macro rimanenti** rispetto al target e suggerisce pasti/ricette coerenti. Rispetta **allergie e restrizioni dietetiche** del profilo (vincolo obbligatorio iniettato nel prompt). RAG su `conoscenza_nutrizione` (tabelle SINU, linee guida). Quando l'utente chiede cosa mangiare, chiama il tool di **ricerca ricette online** (§3.5) per proporre ricette reali con titolo e link alla fonte.
 * **`VisionNutritionistAgent`** — analizza immagini di cibo/barcode e risponde in **testo libero** (poi validato dal Parser). Con barcode usa il tool `get_product_info_by_barcode` (OpenFoodFacts); su foto di cibo puro il tool non viene nemmeno registrato, così non può usarlo per errore e stima i macro dalla categoria.
 
 ### 3.4 Pipeline di Analisi Pasto da Immagine (`POST /api/chat/vision`)
@@ -167,6 +169,17 @@ L'analisi di un pasto è un pipeline deterministico-poi-generativo, a stadi:
 * **Fase 0 — Barcode (deterministica, no LLM):** priorità al codice inserito a mano dall'utente (fallback robusto a foto sfocate); altrimenti detection sui pixel con OpenCV/zxing-cpp. Se c'è un barcode valido, i dati OpenFoodFacts vengono scalati sulla grammatura **in Python**, senza stima LLM (zero allucinazioni sui valori).
 * **Fase 1 — Stima visiva:** solo se non c'è barcode o il prodotto non è trovato. `VisionNutritionistAgent` (senza tool) riconosce l'alimento e stima i macro scalati sulla grammatura.
 * **Fase 2 — Parser:** un agente dedicato converte il testo libero in un `MealAnalysis` (Pydantic) tipizzato, che viene poi salvato come `MealLog`.
+
+### 3.5 Ricerca Ricette Online (Nutrizionista)
+
+Oltre alla knowledge base interna, il Nutrizionista conversazionale dispone del tool `search_online_recipes` (`src/tools/online_recipe_search_tool.py`) per proporre **ricette reali e concrete** invece di limitarsi a stime generiche.
+
+* **Trigger:** quando l'utente chiede *cosa mangiare*, il system prompt impone all'agente di chiamare il tool costruendo una query mirata — sito di riferimento (es. *GialloZafferano*), tipo di pasto e vincoli di macronutrienti.
+* **Contesto dedicato:** l'orchestratore inietta nel prompt un blocco **`VINCOLI PER RICERCA WEB`** con Kcal e macro target del pasto imminente (derivati dalla fascia oraria e dai residui giornalieri), così l'LLM formula una query aderente ai fabbisogni.
+* **Motore di ricerca:** ricerca reale via endpoint HTML di DuckDuckGo (nessuna API key), con parsing dei risultati tramite **BeautifulSoup**. Vengono estratti i primi 3-5 risultati (titolo, link, snippet con eventuali ingredienti) e restituiti come testo; l'agente presenta all'utente titolo e link alla fonte.
+* **Resilienza di rete:** le eccezioni HTTP sono gestite in modo silente e degradano in un messaggio leggibile dall'LLM (che ripiega sulle proprie conoscenze), senza sollevare eccezioni che interromperebbero la chat.
+
+> **Nota sullo scraping:** dipendendo dal markup HTML del motore di ricerca, il tool è per natura fragile a modifiche lato provider. Per un uso in produzione stabile è preferibile un servizio di ricerca dotato di API ufficiale.
 
 ---
 
@@ -186,6 +199,7 @@ L'analisi di un pasto è un pipeline deterministico-poi-generativo, a stadi:
 | LLM | Groq (`llama-4-scout-17b-16e-instruct`) |
 | Barcode | zxing-cpp (primario) + OpenCV (fallback/pre-processing) |
 | Dati prodotti | OpenFoodFacts API |
+| Ricerca ricette online | DuckDuckGo (HTML) + BeautifulSoup |
 | Autenticazione | JWT (PyJWT) + bcrypt |
 
 ### 4.2 Database (SQLite + SQLAlchemy)

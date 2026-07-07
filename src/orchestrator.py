@@ -50,25 +50,39 @@ def build_user_context(user_data: dict, macros: dict, daily_targets: dict, break
     cal_consumed = macros.get('calories', 0)
     cal_progress_pct = round((cal_consumed / target_cal * 100), 1) if target_cal > 0 else 0
 
-    # Discretizzazione del delta temporale in partizioni e mappatura con coefficienti di intake attesi
+    # Discretizzazione del delta temporale in partizioni e mappatura con coefficienti di intake attesi.
+    # Associamo inoltre ogni fascia alla categoria di pasto imminente, così da esporre al Nutrizionista
+    # i macro residui esatti da usare come argomenti per la ricerca delle ricette.
     if current_hour < 12:
         fascia_oraria = "Mattina (06:00-12:00)"
         expected_range = "25-35%"
+        pasto_imminente = "Colazione"
     elif current_hour < 15:
         fascia_oraria = "Primo pomeriggio (12:00-15:00)"
         expected_range = "50-65%"
+        pasto_imminente = "Pranzo"
     elif current_hour < 18:
         fascia_oraria = "Tardo pomeriggio (15:00-18:00)"
         expected_range = "60-75%"
+        pasto_imminente = "Spuntino"
     else:
         fascia_oraria = "Sera (18:00-22:00)"
         expected_range = "80-100%"
+        pasto_imminente = "Cena"
 
     breakdown_testo = ""
     for cat in ["Colazione", "Pranzo", "Cena", "Spuntino"]:
         cons = breakdown_odierno.get(cat, {"calories": 0, "proteins": 0, "carbohydrates": 0, "fats": 0})
         tgt = targets_by_cat.get(cat, {"calories": 0, "proteins": 0, "carbohydrates": 0, "fats": 0})
         breakdown_testo += f"\n- {cat}:\n  - Target: {tgt['calories']} kcal | Pro: {tgt['proteins']}g | Carbo: {tgt['carbohydrates']}g | Grassi: {tgt['fats']}g\n  - Consumati: {round(cons['calories'], 1)} kcal | Pro: {round(cons['proteins'], 1)}g | Carbo: {round(cons['carbohydrates'], 1)}g | Grassi: {round(cons['fats'], 1)}g\n  - Rimanenti: {max(0, round(tgt['calories'] - cons['calories'], 1))} kcal | Pro: {max(0, round(tgt['proteins'] - cons['proteins'], 1))}g | Carbo: {max(0, round(tgt['carbohydrates'] - cons['carbohydrates'], 1))}g | Grassi: {max(0, round(tgt['fats'] - cons['fats'], 1))}g"
+
+    # Calcolo dei residui della fascia imminente, esposti come argomenti pronti per la ricerca ricette
+    cons_pasto = breakdown_odierno.get(pasto_imminente, {"calories": 0, "proteins": 0, "carbohydrates": 0, "fats": 0})
+    tgt_pasto = targets_by_cat.get(pasto_imminente, {"calories": 0, "proteins": 0, "carbohydrates": 0, "fats": 0})
+    res_cal = max(0, round(tgt_pasto['calories'] - cons_pasto['calories'], 1))
+    res_pro = max(0, round(tgt_pasto['proteins'] - cons_pasto['proteins'], 1))
+    res_carb = max(0, round(tgt_pasto['carbohydrates'] - cons_pasto['carbohydrates'], 1))
+    res_fat = max(0, round(tgt_pasto['fats'] - cons_pasto['fats'], 1))
 
     # Serializzazione dello stack conversazionale per contestualizzazione dei nodi decisionali
     storia_testo = "Nessun messaggio precedente."
@@ -99,6 +113,12 @@ ANALISI TEMPORALE INTAKE CALORICO:
 - Range di intake atteso per questa fascia: {expected_range} del fabbisogno giornaliero
 - Intake attuale: {cal_progress_pct}%
 - NOTA: È NORMALE non aver raggiunto il 100% del fabbisogno se non è ancora sera. Valuta l'intake rispetto al range atteso, NON rispetto al totale giornaliero.
+
+VINCOLI PER RICERCA WEB:
+- Pasto imminente (fascia corrente): {pasto_imminente}
+- Calorie target suggerite per questo pasto: {res_cal} kcal
+- Proteine: {res_pro}g | Carboidrati: {res_carb}g | Grassi: {res_fat}g
+- Usa ESATTAMENTE questi valori per costruire una query precisa da passare a search_online_recipes (includi sito, tipo di pasto e i vincoli di macronutrienti) quando suggerisci cosa mangiare.
 
 DATA E ORA CORRENTE: {ora_attuale}
 

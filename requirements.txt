@@ -14,6 +14,9 @@ groq
 
 requests
 
+# Parsing HTML per lo scraping dei risultati di ricerca ricette online.
+beautifulsoup4
+
 pillow
 
 # Lettura codici a barre dalle immagini.

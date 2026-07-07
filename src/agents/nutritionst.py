@@ -13,6 +13,8 @@ from agno.models.groq import Groq
 from agno.guardrails import PromptInjectionGuardrail
 # Strumento esterno per interrogare OpenFoodFacts partendo da un codice a barre
 from src.tools.openfoodfacts_tool import get_product_info_by_barcode
+# Strumento per la ricerca online di ricette reali su fonti web affidabili
+from src.tools.online_recipe_search_tool import search_online_recipes
 # Strumenti di Pydantic per definire e validare lo schema dei dati in uscita
 from pydantic import BaseModel, Field
 
@@ -138,6 +140,8 @@ class ConversationalNutritionistAgent(Agent):
             "- Rispondi a domande su cosa mangiare, suggerisci pasti e porzioni concrete.",
             "- Crea piani alimentari personalizzati (colazione, pranzo, cena, spuntini) basandoti sui macro residui dell'utente.",
             "- Suggerisci ricette semplici e veloci adatte all'obiettivo dell'utente (dimagrimento, massa, mantenimento).",
+            "- Quando l'utente chiede cosa mangiare, DEVI obbligatoriamente chiamare lo strumento 'search_online_recipes' per cercare ricette reali sul web. Usa query specifiche includendo siti come 'GialloZafferano', il tipo di pasto e i vincoli di macronutrienti.",
+            "- Fornisci sempre all'utente il titolo della ricetta e, se disponibile, il link alla fonte.",
             "- Analizza i pasti già consumati e suggerisci come bilanciare il resto della giornata.",
             "- Quando l'utente chiede 'cosa ho mangiato oggi', usa i dati nutrizionali nel contesto per rispondere.",
             "- Quando ti chiedono i macro di un alimento con una grammatura precisa, dai un VALORE SINGOLO rappresentativo (puoi premettere 'circa'), NON un intervallo tipo '30-35g': scegli tu il valore più realistico.",
@@ -169,14 +173,13 @@ class ConversationalNutritionistAgent(Agent):
             "- Rispondi SEMPRE in modo naturale, discorsivo e amichevole (chatbot style). NON descrivere mai a voce alta i tuoi passaggi logici.",
             "- Usa Markdown per migliorare la leggibilità (grassetto, elenchi, tabelle se utile).",
             "- ASSOLUTAMENTE VIETATO restituire JSON, codice o dati strutturati. Solo testo leggibile e umano.",
-            "- NON chiamare MAI tool o funzioni. Rispondi direttamente con il tuo testo.",
         ]
 
-        # Configurazione RAG: in caso sia presente una knowledge base, iniettiamo i documenti
-        # direttamente a contesto senza passare per un tool esplicito, dato che
-        # l'agente non è abilitato a fare chiamate esterne
+        # Configurazione RAG: in presenza di una knowledge base iniettiamo i documenti
+        # a contesto e abilitiamo anche la ricerca autonoma, così l'agente può
+        # interrogare la base di conoscenza in modo interattivo quando serve
         kb_kwargs = (
-            {"knowledge": knowledge, "add_knowledge_to_context": True, "search_knowledge": False}
+            {"knowledge": knowledge, "add_knowledge_to_context": True, "search_knowledge": True}
             if knowledge is not None else {}
         )
 
@@ -185,6 +188,7 @@ class ConversationalNutritionistAgent(Agent):
             role="Nutrizionista esperto in consigli alimentari, creazione di piani alimentari personalizzati, suggerimento ricette e gestione dei macronutrienti.",
             model=Groq(id=model_id),
             description="Esperto in consigli alimentari discorsivi, creazione di menu e gestione dinamica dei macronutrienti.",
+            tools=[search_online_recipes],
             instructions=instructions,
             pre_hooks=[PromptInjectionGuardrail()],
             markdown=True,
