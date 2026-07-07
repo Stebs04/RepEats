@@ -1,23 +1,27 @@
+"""
+Modulo per il provisioning della connessione al datastore relazionale.
+
+Author: Timothy Giolito (20054431)
+"""
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Inizializza il modulo caricando le variabili d'ambiente necessarie dal file .env.
-# Questo permette di centralizzare la configurazione senza esporre credenziali nel codice sorgente.
+# Bootstrap del modulo ambientale per l'iniezione sicura delle credenziali a runtime
 load_dotenv()
 
 def get_database_url() -> str:
     """
-    Recupera l'URL di connessione al database dalle variabili d'ambiente.
-    Solleva un'eccezione in caso di assenza, applicando il principio fail-fast
-    per impedire l'avvio dell'applicazione con una configurazione invalida.
-    Autori: Stefano Bellan, Timothy Giolito
+    Risoluzione della URI di connessione al datastore.
+    Implementa una policy fail-fast bloccante in assenza di parametri critici.
+    
+    Author: Timothy Giolito (20054431)
     """
-    # Ottiene la stringa di connessione (es. postgresql://user:pass@host/db)
+    # Parsing della stringa di connessione dal layer ambientale
     db_url = os.getenv("DATABASE_URL")
     
-    # Verifica critica: se la variabile d'ambiente non è impostata, interrompe l'esecuzione.
+    # Validazione vincolante del puntatore al cluster
     if not db_url:
         raise ValueError("ERRORE CRITICO: Variabile d'ambiente DATABASE_URL non definita nel file .env!")
     
@@ -26,16 +30,15 @@ def get_database_url() -> str:
 
 def get_engine():
     """
-    Istanzia e restituisce il motore (engine) di SQLAlchemy, che costituisce
-    il layer di base per la gestione del pool di connessioni al database.
-    Autori: Stefano Bellan, Timothy Giolito
+    Factory per l'engine ORM SQLAlchemy.
+    Inizializza il connection pool primario garantendo la gestione concorrenziale dei thread.
+    
+    Author: Timothy Giolito (20054431)
     """
-    # Recupera l'URL validato dalla funzione dedicata
+    # Acquisizione DSN validata
     db_url = get_database_url()
     
-    # Crea l'engine. Il parametro echo=True è utile in fase di sviluppo/debug
-    # in quanto esegue il logging a terminale di tutte le query SQL generate.
-    # In produzione, si consiglia di impostare echo=False o gestirlo tramite una variabile d'ambiente.
+    # Allocazione dell'engine con statement logging esplicito
     engine = create_engine(db_url, echo=True)
     
     return engine
@@ -43,17 +46,16 @@ def get_engine():
 
 def get_session():
     """
-    Crea e restituisce una nuova sessione per interagire con il database tramite ORM.
-    Le sessioni fungono da 'holding zone' per tutti gli oggetti caricati o associati
-    al database durante una transazione.
-    Autori: Stefano Bellan, Timothy Giolito
+    Istanziazione di un generatore di unit-of-work per le transazioni ORM.
+    Produce factory bound all'engine primario per l'isolamento transazionale.
+    
+    Author: Timothy Giolito (20054431)
     """
-    # Ottiene l'engine inizializzato
+    # Recupero pool di connessione attivo
     engine = get_engine()
     
-    # Utilizza la factory sessionmaker per configurare le nuove sessioni
-    # e le collega (bind) all'engine precedentemente creato.
+    # Binding della factory transazionale all'istanza ORM
     SessionLocal = sessionmaker(bind=engine)
     
-    # Istanzia una sessione pronta all'uso per l'esecuzione di query
+    # Generazione sessione operativa standard
     return SessionLocal()

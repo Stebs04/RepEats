@@ -6,6 +6,11 @@ from backend.security import get_current_user
 router = APIRouter()
 
 class ProfileUpdate(BaseModel):
+    """
+    Schema di validazione in ingresso per l'upsert dei dati anagrafici e degli obiettivi.
+    
+    Author: Stefano Bellan (20054330)
+    """
     age: int
     weight: float
     height: float
@@ -21,6 +26,12 @@ class ProfileUpdate(BaseModel):
 
 @router.post("/update")
 def update_profile(data: ProfileUpdate, user_id: int = Depends(get_current_user)):
+    """
+    Endpoint per il provisioning parziale o totale dei metadati del profilo.
+    I valori forniti sovrascrivono lo stato persistito per l'utente loggato.
+    
+    Author: Stefano Bellan (20054330)
+    """
     try:
         update_user_profile(
             user_id=user_id,
@@ -43,10 +54,15 @@ def update_profile(data: ProfileUpdate, user_id: int = Depends(get_current_user)
 
 @router.get("/get")
 def get_profile(user_id: int = Depends(get_current_user)):
+    """
+    Esposizione in sola lettura dei metadati anagrafici consolidati.
+    
+    Author: Stefano Bellan (20054330)
+    """
     try:
         user_data = get_user_data(user_id)
         if not user_data:
-            # Ritorna campi vuoti di default se non esiste ancora un profilo completo
+            # Ritorno formattato in fallback per entità anagrafica non inizializzata a db
             return {"data": {}}
         return {"data": user_data}
     except Exception as e:

@@ -25,7 +25,10 @@
             -webkit-font-smoothing: antialiased;
         }
         
-        /* Glassmorphism utilities */
+        /* 
+         * Author: Timothy Giolito (20054431)
+         * Classi di utilità per gestire l'effetto glassmorphism sull'interfaccia.
+         */
         .glass-panel {
             background-color: rgba(32, 31, 31, 0.7); /* surface-container */
             backdrop-filter: blur(16px);
@@ -134,7 +137,10 @@
     </script>
 </head>
 <body class="bg-background text-on-background min-h-screen flex flex-col font-sans selection:bg-primary-container selection:text-on-primary-container">
-<!-- Standard TopAppBar -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Barra di navigazione superiore standard.
+-->
 <header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
 <div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
 <img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
@@ -157,11 +163,20 @@
 </div>
 </div>
 </header>
-<!-- TopAppBar (Shared Component) -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Fine del componente TopAppBar. 
+-->
 
-<!-- Main Canvas -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Area principale della pagina. 
+-->
 <main class="flex-1 w-full max-w-5xl mx-auto pt-20 md:pt-28 px-container-margin md:px-xl pb-28 md:pb-12 flex flex-col gap-6 overflow-hidden relative">
-<!-- Motivational AI Chat -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Sezione dedicata alla chat motivazionale e ai consigli del coach.
+-->
 <section class="flex-1 flex flex-col glass-panel rounded-xl md:rounded-2xl border-t border-t-white/10 overflow-hidden relative z-10">
 <div class="bg-surface-container-low/50 backdrop-blur-md px-5 py-4 border-b border-white/5 flex items-center gap-4">
 <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary-container to-tertiary-container flex items-center justify-center p-[2px]">
@@ -178,14 +193,23 @@
 <button onclick="toggleSidebar()" class="ml-auto w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary-container transition-colors"><span class="material-symbols-outlined text-[24px]">history</span></button>
 </div>
 
-<!-- Decorative gradient mesh -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Elemento decorativo di sfondo.
+-->
 <div class="absolute -top-24 -right-24 w-48 h-48 bg-tertiary-container/10 rounded-full blur-3xl pointer-events-none"></div>
 
 <div id="chatHistory" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 hide-scrollbar relative"></div>
 
-<!-- Input Section -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Sezione di input per la chat.
+-->
 <div class="p-4 bg-background/50 backdrop-blur-xl border-t border-white/5 flex flex-col gap-3">
-<!-- Quick-chip suggestions -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Suggerimenti rapidi sotto forma di chip.
+-->
 <div id="suggestionsBar" class="flex gap-2.5 overflow-x-auto hide-scrollbar pb-1">
 <div class="suggestion-chip shrink-0 bg-surface-container/80 border border-white/[0.06] hover:border-primary-container/40 rounded-full flex items-center transition-all duration-300" style="overflow:hidden">
   <button onclick="sendQuickMessage('Crea una scheda di allenamento per la settimana in base al mio obiettivo')" class="flex items-center gap-1.5 pl-3 pr-1 py-2 text-[13px] leading-none font-medium text-on-surface/90">
@@ -212,7 +236,10 @@
   </button>
 </div>
 </div>
-<!-- Quick Input -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Campo di input veloce.
+-->
 <div class="relative flex items-center mt-2">
 <input id="chatInput" class="w-full bg-surface-container-high/50 border border-white/10 text-on-surface rounded-full py-4 pl-6 pr-14 focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all text-base placeholder:text-on-surface-variant/50" placeholder="Chiedi a Lumina Coach..." type="text"/>
 <button id="sendBtn" class="absolute right-2 w-10 h-10 flex items-center justify-center rounded-full bg-primary-container/10 hover:bg-primary-container/20 text-primary-container transition-colors">
@@ -221,9 +248,15 @@
 </div>
 </div>
 </section>
-<!-- Focus Oggi Widget -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Widget che mostra il focus della giornata per l'allenamento.
+-->
 <section class="relative rounded-xl p-md overflow-hidden border border-white/10 bg-surface-container-high/60 backdrop-blur-md" style="display:none;">
-<!-- Animated Shader Background Placeholder for Focus -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Sfondo animato per il widget di focus.
+-->
 <div class="absolute inset-0 opacity-20 mix-blend-screen pointer-events-none">
 <div class="w-full h-full bg-gradient-to-br from-primary-container/20 via-transparent to-transparent"></div>
 </div>
@@ -246,20 +279,35 @@
 </div>
 </div>
 </section>
-<!-- Workout Plans Section -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Sezione che mostra le schede di allenamento attuali.
+-->
 <section id="workoutPlansSection" class="flex flex-col gap-sm mt-4">
     <h3 class="font-headline-md text-headline-md text-on-surface mb-xs px-2">Le Tue Schede di Allenamento</h3>
     <div id="workoutPlansContainer" class="flex flex-col gap-4">
-        <!-- Plans will be loaded here dynamically -->
+        <!-- 
+          Author: Timothy Giolito (20054431)
+          Le schede di allenamento vengono caricate dinamicamente qui.
+        -->
         <div class="text-on-surface-variant text-sm px-2">Caricamento schede in corso...</div>
     </div>
 </section>
-<!-- Spacer for FAB & Bottom Nav -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Spaziatore per evitare sovrapposizioni con la navigazione inferiore.
+-->
 <div class="h-24 md:h-12 w-full"></div>
 
-<!-- Chat Sidebar Backdrop -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Sfondo per la barra laterale della cronologia chat.
+-->
 <div id="chatBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="toggleSidebar()"></div>
-<!-- Chat Sidebar for History -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Barra laterale contenente lo storico delle conversazioni.
+-->
 <div id="chatSidebar" class="fixed top-0 right-0 w-full sm:w-80 md:w-72 h-full bg-surface-container-high/95 backdrop-blur-xl border-l border-white/5 p-4 sm:p-5 z-50 translate-x-full transition-transform duration-300 overflow-y-auto flex flex-col gap-2">
     <div class="flex justify-between items-center mb-4 pt-2">
         <h3 class="font-headline-md text-on-surface text-[18px] flex items-center gap-2"><span class="material-symbols-outlined text-primary-container text-[20px]">history</span> Vecchie Chat</h3>
@@ -269,15 +317,19 @@
         <span class="material-symbols-outlined text-[18px]">add</span> Nuova Chat
     </button>
     <div id="sessionList" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar">
-        <!-- Sessions loaded here -->
+        <!-- 
+          Author: Timothy Giolito (20054431)
+          Le sessioni precedenti vengono caricate dinamicamente in questo contenitore.
+        -->
     </div>
 </div>
 
 </main>
 
-<!-- BottomNavBar (Shared Component) - Mobile Only -->
-<!-- Standard BottomNavBar -->
-<!-- Standard BottomNavBar -->
+<!-- 
+  Author: Timothy Giolito (20054431)
+  Barra di navigazione inferiore destinata all'utilizzo su dispositivi mobili.
+-->
 <nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
 <a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
 <span class="material-symbols-outlined">dashboard</span>
@@ -317,10 +369,12 @@
         throw new Error('AUTH_REDIRECT');
     }
 
-    // Header di autenticazione riutilizzato in tutte le fetch protette.
+    // Author: Timothy Giolito (20054431)
+    // Prepara gli header di autenticazione da riutilizzare in tutte le chiamate sicure.
     const authHeaders = { 'Authorization': `Bearer ${token}` };
 
-    // Controllo completamento profilo obbligatorio
+    // Author: Timothy Giolito (20054431)
+    // Verifica che l'utente abbia compilato i dati obbligatori nel proprio profilo.
     async function checkProfileGuard() {
         try {
             const res = await fetch(`/api/profile/get`, { headers: authHeaders });
@@ -351,7 +405,8 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // ---- Parser Markdown completo ----
+    // Author: Timothy Giolito (20054431)
+    // Logica completa per interpretare la formattazione Markdown restituita dall'intelligenza artificiale.
     function parseMarkdown(text) {
         const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         let lines = text.split('\n');
@@ -359,7 +414,8 @@
         let i = 0;
         while (i < lines.length) {
             let line = lines[i];
-            // Tabelle markdown
+            // Author: Timothy Giolito (20054431)
+            // Analisi e costruzione di tabelle in formato Markdown.
             if (/^\|.+\|/.test(line)) {
                 let tableLines = [];
                 while (i < lines.length && /^\|/.test(lines[i])) { tableLines.push(lines[i]); i++; }
@@ -376,7 +432,8 @@
                 html += '</table></div>';
                 continue;
             }
-            // Lista puntata
+            // Author: Timothy Giolito (20054431)
+            // Traduce gli elenchi non ordinati in veri tag HTML.
             if (/^[-*+]\s/.test(line)) {
                 html += '<ul class="list-none my-2 flex flex-col gap-1">';
                 while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
@@ -387,7 +444,8 @@
                 html += '</ul>';
                 continue;
             }
-            // Lista numerata
+            // Author: Timothy Giolito (20054431)
+            // Converte le liste numerate testuali nei corrispettivi nodi ordinati.
             if (/^\d+\.\s/.test(line)) {
                 html += '<ol class="list-none my-2 flex flex-col gap-1">';
                 let num = 1;
@@ -399,13 +457,18 @@
                 html += '</ol>';
                 continue;
             }
-            // Heading
+            // Author: Timothy Giolito (20054431)
+            // Trasforma le intestazioni gerarchiche per strutturare il discorso.
             if (/^###\s/.test(line)) { html += `<h3 class="font-bold text-primary-fixed text-[15px] mt-3 mb-1">${inlineMarkdown(esc(line.replace(/^###\s/, '')))}</h3>`; i++; continue; }
             if (/^##\s/.test(line)) { html += `<h2 class="font-bold text-primary-container text-[17px] mt-4 mb-1">${inlineMarkdown(esc(line.replace(/^##\s/, '')))}</h2>`; i++; continue; }
             if (/^#\s/.test(line)) { html += `<h1 class="font-bold text-on-surface text-[19px] mt-4 mb-2">${inlineMarkdown(esc(line.replace(/^#\s/, '')))}</h1>`; i++; continue; }
-            // Riga vuota
+            
+            // Author: Timothy Giolito (20054431)
+            // Aggiunge spaziature visive al posto delle righe vuote del testo originale.
             if (line.trim() === '') { html += '<div class="h-2"></div>'; i++; continue; }
-            // Paragrafo
+            
+            // Author: Timothy Giolito (20054431)
+            // Racchiude in normali paragrafi tutto il resto del contenuto.
             html += `<p class="leading-relaxed">${inlineMarkdown(esc(line))}</p>`;
             i++;
         }
@@ -452,8 +515,9 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // Crea una nuvoletta bot VUOTA e restituisce il div del contenuto,
-    // così lo streaming può riempirlo progressivamente token per token.
+    // Author: Timothy Giolito (20054431)
+    // Genero una bolla vuota nell'interfaccia e ne ritorno l'elemento interno.
+    // In questo modo posso iniettare dinamicamente il testo man mano che ricevo i token dalla rete.
     function createStreamingBotBubble() {
         const botDiv = document.createElement('div');
         botDiv.className = 'flex items-start gap-gutter w-full';
@@ -482,13 +546,16 @@
         appendLoading();
 
         try {
-            // L'Orchestratore capirà dal contesto e dal prompt che stiamo parlando di allenamento!
+            // Author: Timothy Giolito (20054431)
+            // Inoltro la richiesta specificando che si tratta di un argomento sportivo.
             const response = await fetch('/api/chat/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({
                     conversation_id: currentConversationId,
-                    message: "Al Coach: " + message, // trucco per forzare l'orchestratore verso il fitness agent
+                    // Author: Timothy Giolito (20054431)
+                    // Utilizzo questo piccolo prefisso per assicurarmi che il messaggio venga recapitato all'agente di fitness.
+                    message: "Al Coach: " + message, 
                     chat_type: "coach"
                 })
             });
@@ -501,12 +568,15 @@
                 return;
             }
 
-            // Consumo dello stream SSE token-per-token.
+            // Author: Timothy Giolito (20054431)
+            // Gestisco la ricezione del flusso continuo di dati leggendo frammento per frammento.
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
-            let contentEl = null;   // div del contenuto bot, creato al primo token
-            let acc = '';           // testo accumulato
+            // Author: Timothy Giolito (20054431)
+            // Mantengo il riferimento al div in cui andrò a stampare i pezzi di testo.
+            let contentEl = null;   
+            let acc = '';           
             let workoutsUpdated = false;
 
             while (true) {
@@ -514,7 +584,8 @@
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
 
-                // Ogni evento SSE è separato da una riga vuota (\n\n).
+                // Author: Timothy Giolito (20054431)
+                // Esploro il buffer cercando i doppi a capo che delimitano ogni singolo pacchetto.
                 let sep;
                 while ((sep = buffer.indexOf('\n\n')) >= 0) {
                     const frame = buffer.slice(0, sep);
@@ -544,8 +615,8 @@
 
             removeLoading();
             if (!contentEl) appendBotMessage("Mi dispiace, non ho ricevuto una risposta.");
-            // Il backend segnala se la run dell'agente ha creato/modificato schede nel DB:
-            // in quel caso ricarichiamo subito la lista per mostrarle senza refresh manuale.
+            // Author: Timothy Giolito (20054431)
+            // Controllo se sono state apportate modifiche ai piani di allenamento e, se necessario, chiedo un aggiornamento visivo immediato.
             if (workoutsUpdated) loadWorkoutPlans();
 
         } catch (error) {
@@ -561,13 +632,15 @@
         }
     });
 
-    // ---- Chat Sidebar Logic ----
+    // Author: Timothy Giolito (20054431)
+    // Gestione dell'apertura e chiusura del pannello laterale per la cronologia.
     function toggleSidebar() {
         const sidebar = document.getElementById('chatSidebar');
         const backdrop = document.getElementById('chatBackdrop');
         const isOpen = !sidebar.classList.contains('translate-x-full');
         if (!isOpen) {
-            // Open
+            // Author: Timothy Giolito (20054431)
+            // Rende visibile e anima l'entrata della barra.
             backdrop.classList.remove('hidden');
             setTimeout(() => {
                 backdrop.classList.remove('opacity-0');
@@ -576,7 +649,8 @@
             }, 10);
             loadSessions();
         } else {
-            // Close
+            // Author: Timothy Giolito (20054431)
+            // Nasconde e fa scomparire in modo fluido l'interfaccia.
             sidebar.classList.add('translate-x-full');
             backdrop.classList.remove('opacity-100');
             backdrop.classList.add('opacity-0');
@@ -653,7 +727,8 @@
                 chatHistory.innerHTML = '';
                 data.history.forEach(m => {
                     if (m.role === 'user') {
-                        // Strip the "Al Coach: " prefix if present
+                        // Author: Timothy Giolito (20054431)
+                        // Pulisco il messaggio eliminando il prefisso tecnico che ho inserito prima.
                         let content = m.content;
                         if (content.startsWith('Al Coach: ')) {
                             content = content.substring('Al Coach: '.length);
@@ -721,11 +796,13 @@
         }, 300);
     }
     
-    // ---- Fetch and Display Workout Plans ----
-    // Cache locale delle schede: serve al form di modifica per ricostruire i dati senza rifare fetch
+    // Author: Timothy Giolito (20054431)
+    // Recupero e mostro i piani di allenamento memorizzati per l'utente.
+    // Metto temporaneamente in cache queste informazioni per evitare chiamate di rete superflue durante la modifica.
     let plansCache = {};
 
-    // Escape HTML per valori dinamici inseriti nei template (nomi schede/esercizi)
+    // Author: Timothy Giolito (20054431)
+    // Sanitizzo il testo per scongiurare possibili iniezioni di codice nocivo nei template.
     function escHtml(s) {
         return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
@@ -748,7 +825,8 @@
                     const planDiv = document.createElement('div');
                     planDiv.className = 'glass-panel rounded-xl overflow-hidden border border-white/10';
                     
-                    // Header della scheda
+                    // Author: Timothy Giolito (20054431)
+                    // Configuro l'intestazione grafica per il piano di allenamento in esame.
                     const headerHtml = `
                         <div class="bg-surface-container/80 px-4 py-3 flex justify-between items-center cursor-pointer hover:bg-surface-container transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">
                             <div class="flex items-center gap-3">
@@ -764,7 +842,8 @@
                         </div>
                     `;
                     
-                    // Corpo della scheda con esercizi (nascosto di default se non è il primo)
+                    // Author: Timothy Giolito (20054431)
+                    // Compilo la lista dei movimenti da eseguire. Mostro automaticamente solo il primo allenamento dell'elenco.
                     const isFirst = data.workouts.indexOf(plan) === 0;
                     let bodyHtml = `<div id="planBody-${plan.id}" class="${isFirst ? '' : 'hidden'} flex flex-col gap-2 p-4">`;
                     
@@ -841,7 +920,8 @@
         }
     }
     
-    // ---- Modifica locale delle schede (senza passare per la chat/agente) ----
+    // Author: Timothy Giolito (20054431)
+    // Logiche destinate alle variazioni manuali dei piani, attuate direttamente tramite interfaccia.
     const EDIT_INPUT_CLS = 'bg-surface-container-lowest/60 border border-white/10 rounded-md px-2 py-1.5 text-sm text-on-surface focus:outline-none focus:border-primary-container w-full';
 
     function exerciseEditRow(ex = {}) {
@@ -918,7 +998,7 @@
         document.querySelectorAll(`#editRows-${planId} .exercise-edit-row`).forEach(row => {
             const get = f => row.querySelector(`[data-field="${f}"]`).value.trim();
             const exName = get('name');
-            if (!exName) return; // Righe senza nome vengono ignorate
+            if (!exName) return; // Author: Timothy Giolito (20054431) Salto volontariamente ogni voce senza titolo.
             exercises.push({
                 name: exName,
                 muscle_group: get('muscle_group'),
@@ -950,7 +1030,8 @@
         }
     }
 
-    // Call when page loads
+    // Author: Timothy Giolito (20054431)
+    // Inizializza i contenuti principali della pagina al termine del caricamento della struttura base.
     document.addEventListener('DOMContentLoaded', loadWorkoutPlans);
 </script>
 </body></html>

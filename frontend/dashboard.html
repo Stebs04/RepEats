@@ -1,3 +1,4 @@
+<!-- Integrazione front-end - Author: Stefano Bellan (20054330) -->
 <!DOCTYPE html>
 
 <html class="dark" lang="it"><head>
@@ -141,7 +142,7 @@
     </style>
 </head>
 <body class="bg-background text-on-surface min-h-screen flex flex-col font-sans antialiased pb-24 md:pb-0">
-<!-- Standard TopAppBar -->
+<!-- Barra di navigazione globale - Author: Stefano Bellan (20054330) -->
 <header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
 <div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
 <img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
@@ -164,16 +165,16 @@
 </div>
 </div>
 </header>
-<!-- TopAppBar -->
+<!-- Fine navigazione globale -->
 
-<!-- Main Content -->
+<!-- Container principale dell'applicazione -->
 <main class="flex-grow pt-[88px] px-container-margin md:px-lg max-w-7xl mx-auto w-full">
-<!-- Greeting -->
+<!-- Sezione anagrafica di benvenuto -->
 <div class="mb-lg">
 <h1 class="font-headline-lg text-headline-lg text-on-surface">Bentornato, Alex.</h1>
 <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Pronto per distruggere i tuoi obiettivi oggi?</p>
 </div>
-<!-- Selettore Data -->
+<!-- Componente per la navigazione temporale -->
 <div class="glass-card rounded-xl p-sm mb-lg flex items-center justify-center gap-sm">
 <button id="giornoPrecedenteBtn" title="Giorno precedente" class="w-10 h-10 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary-fixed hover:bg-white/5 active:scale-90 transition-all">
 <span class="material-symbols-outlined">chevron_left</span>
@@ -186,9 +187,9 @@
 <span class="material-symbols-outlined">chevron_right</span>
 </button>
 </div>
-<!-- Rings Section (Bento Grid Area 1) -->
+<!-- Widget grafici per il tracking dei macronutrienti -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
-<!-- Calories Ring -->
+<!-- Indicatore circolare bilancio calorico -->
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
 <div class="absolute inset-0 bg-primary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 <h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Calorie</h3>
@@ -203,7 +204,7 @@
 </div>
 </div>
 </div>
-<!-- Protein Ring -->
+<!-- Indicatore circolare fabbisogno proteico -->
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
 <div class="absolute inset-0 bg-tertiary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 <h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Proteine</h3>
@@ -218,7 +219,7 @@
 </div>
 </div>
 </div>
-<!-- Carbs Ring -->
+<!-- Indicatore circolare fabbisogno glucidico -->
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
 <div class="absolute inset-0 bg-secondary-container/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 <h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Carboidrati</h3>
@@ -233,7 +234,7 @@
 </div>
 </div>
 </div>
-<!-- Fats Ring -->
+<!-- Indicatore circolare fabbisogno lipidico -->
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center relative overflow-hidden group">
 <div class="absolute inset-0 bg-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 <h3 class="font-body-md text-body-md text-on-surface-variant mb-sm">Grassi</h3>
@@ -249,9 +250,9 @@
 </div>
 </div>
 </div>
-<!-- Action Cards Section (Bento Grid Area 2) -->
+<!-- Moduli attivi per task giornalieri -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-md mb-xl" id="actionCards" style="display:none;">
-<!-- Workout Card -->
+<!-- Modulo sinottico per la sessione di allenamento -->
 <div class="glass-card rounded-xl overflow-hidden flex flex-col justify-between ai-mesh-bg relative">
 <div class="p-md relative z-10 flex-grow">
 <div class="flex justify-between items-start mb-sm">
@@ -280,7 +281,7 @@
                     </button>
 </div>
 </div>
-<!-- Next Meal Card -->
+<!-- Modulo preview nutrizionale -->
 <div class="glass-card rounded-xl overflow-hidden flex flex-col">
 <div class="h-40 w-full relative">
 <img alt="Next meal preview" class="w-full h-full object-cover opacity-80" data-alt="A highly stylized, top-down shot of a high-protein modern fitness meal on a sleek dark slate plate. Grilled chicken breast, bright green steamed broccoli, and a small portion of quinoa. Lighting is moody and cinematic, emphasizing the vibrant greens and textures against a black background. Minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDd98e5UfP1Wr0KVWAc_GcuwN0Q0-OoS71QtdaeMtyMiePyuYylZquQhtnSlI56hdsmvM2v5U90MxnpIpAfmd8RUw4lup654YmS_YRvu1Xio5LgsKXwn-H_oTHVXBmigpEB4D84uxSwcpMQOkxwPyrS454IVueEePhfQEm5Zh8axkf6brwDa2w1k7yq3fmr_tbOVymR78-tV-JljdHcWytoW0t1itBX3slCGfx-ZEPjkkK2r-BzHBsZqL0jQogvyM3JXk5oqEERSiiL"/>
@@ -323,27 +324,27 @@
 </div>
 </div>
 </div>
-<!-- Meals Breakdown Section -->
+<!-- Ripartizione analitica dei pasti registrati -->
 <section class="mt-lg">
     <h2 class="font-headline-md text-headline-md text-on-surface mb-md flex items-center gap-2">
         <span class="material-symbols-outlined text-primary-fixed">restaurant</span> I Tuoi Pasti
     </h2>
     <div id="mealsContainer" class="flex flex-col gap-sm">
-        <!-- JS will populate accordions here -->
+        <!-- Generazione DOM dinamica via JavaScript -->
     </div>
 </section>
-<!-- Spacer for FAB & Bottom Nav -->
+<!-- Padding inferiore per compensazione viewport -->
 <div class="h-24 md:h-12 w-full"></div>
 </main>
 
-<!-- Profile Completion Modal -->
+<!-- Sovrapposizione modale per onboarding anagrafico - Author: Stefano Bellan (20054330) -->
 <div id="profileModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
     <div class="glass-card rounded-2xl p-6 md:p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border border-primary-container/30 shadow-[0_0_30px_rgba(57,255,20,0.2)]">
         <h2 class="font-headline-lg text-headline-lg text-primary-container mb-2">Completiamo il tuo profilo</h2>
         <p class="font-body-md text-body-md text-on-surface-variant mb-6">Per offrirti la migliore esperienza e generare il tuo piano personalizzato, abbiamo bisogno di alcuni dati.</p>
         
         <div class="space-y-6">
-            <!-- Dati Fisiologici -->
+            <!-- Form section: Metriche antropometriche -->
             <div>
                 <h3 class="font-headline-md text-headline-md text-on-surface mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-secondary">vital_signs</span> Dati Fisiologici</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -369,7 +370,7 @@
                 </div>
             </div>
 
-            <!-- Attività e Obiettivo -->
+            <!-- Form section: Parametrizzazione fitness -->
             <div>
                 <h3 class="font-headline-md text-headline-md text-on-surface mb-3 mt-4 flex items-center gap-2"><span class="material-symbols-outlined text-tertiary-container">flag</span> Obiettivo</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -402,7 +403,7 @@
                 </div>
             </div>
 
-            <!-- Allenamento -->
+            <!-- Form section: Preferenze di workout -->
             <div>
                 <h3 class="font-headline-md text-headline-md text-on-surface mb-3 mt-4 flex items-center gap-2"><span class="material-symbols-outlined text-primary-fixed">fitness_center</span> Allenamento</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -435,9 +436,7 @@
     </div>
 </div>
 
-<!-- BottomNavBar (Mobile Only) -->
-<!-- Standard BottomNavBar -->
-<!-- Standard BottomNavBar -->
+<!-- Barra di navigazione mobile - Author: Stefano Bellan (20054330) -->
 <nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
 <a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
 <span class="material-symbols-outlined">dashboard</span>
@@ -457,15 +456,15 @@
 </a>
 </nav>
 <script>
-    // --- AUTH GUARD: Blocca l'esecuzione se l'utente non è autenticato ---
+    // Inizializzazione guardia di routing per la persistenza di sessione
     let token = sessionStorage.getItem('repEats_token');
 
-    // Fallback a localStorage (per "Ricordami")
+    // Recupero token da storage non volatile in assenza di sessione attiva
     if (!token) {
         token = localStorage.getItem('repEats_token');
         const expires = localStorage.getItem('repEats_expires');
         if (expires && Date.now() > parseInt(expires)) {
-            // Sessione scaduta: puliamo tutto
+            // Invalida la sessione espirata effettuando purge locale
             localStorage.removeItem('repEats_token');
             localStorage.removeItem('repEats_expires');
             token = null;
@@ -474,31 +473,30 @@
 
     if (!token) {
         window.location.replace('/login.html');
-        // Ferma completamente l'esecuzione dello script per evitare
-        // che il resto del codice (API call, rendering) venga eseguito
+        // Terminazione esecuzione thread per prevenire data leak
         throw new Error('AUTH_REDIRECT');
     }
 
-    // Header di autenticazione riutilizzato in tutte le fetch protette.
+    // Costruzione header standard per le invocazioni API protette
     const authHeaders = { 'Authorization': `Bearer ${token}` };
 
-    // Il nome utente arriva dinamicamente dal profilo (vedi loadDashboardData).
+    // Reference DOM per l'iniezione asincrona dell'anagrafica
     const usernameDisplay = document.querySelector('h1');
 
-    // Funzione per impostare il livello dei cerchi (0 = pieno, 251.2 = vuoto)
+    // Computazione dinamica dello stroke-dashoffset per indicatori SVG
     function setProgress(circleId, value, max) {
         const circle = document.getElementById(circleId);
         if (!circle) return;
         const circumference = 251.2;
-        // Evitiamo valori sopra il max per non rompere il cerchio
+        // Clamping del ratio per preservare l'integrità geometrica dell'arco
         let percentage = Math.min(value / max, 1);
         if (isNaN(percentage)) percentage = 0;
         const offset = circumference - (percentage * circumference);
         circle.style.strokeDashoffset = offset;
     }
 
-    // --- SELETTORE DATA: stato del giorno attualmente visualizzato ---
-    // Formatta una Date locale in stringa YYYY-MM-DD (senza conversioni di fuso orario)
+    // Macchina a stati per la navigazione sull'asse temporale
+    // Serializzazione ISO-8601 locale per l'interazione backend
     function formattaData(d) {
         const anno = d.getFullYear();
         const mese = String(d.getMonth() + 1).padStart(2, '0');
@@ -508,7 +506,7 @@
 
     let dataSelezionata = formattaData(new Date());
 
-    // Aggiorna etichetta ("Oggi" / "Ieri" / data estesa), input date e stato del bottone "successivo"
+    // Sincronizzazione controlli UI in accordo allo stato temporale corrente
     function aggiornaSelettoreData() {
         const oggi = formattaData(new Date());
         const ieri = formattaData(new Date(Date.now() - 86400000));
@@ -527,19 +525,19 @@
 
         const selettore = document.getElementById('selettoreData');
         selettore.value = dataSelezionata;
-        selettore.max = oggi; // Non ha senso consultare giorni futuri
+        selettore.max = oggi; // Inibizione vincolata per orizzonti temporali futuri
 
-        // Disabilita "Giorno Successivo" se siamo già a oggi
+        // Logica condizionale per l'operatività del fast-forward
         document.getElementById('giornoSuccessivoBtn').disabled = (dataSelezionata >= oggi);
     }
 
-    // Sposta il giorno selezionato di +1/-1 e ricarica i dati
+    // Mutation handler per la granularità giornaliera
     function cambiaGiorno(delta) {
         const [a, m, g] = dataSelezionata.split('-').map(Number);
         const nuovaData = new Date(a, m - 1, g + delta);
         const oggi = formattaData(new Date());
         const nuovaStringa = formattaData(nuovaData);
-        if (nuovaStringa > oggi) return; // Blocca la navigazione nel futuro
+        if (nuovaStringa > oggi) return; // Validazione upperBound temporale
         dataSelezionata = nuovaStringa;
         aggiornaSelettoreData();
         loadDashboardData();
@@ -562,12 +560,12 @@
             if (res.ok) {
                 const data = await res.json();
 
-                // Nome utente dinamico (non più salvato in chiaro nel web storage)
+                // Assegnazione anagrafica proveniente dal response payload
                 if (data.user && data.user.username) {
                     usernameDisplay.innerText = `Bentornato, ${data.user.username}.`;
                 }
 
-                // Aggiorniamo i testi
+                // Popolamento metriche scalari DOM
                 document.getElementById('calOggi').innerText = Math.round(data.today.calories);
                 document.getElementById('calTarget').innerText = `/ ${Math.round(data.targets.target_calories)}`;
                 
@@ -579,7 +577,7 @@
                 document.getElementById('fatsOggi').innerText = `${Math.round(data.today.fats)}g`;
                 document.getElementById('fatTarget').innerText = `/ ${Math.round(data.targets.target_fats)}g`;
 
-                // Animiamo i cerchi con un piccolo delay per l'effetto wow
+                // Esecuzione callback differita per transizione CSS
                 setTimeout(() => {
                     setProgress('calCircle', data.today.calories, data.targets.target_calories);
                     setProgress('proCircle', data.today.proteins, data.targets.target_proteins);
@@ -587,7 +585,7 @@
                     setProgress('fatCircle', data.today.fats, data.targets.target_fats);
                 }, 300);
 
-                // Rendiamo i pasti per categoria
+                // Costruzione nodi interfaccia per le aggregazioni nutrizionali
                 if (data.meals) renderMeals(data.meals);
             }
         } catch(e) {
@@ -595,7 +593,7 @@
         }
     }
 
-    // Avvia caricamento
+    // Entrypoint asincrono
     aggiornaSelettoreData();
     loadDashboardData();
 
@@ -684,7 +682,7 @@
             const div = document.createElement('div');
             div.className = 'glass-panel rounded-xl overflow-hidden';
             
-            // Header (Accordion Toggle)
+            // Generazione intestazione collassabile
             const header = document.createElement('div');
             header.className = 'p-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors';
             header.innerHTML = `
@@ -702,7 +700,7 @@
                 </div>
             `;
             
-            // Content (List of foods)
+            // Generazione blocco container per i dettagli
             const content = document.createElement('div');
             content.id = `content-${cat}`;
             content.className = 'px-4 pb-4 hidden flex-col gap-2 border-t border-white/10 pt-3';
@@ -711,7 +709,7 @@
                 content.innerHTML = '<span class="text-sm text-on-surface-variant italic">Nessun alimento registrato</span>';
             } else {
                 catMeals.forEach(m => {
-                    // Creiamo la riga con createElement per poter aggiungere l'event listener sul bottone delete
+                    // Inizializzazione nodo DOM per binding diretto degli handler
                     const row = document.createElement('div');
                     row.id = `meal-row-${m.id}`;
                     row.className = 'flex justify-between items-center bg-surface-container-high/50 p-3 rounded-lg border border-white/5 group transition-all hover:border-error/30';
@@ -734,10 +732,10 @@
                         </div>
                     `;
 
-                    // Event listener sul bottone delete
+                    // Associazione dell'azione di garbage collection
                     const deleteBtn = row.querySelector('.delete-meal-btn');
                     deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Non aprire/chiudere l'accordion
+                        e.stopPropagation(); // Soppressione propagazione dell'evento
                         deleteMeal(m.id, row);
                     });
 
@@ -758,7 +756,7 @@
     }
 
     async function deleteMeal(mealId, rowElement) {
-        // Animazione di fade-out ottimistica (prima di chiamare l'API)
+        // Feedback visuale ottimistico pre-request API
         rowElement.style.transition = 'opacity 0.25s, transform 0.25s';
         rowElement.style.opacity = '0.4';
         rowElement.style.transform = 'translateX(8px)';
@@ -770,16 +768,16 @@
             });
 
             if (res.ok) {
-                // Rimuovi la riga con animazione completata
+                // Finalizzazione smontaggio DOM post validazione server
                 rowElement.style.opacity = '0';
                 rowElement.style.transform = 'translateX(16px)';
                 setTimeout(() => {
                     rowElement.remove();
-                    // Ricarica i dati per aggiornare i totali (cerchi e header categoria)
+                    // Refresh pipeline dei dati analitici
                     loadDashboardData();
                 }, 250);
             } else {
-                // Ripristina se c'è stato un errore
+                // Rollback stato visuale per transazione fallita
                 rowElement.style.opacity = '1';
                 rowElement.style.transform = 'none';
                 const data = await res.json();

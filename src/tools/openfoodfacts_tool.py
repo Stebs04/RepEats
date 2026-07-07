@@ -1,68 +1,75 @@
 """
-Modulo per l'integrazione con l'API di Open Food Facts.
-Fornisce strumenti per il recupero dei dati nutrizionali tramite codice a barre (EAN).
-Autore: Stefano Bellan (20054330)
+Modulo di integrazione per l'API di Open Food Facts.
 
+Gestisce le comunicazioni esterne per l'estrazione dei profili nutrizionali
+partendo dalla lettura di un codice a barre standard (EAN).
+
+Author: Stefano Bellan (20054330)
 """
 
-# Importa Pydantic per la validazione dei dati di input/output e la definizione degli schemi
+# Strutture dati per la modellazione e validazione dei contratti I/O
 from pydantic import BaseModel, Field
-# Importa Optional per tipizzare i campi che potrebbero essere assenti nella risposta API
+# Gestione dei tipi nullable per i campi opzionali del payload
 from typing import Optional
-# Importa requests per effettuare le chiamate HTTP REST all'API esterna
+# Client HTTP per le richieste REST verso il backend remoto
 import requests
-# Importa os per leggere le variabili d'ambiente (es. configurazioni o token)
+# Utilità di sistema per l'accesso dinamico alle variabili d'ambiente
 import os
 
 class BarcodeSearchInput(BaseModel):
-    """Schema di validazione per la richiesta di ricerca tramite codice a barre."""
-    # Campo obbligatorio (...) che rappresenta il barcode testuale/numerico del prodotto
+    """
+    Schema per validare l'input della richiesta del codice a barre.
+    
+    Author: Stefano Bellan (20054330)
+    """
+    # Identificativo EAN-13 ricavato dallo scanner
     barcode: str = Field(..., description="Il codice a barre numerico del prodotto (EAN-13).")
 
 class ProductOutput(BaseModel):
-    """Schema dei dati di output contenente i valori nutrizionali estratti."""
-    # Nome del prodotto, default a None in caso il dato sia mancante
+    """
+    Modello di risposta che incapsula i valori macro-nutrizionali estratti.
+    
+    Author: Stefano Bellan (20054330)
+    """
+    # Denominazione commerciale, resa opzionale per gestire eventuali mancanze nel DB
     product_name: Optional[str] = Field(None, description="Il nome del prodotto.")
-    # Calorie (kcal) per 100g di prodotto
+    # Resa energetica espressa in kilocalorie per cento grammi
     energy_kcal_100g: Optional[float] = Field(None, description="Contenuto energetico in kcal per 100g.")
-    # Proteine in grammi calcolate su 100g
+    # Quota proteica per cento grammi di riferimento
     proteins_100g: Optional[float] = Field(None, description="Grammi di proteine per 100g.")
-    # Carboidrati in grammi calcolati su 100g
+    # Quota glucidica per cento grammi di riferimento
     carbohydrates_100g: Optional[float] = Field(None, description="Grammi di carboidrati per 100g.")
-    # Grassi/Lipidi in grammi calcolati su 100g
+    # Quota lipidica per cento grammi di riferimento
     fat_100g: Optional[float] = Field(None, description="Grammi di grassi per 100g.")
 
 def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput:
     """
-    Recupera le informazioni nutrizionali di un prodotto interrogando l'API di Open Food Facts.
+    Contatta il servizio di Open Food Facts per mappare un codice a barre sui suoi valori nutrizionali.
     
     Args:
-        input_data (BarcodeSearchInput): Il payload validato contenente il codice a barre.
+        input_data (BarcodeSearchInput): Oggetto contenente il parametro di ricerca validato.
         
     Returns:
-        ProductOutput: I dati nutrizionali estratti e mappati, o un oggetto con campi None se non trovato.
+        ProductOutput: Struttura con i macro e i riferimenti energetici. In caso di errore o
+        assenza di dati vengono restituiti campi vuoti per favorire la resilienza del flusso.
 
-    Autore: Stefano Bellan (20054330)
-
+    Author: Stefano Bellan (20054330)
     """
-    # Recupera il nome dell'app dalle variabili d'ambiente per configurare un User-Agent univoco
+    # Recupero dinamico del nome dell'applicazione per la formattazione dell'User-Agent
     app_name = os.getenv("OPENFOODFACTS_APP_NAME", "RepEats")
     
-    # Configura gli header HTTP (le policy di Open Food Facts richiedono un User-Agent descrittivo)
+    # Le direttive di Open Food Facts richiedono un'intestazione esplicita per tracciare il traffico
     headers = {"User-Agent": f"{app_name} - Project University Version"}
     
-    # Costruisce l'endpoint API v2 iniettando dinamicamente il barcode richiesto
+    # Generazione dell'endpoint inserendo il parametro in modo sicuro
     url = f"https://world.openfoodfacts.org/api/v2/product/{input_data.barcode}.json"
     
-    # Esegue la richiesta HTTP GET sincrona, impostando un timeout di sicurezza di 10 secondi
+    # Chiamata bloccante al servizio esterno con timeout preimpostato per non incastrare l'agente
     response = requests.get(url, headers=headers, timeout=10)
     
-    # Gestione graceful degli errori HTTP:
-    # - 404: il prodotto non è nel database OpenFoodFacts (barcode sconosciuto)
-    # - Altri errori: problemi di rete o server
-    # NON usiamo raise_for_status() perché un 404 è un caso normale e atteso,
-    # non un errore critico. L'agente deve ricevere un risultato vuoto e poterlo
-    # comunicare all'utente, non crashare con un'eccezione.
+    # La gestione degli errori è progettata per non sollevare eccezioni che romperebbero il ciclo.
+    # Restituendo uno stato gestibile in caso di 404 (assenza prodotto) o errori generici,
+    # deleghiamo la risoluzione finale al sistema chiamante senza crash.
     if response.status_code == 404:
         return ProductOutput(
             product_name=f"Prodotto con barcode {input_data.barcode} non trovato nel database OpenFoodFacts. Prova a stimare i valori nutrizionali manualmente."
@@ -73,23 +80,23 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
             product_name=f"Errore API OpenFoodFacts (HTTP {response.status_code}). Impossibile recuperare i dati del prodotto."
         )
     
-    # Deserializza il corpo della risposta JSON in un dizionario Python
+    # Parsing del payload JSON di risposta
     data = response.json()
     
-    # L'API restituisce status=1 se il prodotto è stato trovato; in caso contrario, ritorna un DTO descrittivo
+    # Verifichiamo il flag di stato restituito dal backend prima di accedere ai nodi dati
     if data.get("status") != 1:
         return ProductOutput(
             product_name=f"Prodotto con barcode {input_data.barcode} non presente nel database OpenFoodFacts."
         )
         
-    # Estrae il sotto-dizionario 'product' (con fallback su dict vuoto, programmazione difensiva)
+    # Isoliamo il nodo radice garantendo una chiave di default per evitare crash
     product_data = data.get("product", {})
     
-    # Estrae il sotto-dizionario 'nutriments' contenente i valori macro e micro nutrizionali
+    # Estraiamo l'oggetto relativo alla sezione nutrizionale
     nutriments = product_data.get("nutriments", {})
 
-    # Fallback a catena: OpenFoodFacts spesso lascia 'product_name' vuoto.
-    # Prova varianti localizzate, poi nome generico, poi marca, infine il barcode.
+    # Adottiamo una strategia a cascata per ricavare una stringa identificativa valida,
+    # in quanto il servizio non assicura sempre la compilazione del nome base.
     product_name = (
         product_data.get("product_name")
         or product_data.get("product_name_it")
@@ -99,16 +106,16 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
         or f"Prodotto {input_data.barcode}"
     )
 
-    # Energia: OpenFoodFacts espone 'energy-kcal_100g', ma molti prodotti hanno
-    # solo l'energia in kJ ('energy_100g'). Fallback: convertiamo kJ -> kcal
-    # (1 kcal = 4.184 kJ) così lo scanner riceve sempre un valore utilizzabile.
+    # Cerchiamo di recuperare le kcal dirette. In molti record è presente unicamente
+    # il valore espresso in joule, per cui effettuiamo una conversione matematica di fallback
+    # per preservare la consistenza dei dati inoltrati allo scanner.
     energy_kcal = nutriments.get("energy-kcal_100g")
     if energy_kcal is None:
         energy_kj = nutriments.get("energy_100g")
         if energy_kj is not None:
             energy_kcal = round(energy_kj / 4.184, 1)
 
-    # Mappa individualmente i dati JSON nel modello Pydantic di risposta, usando .get() per prevenire KeyError
+    # Riassegniamo i parametri estratti all'interno del modello finale in modo sicuro
     return ProductOutput(
         product_name=product_name,
         energy_kcal_100g=energy_kcal,

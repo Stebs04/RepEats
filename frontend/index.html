@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <title>RepEats</title>
     <script>
-        // Controlliamo prima sessionStorage, poi localStorage
+        // Author: Timothy Giolito (20054431)
+        // Verifico la presenza del token di accesso dando la priorità alla sessione temporanea rispetto all'archiviazione locale permanente.
         let token = sessionStorage.getItem('repEats_token');
         if (!token) {
             token = localStorage.getItem('repEats_token');

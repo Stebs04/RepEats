@@ -6,13 +6,18 @@ from datetime import datetime, timezone, date
 import bcrypt
 
 """
-Creazione e recupero del profilo dell'utente, con i dati personali e gli obiettivi di fitness.
-Gestisce la creazione di nuovi utenti, l'aggiornamento dei profili esistenti e il recupero dei dati degli utenti da DB.
-Autore: Timothy Giolito 20054431
+Author: Timothy Giolito (20054431)
 
+Questo modulo gestisce l'intera logica di accesso ai dati per gli utenti.
+Ci occupiamo della registrazione di nuovi account, dell'aggiornamento dei profili fisici 
+e del recupero di tutte le informazioni necessarie per la dashboard, dalle chat ai log dei pasti.
 """
 def get_all_users():
-    """Recupero dal DB di tutti gli utenti registrati"""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Tira giù dal database l'elenco completo di tutti gli utenti registrati a sistema.
+    """
     session = get_session()
     users = session.query(User).all()
     session.close()
@@ -20,14 +25,20 @@ def get_all_users():
 
 
 def create_user(username: str, email: str, password: str):
-    """Creazione di un nuovo utente nel DB con password hashata"""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Crea un nuovo account nel database preoccupandosi di hashare correttamente la password.
+    """
     session = get_session()
     
-    # Generiamo un "salt" e l'hash della password
+    # Author: Timothy Giolito (20054431)
+    # Generiamo un salt casuale e lo usiamo per calcolare l'hash della password
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
     
-    # Salviamo la password hashata nel database (decodificata in stringa)
+    # Author: Timothy Giolito (20054431)
+    # Creiamo l'entità utente salvando solo la versione cryptata (decodificata in stringa per il db)
     new_user = User(
         username=username, 
         email=email, 
@@ -36,7 +47,8 @@ def create_user(username: str, email: str, password: str):
     session.add(new_user)
     session.commit()
 
-    # Creazione profilo vuoto
+    # Author: Timothy Giolito (20054431)
+    # Per evitare problemi di coerenza relazionale, prepariamo subito un profilo vuoto
     profile = UserProfile(user_id=new_user.id)
     session.add(profile)
     session.commit()
@@ -47,7 +59,8 @@ def create_user(username: str, email: str, password: str):
     return new_user
 
 
-"""Dopo aver creato un nuovo utente e un nuovo profilo, bisogna aggiornare i dati inerenti a quell'utente"""
+# Author: Timothy Giolito (20054431)
+# Servizio che si occupa di popolare e aggiornare i dati biometrici del profilo utente
 def update_user_profile(user_id: int, weight: float, height: float, age: int, gender: str, activity_level: float, target_weight: float, target_weeks: int, goal_type: str, workout_duration: int = 60, workout_preference: str = "Ipertrofia", allergies: str = None, dietary_preferences: str = None):
 
     session = get_session()
@@ -69,10 +82,15 @@ def update_user_profile(user_id: int, weight: float, height: float, age: int, ge
         session.commit()
     session.close()
 
-"""Recupero dei dati di uno specifico utente"""
+# Author: Timothy Giolito (20054431)
+# Funzione per estrarre tutti i dettagli di un singolo utente incrociando User e UserProfile
 def get_user_data(user_id: int):
     
-    """Recupera il profilo completo dell'utente specificato"""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Recupera l'utente richiesto e impacchetta le sue info in un dizionario comodo per la logica applicativa.
+    """
     session = get_session()
     user = session.query(User).filter_by(id=user_id).first()
 
@@ -103,7 +121,12 @@ def get_user_data(user_id: int):
 
 def get_user_conversations(user_id: int, chat_type: str = None):
 
-    """Recupero di tutte le conversazioni associate a un utente specifico, filtrando opzionalmente per tipo di agente."""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Cerca nel database tutte le sessioni di chat attive per l'utente, 
+    dandoci la possibilità di filtrare per assistente specifico.
+    """
     session = get_session()
     query = session.query(Conversation).filter_by(user_id=user_id)
     if chat_type:
@@ -115,7 +138,11 @@ def get_user_conversations(user_id: int, chat_type: str = None):
 
 def create_new_conversation(user_id: int, title: str = "Nuova conversazione", chat_type: str = "nutritionist"):
 
-    """Crea una nuova sessione per ogni chat, associata al tipo di agente specificato"""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Inizializza una nuova chat nel database da associare a uno specifico bot.
+    """
     session = get_session()
     new_conv = Conversation(user_id=user_id, title=title, chat_type=chat_type)
     session.add(new_conv)
@@ -127,7 +154,11 @@ def create_new_conversation(user_id: int, title: str = "Nuova conversazione", ch
 
 def save_message(conversation_id: int, role: str, content: str):
     
-    """Salva un singolo messaggio (utente o assistente) nel DB."""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Mette a registro il singolo messaggio scambiato all'interno di una sessione.
+    """
     session = get_session()
     new_msg = Message(conversation_id=conversation_id, role=role, content=content)
     session.add(new_msg)
@@ -136,7 +167,11 @@ def save_message(conversation_id: int, role: str, content: str):
 
 def get_chat_history(conversation_id: int):
     
-    """Recupera la cronologia messaggi di una specifica conversazione."""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Estrae lo storico cronologico di tutti i messaggi per ricostruire a schermo l'intera conversazione.
+    """
     session = get_session()
     messages = session.query(Message).filter_by(conversation_id=conversation_id).order_by(Message.timestamp.asc()).all()
     history = [{"role": m.role, "content": m.content} for m in messages]
@@ -145,31 +180,18 @@ def get_chat_history(conversation_id: int):
 
 def save_meal_log(user_id: int, analysis_result: str, category: str = None, name: str = None, calories: float = None, proteins: float = None, carbs: float = None, fats: float = None):
     """
-    Salva il log dell'analisi di un pasto nel database associandolo a uno specifico utente e categoria.
+    Author: Timothy Giolito (20054431)
 
-    La funzione crea un nuovo record `MealLog` contenente i risultati dell'analisi,
-    il nome associativo, la categoria del pasto, e i valori nutrizionali (calorie e macronutrienti) calcolati, 
-    per poi persisterlo tramite la sessione del database.
-
-    Args:
-        user_id (int): L'ID univoco dell'utente che ha registrato il pasto.
-        analysis_result (str): L'esito testuale dell'analisi effettuata sul pasto.
-        category (str, opzionale): Categoria del pasto (es. Colazione, Pranzo). Default a None.
-        name (str, opzionale): Nome identificativo o marchio del prodotto. Default a None.
-        calories (float, opzionale): Valore calorico stimato. Default a None.
-        proteins (float, opzionale): Grammi stimati di proteine. Default a None.
-        carbs (float, opzionale): Grammi stimati di carboidrati. Default a None.
-        fats (float, opzionale): Grammi stimati di grassi. Default a None.
-
-    Returns:
-        None
-
-    Autore: Stefano Bellan (20054330)
+    Registra l'esito dell'analisi nutritiva eseguita dal nostro modello sul pasto dell'utente.
+    Mi occupo di inserire a database sia la risposta di testo estesa sia i macronutrienti stimati 
+    che ci tornano comodi dopo per fare statistiche.
     """
-    # Ottiene un'istanza della sessione del database
+    # Author: Timothy Giolito (20054431)
+    # Recuperiamo la sessione pulita
     session = get_session()
     
-    # Istanzia un nuovo log popolando i campi del modello MealLog
+    # Author: Timothy Giolito (20054431)
+    # Prepopoliamo l'oggetto del log con i valori calcolati 
     new_log = MealLog(
         user_id = user_id,
         analysis_result = analysis_result, 
@@ -181,29 +203,30 @@ def save_meal_log(user_id: int, analysis_result: str, category: str = None, name
         fats = fats
     )
 
-    # Aggiunge il nuovo record alla transazione e lo salva permanentemente sul database
+    # Author: Timothy Giolito (20054431)
+    # Confermiamo l'inserimento
     session.add(new_log)
     session.commit()
     
-    # Chiude la sessione per rilasciare le connessioni al database
+    # Author: Timothy Giolito (20054431)
+    # Ricordiamoci sempre di rilasciare la connessione
     session.close()
 
 def calculate_daily_macros(user_id: int):
     """
-    Calcola i macro-nutrienti e il fabbisogno calorico giornaliero completo di un utente 
-    in base alle proprie metriche biometriche (peso, altezza, età e genere) 
-    e ai ritmi metabolici personali tramite formula Mifflin-St Jeor.
+    Author: Timothy Giolito (20054431)
     
-    Su richiesta, il calcolo delle calorie target, dei macro e la ripartizione pasti 
-    sono basati ESCLUSIVAMENTE sul TDEE (nessun deficit o surplus applicato), 
-    mantenendo solo le proporzioni dei macro in base all'obiettivo.
-    
-    Autore: Stefano Bellan (20054330)
+    Questa funzione calcola il fabbisogno energetico dell'utente applicando la Mifflin-St Jeor.
+    Utilizziamo peso, altezza ed età per avere il BMR e poi lo moltiplichiamo per lo stile di vita.
+    Attualmente ci manteniamo direttamente sul TDEE senza fare deficit o surplus, 
+    ma ripartiamo i macro percentualmente in base all'obiettivo di fitness scelto dall'utente.
     """
-    # Recupera il profilo dell'utente (dati biometrici, identificativi e obiettivi) dal database
+    # Author: Timothy Giolito (20054431)
+    # Tiro fuori tutti i dati per avere a disposizione i fattori fisici necessari
     user_data = get_user_data(user_id)
 
-    # Se mancano i dati fondamentali preventivi, restituiamo un pacchetto a zero per ovviare ad errori Null Pointer 
+    # Author: Timothy Giolito (20054431)
+    # Se il profilo non è ancora compilato del tutto restituisco zeri per evitare crash più a valle
     if not user_data or not user_data['weight'] or not user_data['height'] or not user_data['age']:
         return {
             "tdee": 0,
@@ -216,60 +239,64 @@ def calculate_daily_macros(user_id: int):
             "target_carbohydrates": 0
         }
     
-    # Esegue formula basale base indipendente Mifflin-St Jeor = 10*Weight + 6.25*Height - 5*Age
+    # Author: Timothy Giolito (20054431)
+    # Base di partenza del metabolismo
     bmr_base = (10 * user_data['weight']) + (6.25 * user_data['height']) - (5 * user_data['age'])
     
-    # Applica l'aggiustamento genere specifico richiesto dalla formula di riferimento scientifico
+    # Author: Timothy Giolito (20054431)
+    # Calibrazione specifica sul sesso biologico
     if user_data.get('gender', 'uomo') == 'uomo':
-        # Offset per maschi (+5 costante fissa fisiologica)
+        # Offset maschile
         bmr = bmr_base + 5
     else:
-        # Offset per femmine (-161 costante fissa per incidenza adiposa biologica)
+        # Offset femminile
         bmr = bmr_base - 161
     
-    # Determina il LAF (Livello Attività Fisica) moltiplicatore prelevato o fallback default 1.55 (Moderate) 
+    # Author: Timothy Giolito (20054431)
+    # Moltiplicatore sull'attività sportiva, di base lo metto su un generico 1.55 se manca
     activity_multiplier = float(user_data.get('activity_level', 1.55))
     
-    # Calcola il Dispendio Energetico Totale Giornaliero (TDEE) moltiplicando il BMR con il LAF dell'utente
+    # Author: Timothy Giolito (20054431)
+    # Calcolo del TDEE finale
     tdee = bmr * activity_multiplier
     
-    # Inizializza l'obiettivo attuale dell'utente
+    # Author: Timothy Giolito (20054431)
+    # Controlliamo l'obiettivo salvato nel profilo
     goal = user_data.get('goal_type', 'mantenimento')
     
-    # Imposta le calorie target in modo che siano SEMPRE rigorosamente uguali al TDEE
+    # Author: Timothy Giolito (20054431)
+    # Mappiamo le calorie obiettivo sul dispendio giornaliero calcolato
     target_calories = tdee
     
-    # Scompone i percorsi nutrizionali utilizzando le percentuali calcolate sul TDEE
+    # Author: Timothy Giolito (20054431)
+    # Setup delle percentuali a seconda dell'obiettivo 
     if goal == 'dimagrimento':
-        # Percentuali per preservare massa muscolare (35% Pro, 25% Fat, 40% Carbs)
         perc_pro = 0.35
         perc_fat = 0.25
         perc_carbs = 0.40
     elif goal == 'massa':
-         # Percentuali per la crescita muscolare (25% Pro, 25% Fat, 50% Carbs)
          perc_pro = 0.25
          perc_fat = 0.25
          perc_carbs = 0.50
     else:
-        # Formule di normomantenimento atletico e bilanciato (25% Pro, 30% Fat, 45% Carbs)
         perc_pro = 0.25
         perc_fat = 0.30
         perc_carbs = 0.45
          
-    # Calcolo dei macronutrienti basato ESCLUSIVAMENTE sul TDEE (target_calories)
-    # (Proteine = 4 kcal/g, Grassi = 9 kcal/g, Carboidrati = 4 kcal/g)
+    # Author: Timothy Giolito (20054431)
+    # Ricavo i grammi netti dividendo le calorie allocate per il valore energetico del macro
     proteins = (target_calories * perc_pro) / 4.0
     fats = (target_calories * perc_fat) / 9.0
     carbohydrates = (target_calories * perc_carbs) / 4.0
     
-    # Restituisce il dizionario payload: le calorie target saranno ora identiche al TDEE
+    # Author: Timothy Giolito (20054431)
+    # Impacchetto i risultati pronti per essere passati via API
     return {
         "tdee": round(tdee, 1),
         "target_calories": round(target_calories, 1),
         "proteins": round(proteins, 1),
         "fats": round(fats, 1),
         "carbohydrates": round(carbohydrates, 1),
-        # Alias con prefisso target_ per compatibilità con il frontend dashboard
         "target_proteins": round(proteins, 1),
         "target_fats": round(fats, 1),
         "target_carbohydrates": round(carbohydrates, 1)
@@ -277,34 +304,38 @@ def calculate_daily_macros(user_id: int):
 
 def get_macros_by_date(user_id: int, target_date: date | None = None):
     """
-    Calcola e restituisce la somma totale dei macronutrienti e delle calorie assunte da un utente
-    in una data specifica. Se `target_date` non viene fornita, usa la giornata odierna (UTC).
-    Autore: Stefano Bellan (20054330)
+    Author: Timothy Giolito (20054431)
+    
+    Somma tutti i valori nutrizionali dei pasti registrati dall'utente nella data richiesta.
+    Comodo per far vedere le progress bar aggiornate a schermo. Se omettiamo la data prende oggi.
     """
-    # Ottiene un'istanza della sessione del database
+    # Author: Timothy Giolito (20054431)
+    # Apertura sessione
     session = get_session()
 
-    # Se non viene specificata una data, usa quella odierna nel fuso orario UTC
+    # Author: Timothy Giolito (20054431)
+    # Fallback sulla data di oggi se chi chiama la funzione non ci passa nulla di specifico
     if target_date is None:
         target_date = datetime.now(timezone.utc).date()
 
-    # Esegue una query per calcolare la somma di calorie, proteine, grassi e carboidrati
+    # Author: Timothy Giolito (20054431)
+    # Chiedo direttamente al db di fare la somma tramite func.sum così è molto più veloce
     somma_macro = session.query(
         func.sum(MealLog.calories),
         func.sum(MealLog.proteins),
         func.sum(MealLog.fats),
         func.sum(MealLog.carbohydrates)
     ).filter(
-        # Filtra i record associati allo specifico utente
         MealLog.user_id == user_id,
-        # Filtra i log relativi esclusivamente alla data richiesta
         func.date(MealLog.timestamp) == target_date
     ).first()
     
-    # Chiude la sessione per rilasciare le risorse
+    # Author: Timothy Giolito (20054431)
+    # Chiusura della connessione
     session.close()
     
-    # Restituisce un dizionario con i totali, gestendo il caso di valori nulli (es. nessun pasto registrato)
+    # Author: Timothy Giolito (20054431)
+    # Ritorniamo i totali mettendo 0 al posto di None se non ci sono dati
     return {
         "calories": somma_macro[0] or 0,
         "proteins": somma_macro[1] or 0,
@@ -314,91 +345,70 @@ def get_macros_by_date(user_id: int, target_date: date | None = None):
 
 def get_meals_by_category(user_id: int, category: str):
     """
-    Recupera tutti i log dei pasti corrispondenti a una specifica categoria per un determinato utente.
+    Author: Timothy Giolito (20054431)
     
-    Questa funzione interroga il database per estrarre lo storico dei pasti (MealLog)
-    filtrandoli per l'identificativo dell'utente e per la categoria desiderata (es. 'Colazione', 'Pranzo', ecc.).
-    I risultati vengono restituiti in ordine cronologico decrescente, dal pasto più recente al più vecchio.
-
-    Args:
-        user_id (int): L'identificativo univoco dell'utente.
-        category (str): La stringa che rappresenta la categoria del pasto da cercare.
-
-    Returns:
-        list: Una lista di oggetti MealLog che corrispondono ai criteri di validazione inseriti.
-
-    Autore: Stefano Bellan (20054330)
+    Raccoglie dal database tutti i pasti mangiati da questo utente in una certa categoria temporale,
+    ad esempio tutte le 'Colazioni'. Ordiniamo dal più recente al più vecchio in modo da mostrare
+    i risultati migliori in cima.
     """
-    # Ottiene un'istanza della sessione per interagire con il database in modo sicuro
+    # Author: Timothy Giolito (20054431)
+    # Avviamo la sessione al DB
     session = get_session()
     
-    # Inizializza la query sul modello MealLog e applica i filtri necessari
+    # Author: Timothy Giolito (20054431)
+    # Costruiamo la query impostando il filtro utente e categoria e gestendo l'ordinamento
     meals = session.query(MealLog).filter(
-        # Verifica la corrispondenza esatta con l'identificativo dell'utente
         MealLog.user_id == user_id,
-        # Verifica la corrispondenza esatta con la categoria di pasto richiesta
         MealLog.category == category
     ).order_by(
-        # Ordina l'intero set di risultati per data/ora in ordine decrescente (timestamp)
         MealLog.timestamp.desc()
-    ).all() # Esegue materialmente la query restituendo tutti i record trovati come lista
+    ).all()
     
-    # Chiude la sessione di lavoro, rilasciando così le risorse e la connessione al database
+    # Author: Timothy Giolito (20054431)
+    # Liberiamo le risorse
     session.close()
     
-    # Restituisce la lista di oggetti (pasti) popolata e formattata precedentemente
+    # Author: Timothy Giolito (20054431)
+    # Torniamo la lista
     return meals
 
 def delete_meal_log(user_id: int, meal_id: int) -> bool:
     """
-    Elimina un record specifico relativo a un pasto registrato (MealLog) dal database.
+    Author: Timothy Giolito (20054431)
     
-    Questa funzione interroga il database per trovare un pasto specifico tramite il suo ID
-    e verifica che appartenga effettivamente all'utente specificato per garantire la sicurezza.
-    Se il record esiste e i controlli sono superati, procede con la rimozione permanente,
-    aggiornando lo stato del database.
-
-    Args:
-        user_id (int): L'identificativo univoco dell'utente che richiede la cancellazione.
-        meal_id (int): L'identificativo univoco del log del pasto da eliminare.
-
-    Returns:
-        bool: True se il pasto è stato trovato ed eliminato con successo, False altrimenti.
-
-    Autore: Stefano Bellan (20054330)
+    Rimuove fisicamente il record di un pasto. Faccio un controllo incrociato con l'ID utente
+    per stare sereni che nessuno possa cancellare il pasto di qualcun altro per sbaglio o per malizia.
     """
-    # Ottiene un'istanza della sessione per comunicare attivamente con il database
+    # Author: Timothy Giolito (20054431)
+    # Connessione al database
     session = get_session()
     
-    # Esegue una query mirata alla tabella MealLog applicando i filtri necessari
+    # Author: Timothy Giolito (20054431)
+    # Estraggo il pasto ricercato e mi assicuro che il proprietario coincida
     meal_to_delete = session.query(MealLog).filter(
-        # Filtra i risultati ricercando l'esatta corrispondenza con l'ID del pasto
         MealLog.id == meal_id,
-        # Filtra i risultati assicurandosi che il proprietario sia l'utente indicato
         MealLog.user_id == user_id
-    ).first() # Estrae l'unico record atteso, oppure None se inesistente
+    ).first()
     
-    # Valuta se la query precedente ha restituito un oggetto valido
+    # Author: Timothy Giolito (20054431)
+    # Se esiste la referenza, la procediamo alla cancellazione
     if meal_to_delete:
-        # Segnala alla sessione l'intenzione di marcare l'oggetto per l'eliminazione
         session.delete(meal_to_delete)
-        # Esegue fisicamente la transazione sul database, confermando la cancellazione
         session.commit()
-        # Chiude la connessione e rilascia la memoria associata alla sessione
         session.close()
-        # Ritorna valore booleano positivo comunicando il corretto esito dell'azione
         return True
     
-    # Nel caso in cui l'oggetto non sia stato trovato, procediamo a liberare le risorse
+    # Author: Timothy Giolito (20054431)
+    # Rilascio sessione nel caso la query abbia fallito e ritorno False
     session.close()
-    
-    # Ritorna valore booleano negativo indicando il fallimento della procedura
     return False
 
 
 def rename_conversation(conversation_id: int, new_title: str):
     """
-    Rinomina una conversazione esistente nel database.
+    Author: Timothy Giolito (20054431)
+    
+    Applica un nuovo titolo a una chat esistente nel db.
     """
     session = get_session()
     conv = session.query(Conversation).filter_by(id=conversation_id).first()
@@ -409,7 +419,10 @@ def rename_conversation(conversation_id: int, new_title: str):
 
 def delete_conversation(conversation_id: int):
     """
-    Elimina una conversazione e (tramite cascade) tutti i suoi messaggi.
+    Author: Timothy Giolito (20054431)
+    
+    Fa tabula rasa di un'intera sessione di chat. Grazie alla logica a cascata 
+    ci porta via automaticamente anche tutti i messaggi collegati.
     """
     session = get_session()
     conv = session.query(Conversation).filter_by(id=conversation_id).first()
@@ -419,26 +432,34 @@ def delete_conversation(conversation_id: int):
     session.close()
 
 def authenticate_user(username: str, password: str):
-    """Verifica se l'utente esiste e se la password è corretta"""
+    """
+    Author: Timothy Giolito (20054431)
+    
+    Risolve il login controllando l'esistenza dell'utente e matchando l'hash della password.
+    """
     session = get_session()
     user = session.query(User).filter_by(username=username).first()
     session.close()
     
-    # Se l'utente esiste, controlliamo che la password inserita corrisponda all'hash salvato
+    # Author: Timothy Giolito (20054431)
+    # Se trovo l'utente valido il check cryptato con bcrypt per vedere se è tutto a posto
     if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
         return user
     
-    return None # Ritorna None se il login fallisce
+    return None
 
 def save_workout_plan(user_id: int, plan_name: str, exercises: list):
     """
-    Salva una nuova scheda di allenamento con i relativi esercizi.
-    `exercises` è una lista di dizionari con chiavi: name, muscle_group, sets, reps, rest_time.
+    Author: Timothy Giolito (20054431)
+    
+    Salva sul database una scheda d'allenamento pulita prodotta dal nostro coach.
+    Scorre la lista degli esercizi passata come dizionario e popola la tabella dedicata agganciando 
+    tutto all'ID della nuova scheda creata.
     """
     session = get_session()
     new_plan = WorkoutPlan(user_id=user_id, name=plan_name)
     session.add(new_plan)
-    session.flush() # Per ottenere l'ID del piano
+    session.flush()
     
     for idx, ex in enumerate(exercises):
         new_ex = WorkoutExercise(
@@ -457,12 +478,16 @@ def save_workout_plan(user_id: int, plan_name: str, exercises: list):
 
 def get_user_workout_plans(user_id: int):
     """
-    Recupera tutte le schede di allenamento di un utente, complete di esercizi.
+    Author: Timothy Giolito (20054431)
+    
+    Cerca nel database lo storico di tutte le schede prodotte per un utente, con annessi esercizi,
+    strutturandole comodamente per chi dovrà smontarle sul frontend.
     """
     session = get_session()
     plans = session.query(WorkoutPlan).filter_by(user_id=user_id).order_by(WorkoutPlan.created_at.desc()).all()
     
-    # Costruisce una struttura dati dictionary compatibile con il frontend
+    # Author: Timothy Giolito (20054431)
+    # Aggreghiamo il tutto in una lista di dizionari comoda
     result = []
     for plan in plans:
         exercises = session.query(WorkoutExercise).filter_by(plan_id=plan.id).order_by(WorkoutExercise.order_index.asc()).all()
@@ -488,8 +513,10 @@ def get_user_workout_plans(user_id: int):
 
 def delete_workout_plan(user_id: int, plan_id: int) -> bool:
     """
-    Elimina una scheda di allenamento dal database.
-    Verifica che la scheda appartenga all'utente.
+    Author: Timothy Giolito (20054431)
+    
+    Cancella una scheda fitness specifica controllando che colui che fa la richiesta ne sia
+    davvero il proprietario, onde evitare pasticci e intrusioni.
     """
     session = get_session()
     plan = session.query(WorkoutPlan).filter_by(id=plan_id, user_id=user_id).first()
@@ -505,19 +532,12 @@ def delete_workout_plan(user_id: int, plan_id: int) -> bool:
 
 def update_workout_plan_by_id(user_id: int, plan_id: int, plan_name: str, exercises: list) -> bool:
     """
-    Aggiorna una scheda di allenamento esistente identificata dal suo ID.
-    Usata dalle modifiche manuali effettuate dall'utente via interfaccia (non dall'agente).
-    Verifica che la scheda appartenga all'utente, aggiorna il nome e
-    sostituisce tutti gli esercizi con quelli forniti.
-
-    Args:
-        user_id (int): L'identificativo dell'utente proprietario della scheda.
-        plan_id (int): L'identificativo della scheda da aggiornare.
-        plan_name (str): Il nuovo nome della scheda.
-        exercises (list): Lista di dizionari con chiavi: name, muscle_group, sets, reps, rest_time.
-
-    Returns:
-        bool: True se la scheda è stata trovata e aggiornata, False altrimenti.
+    Author: Timothy Giolito (20054431)
+    
+    Punto di ingresso per modificare a mano una scheda di allenamento dall'interfaccia.
+    Andiamo a cercare la scheda per ID, controlliamo i permessi dell'utente, aggiorniamo il nome 
+    e per far prima svuotiamo e reinseriamo brutalmente tutti gli esercizi aggiornati 
+    anziché fare delta complicati.
     """
     session = get_session()
     plan = session.query(WorkoutPlan).filter_by(id=plan_id, user_id=user_id).first()
@@ -528,7 +548,8 @@ def update_workout_plan_by_id(user_id: int, plan_id: int, plan_name: str, exerci
 
     plan.name = plan_name
 
-    # Sostituisce integralmente gli esercizi della scheda con quelli nuovi
+    # Author: Timothy Giolito (20054431)
+    # Tranciamo via le dipendenze degli esercizi vecchi
     session.query(WorkoutExercise).filter_by(plan_id=plan.id).delete()
     for idx, ex in enumerate(exercises):
         new_ex = WorkoutExercise(
@@ -548,9 +569,10 @@ def update_workout_plan_by_id(user_id: int, plan_id: int, plan_name: str, exerci
 
 def update_workout_plan(user_id: int, plan_name: str, exercises: list):
     """
-    Aggiorna una scheda di allenamento esistente (ricerca per nome e utente).
-    Se esiste, sostituisce tutti gli esercizi con i nuovi.
-    Se non esiste, la crea.
+    Author: Timothy Giolito (20054431)
+    
+    Versione più permissiva dell'aggiornamento scheda, la va a cercare in base al suo nome in chiaro.
+    Se la trova la sovrascrive azzerando gli esercizi, se non esiste la genera ex novo senza batter ciglio.
     """
     session = get_session()
     plan = session.query(WorkoutPlan).filter_by(user_id=user_id, name=plan_name).first()
@@ -560,10 +582,12 @@ def update_workout_plan(user_id: int, plan_name: str, exercises: list):
         save_workout_plan(user_id, plan_name, exercises)
         return
         
-    # Elimina vecchi esercizi
+    # Author: Timothy Giolito (20054431)
+    # Azzeriamo gli esercizi attualmente associati
     session.query(WorkoutExercise).filter_by(plan_id=plan.id).delete()
     
-    # Inserisce nuovi esercizi
+    # Author: Timothy Giolito (20054431)
+    # Procediamo col re-inserimento usando i nuovi valori proposti
     for idx, ex in enumerate(exercises):
         new_ex = WorkoutExercise(
             plan_id=plan.id,

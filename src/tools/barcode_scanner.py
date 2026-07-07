@@ -1,26 +1,23 @@
 """
-Modulo per la lettura deterministica di codici a barre dalle immagini.
+Modulo dedicato all'estrazione deterministica dei codici a barre dalle immagini.
 
-Decodifica direttamente i pixel (nessuna allucinazione dell'LLM): se
-l'immagine non contiene un codice a barre leggibile la funzione restituisce
-None e il chiamante procede con la stima visiva.
+L'approccio basato sui pixel evita eventuali allucinazioni del modello linguistico.
+In assenza di un codice leggibile, la funzione restituisce None, permettendo al
+flusso chiamante di ripiegare sull'analisi visiva della pietanza.
+L'architettura prevede un parser primario basato su zxing-cpp per la massima
+compatibilità con i vari formati, e un fallback su OpenCV nel caso la libreria
+principale non fosse disponibile o non riuscisse a risolvere l'immagine.
 
-Pipeline a due decoder:
-1. zxing-cpp (primario): legge molte simbologie tra cui Code 128, che spesso
-   codifica un EAN-13 pur non essendo un vero barcode EAN. cv2 NON legge il
-   Code 128 e falliva su questi codici (es. screenshot renderizzati).
-2. OpenCV BarcodeDetector (fallback): copre i casi in cui zxing non è
-   installato o non decodifica.
-
-Autore: Stefano Bellan (20054330)
+Author: Stefano Bellan (20054330)
 """
 
 from typing import List, Optional
 import cv2
 import numpy as np
 
-# zxing-cpp è opzionale: se non installato il modulo resta funzionante col
-# solo fallback OpenCV. Import protetto per non rompere l'avvio.
+# L'inclusione di zxing-cpp è gestita in modo opzionale per garantire
+# l'avvio dell'applicazione anche in ambienti sprovvisti della libreria,
+# affidandosi in tal caso al solo fallback di OpenCV.
 try:
     import zxingcpp
 except ImportError:  # pragma: no cover
@@ -29,14 +26,13 @@ except ImportError:  # pragma: no cover
 
 def _estrai_codice(result) -> Optional[str]:
     """
-    Normalizza il risultato di detectAndDecode ed estrae il primo codice valido.
-
-    La firma di detectAndDecode cambia con la versione di OpenCV:
-    - OpenCV >= 4.8: (retval: bool, decoded_info, decoded_type, points)
-    - build contrib più vecchie / cv2 5.x: (decoded_info, decoded_type, points)
-    I dati del barcode sono in decoded_info: nel primo caso è result[1]
-    (result[0] è il bool retval), nel secondo è result[0]. Leggere sempre
-    result[0] restituiva il booleano e il codice non veniva mai trovato.
+    Uniforma l'output della libreria OpenCV ed estrae la prima stringa valida.
+    
+    Gestisce in modo trasparente le discrepanze tra le firme di detectAndDecode
+    nelle varie versioni di OpenCV, garantendo l'accesso corretto al payload
+    senza incappare in falsi negativi dovuti ai booleani di ritorno.
+    
+    Author: Stefano Bellan (20054330)
     """
     if not result:
         return None
@@ -46,8 +42,8 @@ def _estrai_codice(result) -> Optional[str]:
     else:
         decoded_info = result[0]
 
-    # decoded_info può essere una stringa singola o una tupla/lista di stringhe
-    # a seconda della versione di OpenCV. Normalizziamo.
+    # Uniformiamo il formato del payload per gestire le diverse strutture
+    # di ritorno restituite a seconda della versione di OpenCV installata.
     if isinstance(decoded_info, str):
         candidati = [decoded_info]
     else:
@@ -63,12 +59,12 @@ def _estrai_codice(result) -> Optional[str]:
 
 def _checksum_gtin_valido(cifre: str) -> bool:
     """
-    Verifica il check digit GTIN (EAN-8/13, UPC-A, GTIN-14).
-
-    L'ultima cifra è di controllo: partendo dalla penultima verso sinistra i
-    pesi si alternano 3,1,3,1... La somma pesata + la cifra di controllo deve
-    essere multiplo di 10. Un barcode letto per errore su una texture di cibo
-    quasi mai supera questo controllo, quindi filtra i falsi positivi.
+    Esegue la validazione formale del check digit per gli standard GTIN.
+    
+    Il controllo matematico scarta automaticamente le letture spurie o
+    i falsi positivi generati dal rumore visivo presente nelle texture del cibo.
+    
+    Author: Stefano Bellan (20054330)
     """
     payload, atteso = cifre[:-1], int(cifre[-1])
     somma = 0
@@ -79,7 +75,11 @@ def _checksum_gtin_valido(cifre: str) -> bool:
 
 
 def _ruota(img, angolo: float):
-    """Ruota l'immagine attorno al centro riempiendo il bordo di bianco."""
+    """
+    Effettua una rotazione dell'immagine preservando i bordi tramite padding bianco.
+    
+    Author: Stefano Bellan (20054330)
+    """
     h, w = img.shape[:2]
     M = cv2.getRotationMatrix2D((w / 2, h / 2), angolo, 1.0)
     return cv2.warpAffine(
@@ -89,25 +89,25 @@ def _ruota(img, angolo: float):
 
 def _preprocessa(img) -> List["np.ndarray"]:
     """
-    Genera varianti pre-processate della stessa immagine per aumentare le
-    probabilità di detection su foto reali (sfocate, rumorose, poco
-    contrastate). Ordinate per costo crescente: si testano finché una decodifica.
-
-    Le foto da smartphone falliscono spesso perché il detector cv2 è sensibile
-    a rumore JPEG e basso contrasto. Grayscale + CLAHE + threshold rendono le
-    barre nette; le rotazioni recuperano i codici inquadrati storti.
+    Costruisce un set di varianti dell'immagine applicando filtri incrementali.
+    
+    L'approccio iterativo serve a compensare la bassa qualità tipica delle
+    fotografie da smartphone, applicando trasformazioni come CLAHE e Otsu
+    per isolare correttamente i pattern del codice a barre dallo sfondo.
+    
+    Author: Stefano Bellan (20054330)
     """
-    # Margine bianco: garantisce la "quiet zone" quando il codice è a filo bordo.
+    # Aggiungiamo un margine bianco per ricreare la quiet zone obbligatoria
     con_bordo = cv2.copyMakeBorder(
         img, 100, 100, 100, 100, cv2.BORDER_CONSTANT, value=(255, 255, 255)
     )
 
     gray = cv2.cvtColor(con_bordo, cv2.COLOR_BGR2GRAY)
-    # CLAHE: alza il contrasto locale delle barre senza bruciare i bianchi.
+    # Applichiamo il CLAHE per ottimizzare il contrasto mantenendo il bilanciamento
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-    # Otsu: binarizzazione netta barre/sfondo, elimina il rumore di luminanza.
+    # Riduciamo il rumore tramite binarizzazione di Otsu
     _, otsu = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # Upscale per barcode piccoli dentro la scena (foto del piatto da lontano).
+    # Upscaling esplorativo per decodificare codici ripresi da lontano
     upscaled = cv2.resize(clahe, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
     varianti = [
@@ -117,12 +117,12 @@ def _preprocessa(img) -> List["np.ndarray"]:
         gray,
         clahe,
         otsu,
-        # Denoise leggero: recupera i codici delle foto rumorose.
+        # Rimozione del rumore di fondo per foto a bassa esposizione
         cv2.fastNlMeansDenoising(gray, None, 10, 7, 21),
         cv2.GaussianBlur(upscaled, (5, 5), 0),
     ]
 
-    # Rotazioni sul grayscale a contrasto alzato: codici inquadrati storti.
+    # Aggiungiamo iterazioni ruotate per gestire inquadrature disallineate
     for angolo in (-15, -8, 8, 15):
         varianti.append(_ruota(clahe, angolo))
 
@@ -131,10 +131,12 @@ def _preprocessa(img) -> List["np.ndarray"]:
 
 def _numero_valido(text: Optional[str]) -> Optional[str]:
     """
-    Estrae le sole cifre e le accetta solo se sono un EAN/UPC/GTIN valido:
-    lunghezza standard (8, 12, 13, 14) e check digit corretto. Il controllo
-    di checksum scarta le letture spurie sulle texture del cibo, che quasi mai
-    formano un codice matematicamente valido.
+    Sanitizza e valida la stringa estratta verificando che aderisca allo standard GTIN.
+    
+    Il filtraggio previene l'elaborazione di falsi positivi generati da letture
+    errate su texture complesse.
+    
+    Author: Stefano Bellan (20054330)
     """
     if not text:
         return None
@@ -146,9 +148,12 @@ def _numero_valido(text: Optional[str]) -> Optional[str]:
 
 def _scan_zxing(img) -> Optional[str]:
     """
-    Decodifica con zxing-cpp (se installato). Legge anche il Code 128, che
-    cv2 non gestisce. Prova l'immagine originale e alcune varianti a contrasto
-    alzato per i casi difficili.
+    Tenta la decodifica primaria utilizzando zxing-cpp, garantendo supporto esteso.
+    
+    Itera tra l'immagine originale e le relative varianti preprocessate per
+    massimizzare la resa sui formati complessi.
+    
+    Author: Stefano Bellan (20054330)
     """
     if zxingcpp is None:
         return None
@@ -169,9 +174,12 @@ def _scan_zxing(img) -> Optional[str]:
 
 def _scan_opencv(img) -> Optional[str]:
     """
-    Fallback OpenCV: legge EAN-8/13 e UPC-A/E. Generiamo più varianti
-    pre-processate (grayscale, CLAHE, threshold, denoise, upscale, rotazioni)
-    e ci fermiamo al primo esito valido.
+    Gestisce il fallback tramite i moduli standard di OpenCV.
+    
+    Applica una serie progressiva di filtri fino a quando non rileva e decodifica
+    correttamente un codice supportato.
+    
+    Author: Stefano Bellan (20054330)
     """
     detector = cv2.barcode.BarcodeDetector()
     for variante in _preprocessa(img):
@@ -183,19 +191,19 @@ def _scan_opencv(img) -> Optional[str]:
 
 def scan_barcode(image_path: str) -> Optional[str]:
     """
-    Legge un codice a barre da un file immagine.
+    Innesca la pipeline di decodifica per estrarre il payload dal file immagine.
 
-    Prima tenta zxing-cpp (copre più simbologie, incluso Code 128 e gli
-    screenshot renderizzati), poi ripiega su OpenCV. Restituisce None se
-    nessun decoder trova un codice valido (immagine di cibo o barcode
-    assente/illeggibile).
+    Inizia l'elaborazione affidandosi alla libreria primaria e, in caso di esito
+    negativo, esegue il fallback sul motore integrato. Restituisce direttamente
+    il codice sanitizzato oppure None se la foto non presenta pattern rilevabili.
 
     Args:
-        image_path (str): Percorso del file immagine da analizzare.
+        image_path (str): Indirizzo assoluto del file da processare.
 
     Returns:
-        Optional[str]: Le cifre del codice a barre (8-14) se trovato e valido,
-        altrimenti None.
+        Optional[str]: Codice alfanumerico normalizzato, se decodificato.
+        
+    Author: Stefano Bellan (20054330)
     """
     img = cv2.imread(image_path)
     if img is None:

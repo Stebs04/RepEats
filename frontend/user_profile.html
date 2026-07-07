@@ -1,3 +1,4 @@
+<!-- Pannello di gestione del profilo utente - Author: Stefano Bellan (20054330) -->
 <!DOCTYPE html>
 
 <html class="dark" lang="it"><head>
@@ -159,7 +160,7 @@
     </style>
 </head>
 <body class="bg-background min-h-screen pb-32">
-<!-- Standard TopAppBar -->
+<!-- Componente di navigazione globale - Author: Stefano Bellan (20054330) -->
 <header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
 <div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
 <img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
@@ -182,11 +183,11 @@
 </div>
 </div>
 </header>
-<!-- TopAppBar (from JSON) -->
+<!-- Fine componente di navigazione -->
 
-<!-- Main Content -->
+<!-- Container principale dell'anagrafica utente -->
 <main class="pt-24 px-container-margin md:px-lg max-w-4xl mx-auto space-y-md md:space-y-lg">
-<!-- Profile Header -->
+<!-- Intestazione profilo con identificativo visivo -->
 <section class="glass-card rounded-xl p-md flex items-center gap-md">
 <div class="relative w-24 h-24 rounded-full border-2 border-primary-container bg-surface-container-high flex items-center justify-center neon-glow">
 <span class="material-symbols-outlined text-[48px] text-primary-container">person</span>
@@ -324,9 +325,7 @@
     </button>
 </section>
 </main>
-<!-- BottomNavBar (from JSON) -->
-<!-- Standard BottomNavBar -->
-<!-- Standard BottomNavBar -->
+<!-- Barra di navigazione per viewport mobile - Author: Stefano Bellan (20054330) -->
 <nav class="md:hidden fixed bottom-0 left-0 w-full rounded-t-xl z-50 bg-surface-container/80 backdrop-blur-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(42,229,0,0.1)] flex justify-around items-center h-20 px-4 pb-4">
 <a class="flex flex-col items-center justify-center text-on-surface-variant py-1 px-4 hover:bg-surface-bright/50 active:scale-90 transition-transform duration-200" href="dashboard.html">
 <span class="material-symbols-outlined">dashboard</span>
@@ -363,10 +362,10 @@
         throw new Error('AUTH_REDIRECT');
     }
 
-    // Header di autenticazione riutilizzato in tutte le fetch protette.
+    // Generazione dinamica dell'header Bearer per le request autorizzate
     const authHeaders = { 'Authorization': `Bearer ${token}` };
 
-    // Controllo completamento profilo obbligatorio
+    // Middleware client-side per la validazione della completezza anagrafica
     async function checkProfileGuard() {
         try {
             const res = await fetch(`/api/profile/get`, { headers: authHeaders });
@@ -380,20 +379,20 @@
     }
     checkProfileGuard();
 
-    // Nome utente ricavato dinamicamente dal profilo (vedi loadProfile).
+    // Reference DOM per l'iniezione del parametro username a valle del caricamento asincrono
     const usernameDisplay = document.querySelector('h1');
 
-    // Logout
+    // Handler di revoca sessione locale ed evizione dei token
     document.getElementById('logoutBtn').addEventListener('click', () => {
         localStorage.clear();
         sessionStorage.clear();
         window.location.href = '/login.html';
     });
 
-    // Stato: lista accumulata delle allergie dell'utente
+    // Buffer locale per la gestione reattiva delle intolleranze e allergie
     let allergiesList = [];
 
-    // Renderizza le allergie come chip rosse rimovibili
+    // Metodo di patching del DOM per la rappresentazione visuale dei disclaimer medici
     function renderAllergies() {
         const container = document.getElementById('allergiesChips');
         container.innerHTML = '';
@@ -411,7 +410,7 @@
         });
     }
 
-    // Aggiunge un'allergia alla lista (evita duplicati case-insensitive)
+    // Handler di inserimento con validazione anti-duplicazione case-insensitive
     function addAllergy() {
         const input = document.getElementById('allergyInput');
         const val = input.value.trim();
@@ -428,10 +427,10 @@
         if (e.key === 'Enter') { e.preventDefault(); addAllergy(); }
     });
 
-    // Stato: lista accumulata dei regimi alimentari dell'utente
+    // Buffer locale per la gestione reattiva delle preferenze dietetiche
     let dietaryList = [];
 
-    // Renderizza i regimi alimentari come chip verdi rimovibili
+    // Metodo di patching del DOM per la rappresentazione visuale dei pattern dietetici
     function renderDietary() {
         const container = document.getElementById('dietaryChips');
         container.innerHTML = '';
@@ -449,7 +448,7 @@
         });
     }
 
-    // Aggiunge un regime alla lista (evita duplicati case-insensitive)
+    // Handler di inserimento pattern dietetico con validazione anti-duplicazione
     function addDietary() {
         const input = document.getElementById('dietaryInput');
         const val = input.value.trim();
@@ -466,7 +465,7 @@
         if (e.key === 'Enter') { e.preventDefault(); addDietary(); }
     });
 
-    // Carica dati del profilo
+    // Fase di hydration asincrona dello stato applicativo e binding dei valori preesistenti
     async function loadProfile() {
         try {
             const res = await fetch(`/api/profile/get`, { headers: authHeaders });
@@ -496,7 +495,7 @@
         }
     }
 
-    // Salva dati del profilo
+    // Handler di consolidamento e mutazione dello stato persistente verso il backend
     document.getElementById('saveBtn').addEventListener('click', async () => {
         const payload = {
             age: parseInt(document.getElementById('age').value) || 0,
@@ -544,7 +543,7 @@
         }
     });
 
-    // Inizializza
+    // Bootstrapping del modulo
     loadProfile();
 
 </script>

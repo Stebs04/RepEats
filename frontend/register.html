@@ -10,7 +10,10 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
         body { font-family: 'Inter', sans-serif; }
     </style>
-    <!-- Stessa configurazione colori della dashboard -->
+    <!-- 
+      Author: Timothy Giolito (20054431)
+      Riutilizzo la configurazione cromatica impiegata nella dashboard per mantenere continuità visiva.
+    -->
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -57,7 +60,10 @@
 <body class="bg-background text-on-surface min-h-screen flex items-center justify-center p-4">
 
     <div class="w-full max-w-md bg-surface-container-low border border-surface-variant rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        <!-- Decorazione luminosa sfocata -->
+        <!-- 
+          Author: Timothy Giolito (20054431)
+          Elementi scenografici sfocati che contribuiscono a donare un effetto luminoso al contenitore.
+        -->
         <div class="absolute -top-10 -left-10 w-32 h-32 bg-secondary-container/20 blur-3xl rounded-full"></div>
         <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/20 blur-3xl rounded-full"></div>
 
@@ -110,7 +116,10 @@
         </div>
     </div>
 
-    <!-- Script per collegare il form al backend -->
+    <!-- 
+      Author: Timothy Giolito (20054431)
+      Logica Javascript necessaria per intercettare l'invio del modulo e gestire la registrazione lato server.
+    -->
     <script>
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();

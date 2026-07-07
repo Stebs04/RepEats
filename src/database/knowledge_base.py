@@ -1,22 +1,15 @@
 """
-Builder centralizzato delle Knowledge Base RAG di RepEats.
+Gestore centralizzato per l'istanziamento delle Knowledge Base RAG.
 
-Questo modulo è l'UNICA sorgente di verità per la costruzione degli oggetti
-`Knowledge` di Agno. Centralizza:
-- la configurazione del vector store LanceDB (con Hybrid Search nativa),
-- l'embedder SentenceTransformer,
-- il reranker opzionale (attivabile via env),
-- una cache a singleton (per dominio) per evitare di ricaricare il modello di
-  embedding ad ogni richiesta.
+Questo modulo rappresenta il punto di accesso unico per la configurazione
+degli oggetti Knowledge, definendo in un solo posto il vector store LanceDB,
+il modello di embedding, le logiche di reranking e il caching in memoria.
 
-SEPARAZIONE PER DOMINIO: esiste una Knowledge Base (= una tabella LanceDB)
-distinta per ogni dominio applicativo. Così il Coach interroga solo i documenti
-di fitness e il Nutritionist solo quelli di nutrizione, senza contaminazioni.
+La separazione rigorosa per dominio assicura che gli agenti non incrocino
+i contesti (es. l'agente fitness consulta esclusivamente l'indice dedicato).
+Le procedure di caricamento documenti sono invece relegate al modulo di ingest.
 
-La logica di INGESTION dei documenti vive in `src/knowledge_base/ingest.py`:
-qui ci occupiamo solo di *come* le KB sono configurate e interrogate.
-
-Autore: Stefano Bellan (20054330)
+Author: Stefano Bellan (20054330)
 """
 
 import os
@@ -27,11 +20,11 @@ from agno.vectordb.search import SearchType
 from agno.knowledge.embedder.sentence_transformer import SentenceTransformerEmbedder
 
 # ---------------------------------------------------------------------------
-# Domini e mappatura verso le tabelle LanceDB
+# Configurazione dei domini e routing verso le tabelle del Vector DB
 # ---------------------------------------------------------------------------
 
-# Ogni dominio ha la sua tabella. "protocolli_allenamento" è mantenuto invariato
-# per riusare l'indice fitness già vettorializzato (retrocompatibilità).
+# Definiamo la corrispondenza statica tra i contesti semantici e le tabelle fisiche,
+# mantenendo i vecchi identificativi per non invalidare gli indici esistenti.
 DOMAIN_TABLES = {
     "fitness": "protocolli_allenamento",
     "nutrition": "conoscenza_nutrizione",
@@ -39,53 +32,63 @@ DOMAIN_TABLES = {
 DEFAULT_DOMAIN = "fitness"
 
 # ---------------------------------------------------------------------------
-# Costanti di configurazione (override possibile via variabili d'ambiente)
+# Parametri di inizializzazione per i modelli AI
 # ---------------------------------------------------------------------------
 
-# Modello di embedding: MiniLM leggero, 384 dimensioni. NON cambiarlo senza
-# rigenerare gli indici (cartella lancedb_vectors), perché cambierebbe la
-# dimensione dei vettori.
+# Modello di embedding standard. Attenzione: modificare questa costante
+# richiederà la rigenerazione completa di tutti i vettori già memorizzati.
 EMBEDDER_ID = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Reranker leggero (cross-encoder ~80MB). Il default di Agno
-# (BAAI/bge-reranker-v2-m3) è molto più pesante: preferiamo un modello piccolo.
+# Carichiamo un cross-encoder ottimizzato per limitare l'impatto sulla memoria,
+# sovrascrivendo i default della libreria per mantenere l'applicazione scalabile.
 RERANKER_MODEL = os.getenv("RAG_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-# Numero di documenti tenuti dopo il reranking.
+# Limite dei contesti da trattenere post-reranking per limitare i token al LLM.
 RERANKER_TOP_N = int(os.getenv("RAG_RERANK_TOP_N", "5"))
 
 
 def _db_dir() -> str:
-    """Percorso assoluto della cartella del vector store LanceDB."""
+    """
+    Risolve il percorso assoluto della cartella dati di LanceDB.
+    
+    Author: Stefano Bellan (20054330)
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, "lancedb_vectors")
 
 
 def vector_store_dir() -> str:
-    """Percorso pubblico della cartella del vector store (usato dalla pipeline)."""
+    """
+    Espone pubblicamente il path del DB per l'accesso dalle pipeline esterne.
+    
+    Author: Stefano Bellan (20054330)
+    """
     return _db_dir()
 
 
 def _build_reranker():
     """
-    Istanzia il reranker SOLO se abilitato via env `RAG_RERANK=1`.
-    Ritorna None quando disabilitato, così le KB restano leggere per default.
+    Istanzia dinamicamente il modello di reranking basandosi sulle variabili d'ambiente.
+    
+    Se disabilitato restituisce None, mantenendo snello il footprint dell'applicazione.
+    
+    Author: Stefano Bellan (20054330)
     """
     if os.getenv("RAG_RERANK", "0") != "1":
         return None
-    # Import locale: evita di caricare il cross-encoder quando il reranking è off.
+    # Importiamo a runtime per evitare overhead di caricamento quando la feature è spenta
     from agno.knowledge.reranker.sentence_transformer import SentenceTransformerReranker
     return SentenceTransformerReranker(model=RERANKER_MODEL, top_n=RERANKER_TOP_N)
 
 
 def _new_knowledge(domain: str) -> Knowledge:
     """
-    Costruisce una nuova istanza di Knowledge per il dominio indicato,
-    configurata con Hybrid Search.
-
-    LanceDB combina ricerca vettoriale (semantica) e ricerca lessicale FTS/BM25:
-    l'indice full-text sulla colonna `payload` viene creato automaticamente da
-    Agno alla prima query hybrid. Nessuna dipendenza esterna richiesta.
+    Costruisce e configura il client per le interrogazioni sul dominio specificato.
+    
+    Abilitiamo la Hybrid Search nativa delegando ad Agno la creazione trasparente
+    degli indici FTS/BM25, eliminando la necessità di engine di ricerca testuale esterni.
+    
+    Author: Stefano Bellan (20054330)
     """
     table_name = DOMAIN_TABLES[domain]
     db_dir = _db_dir()
@@ -103,26 +106,26 @@ def _new_knowledge(domain: str) -> Knowledge:
 
 
 # ---------------------------------------------------------------------------
-# Cache a singleton, una istanza per dominio
+# Gestione Singleton per preservare i modelli in memoria
 # ---------------------------------------------------------------------------
 _KNOWLEDGE_CACHE: dict[str, Knowledge] = {}
 
 
 def build_knowledge(domain: str = DEFAULT_DOMAIN, force_new: bool = False) -> Knowledge:
     """
-    Restituisce l'istanza condivisa della Knowledge Base per un dominio.
-
-    L'oggetto (e con esso il modello di embedding) viene creato una sola volta
-    per dominio e riutilizzato tra le richieste, evitando di ricaricare MiniLM
-    ad ogni messaggio della chat.
-
+    Risolve e restituisce l'istanza operativa della base di conoscenza associata.
+    
+    Applica un pattern singleton a livello di dominio per impedire continui caricamenti
+    del modello in RAM durante lo svolgimento delle sessioni di chat, ottimizzando la latenza.
+    
     Args:
-        domain: "fitness" (Coach) o "nutrition" (Nutritionist).
-        force_new: Se True forza la ricostruzione (utile per lo script di
-                   ingestion che vuole un'istanza isolata).
-
+        domain: Identificativo del contesto di ricerca desiderato.
+        force_new: Flag per forzare l'allocazione di una nuova istanza, ignorando la cache.
+        
     Returns:
-        Knowledge: la KB del dominio (Hybrid Search + reranker opzionale).
+        Knowledge: Istanza pronta per l'interrogazione tramite ricerca ibrida.
+        
+    Author: Stefano Bellan (20054330)
     """
     if domain not in DOMAIN_TABLES:
         raise ValueError(f"Dominio KB sconosciuto: '{domain}'. Ammessi: {list(DOMAIN_TABLES)}")

@@ -8,7 +8,11 @@ from backend.security import get_current_user
 router = APIRouter()
 
 class ExercisePayload(BaseModel):
-    """Singolo esercizio inviato dal frontend durante la modifica manuale di una scheda."""
+    """
+    Struttura dati per la validazione di un singolo record di esercizio in ingresso.
+    
+    Author: Stefano Bellan (20054330)
+    """
     name: str
     muscle_group: Optional[str] = ""
     sets: int = 3
@@ -16,19 +20,23 @@ class ExercisePayload(BaseModel):
     rest_time: Optional[str] = "90s"
 
 class WorkoutUpdateRequest(BaseModel):
-    """Payload per l'aggiornamento manuale di una scheda di allenamento."""
+    """
+    Modello per la serializzazione delle mutazioni applicate alle schede di allenamento.
+    
+    Author: Stefano Bellan (20054330)
+    """
     name: str
     exercises: List[ExercisePayload]
 
 @router.get("/stats")
 def get_dashboard_stats(date: Optional[str] = Query(None, description="Data nel formato YYYY-MM-DD; se assente usa oggi"), user_id: int = Depends(get_current_user)):
     try:
-        # Recuperiamo i dati del profilo e l'obiettivo (es. "dimagrimento")
+        # Fetching dei metadati anagrafici e obiettivi nutrizionali associati al token utente
         user_data = get_user_data(user_id)
         if not user_data:
             raise HTTPException(status_code=404, detail="Utente non trovato")
 
-        # Determiniamo la data richiesta (default: oggi in UTC)
+        # Normalizzazione temporale: fallback implicito sul layer UTC corrente se omessa
         if date:
             try:
                 data_selezionata = date_type.fromisoformat(date)
@@ -37,15 +45,15 @@ def get_dashboard_stats(date: Optional[str] = Query(None, description="Data nel 
         else:
             data_selezionata = datetime.now(timezone.utc).date()
 
-        # Recuperiamo quello che l'utente ha effettivamente mangiato nella data selezionata
+        # Aggregazione parametrica del bilancio calorico parziale per la porzione di timeline in esame
         macros_odierni = get_macros_by_date(user_id, data_selezionata)
 
-        # Calcoliamo matematicamente i suoi limiti in base al metabolismo
+        # Computazione in runtime della soglia calorica totale derivata dal TDEE anagrafico
         target_macros = calculate_daily_macros(user_id)
 
-        # Uniamo tutto in un unico "pacchetto" JSON pronto per la pagina HTML
+        # Assemblaggio del payload consolidato destinato al layer di presentazione
 
-        # Recupero i pasti della data selezionata per categoria
+        # Interrogazione del database per il partizionamento categorico degli intake giornalieri
         from sqlalchemy import func
         from src.database.database import get_session
         from src.database.models import MealLog
@@ -85,8 +93,12 @@ def get_dashboard_stats(date: Optional[str] = Query(None, description="Data nel 
 @router.delete("/meal/{meal_id}")
 def delete_meal(meal_id: int, user_id: int = Depends(get_current_user)):
     """
-    Elimina un pasto specifico dal database.
-    L'utente è ricavato dal JWT (ownership check nel DB service).
+    Gestisce la rimozione definitiva di una entry nutrizionale.
+    
+    Il parametro di utenza viene risolto a livello middleware per validare
+    l'appartenenza della risorsa prima della mutazione fisica sul db.
+    
+    Author: Stefano Bellan (20054330)
     """
     try:
         success = delete_meal_log(user_id=user_id, meal_id=meal_id)
@@ -103,7 +115,9 @@ def delete_meal(meal_id: int, user_id: int = Depends(get_current_user)):
 @router.get("/workouts")
 def get_workouts(user_id: int = Depends(get_current_user)):
     """
-    Recupera tutte le schede di allenamento dell'utente.
+    Astrazione per il retrieving massivo dei piani di allenamento associati all'utente corrente.
+    
+    Author: Stefano Bellan (20054330)
     """
     try:
         plans = get_user_workout_plans(user_id)
@@ -116,8 +130,12 @@ def get_workouts(user_id: int = Depends(get_current_user)):
 @router.put("/workout/{plan_id}")
 def update_workout(plan_id: int, request: WorkoutUpdateRequest, user_id: int = Depends(get_current_user)):
     """
-    Aggiorna manualmente una scheda di allenamento (nome ed esercizi).
-    Usato dal form di modifica locale del frontend, senza passare per l'agente AI.
+    Endpoint per la sovrascrittura programmatica delle metriche del piano d'allenamento.
+    
+    Progettato per bypassare il workflow conversazionale dell'agente e
+    permettere manipolazioni CRUD dirette da interfaccia client.
+    
+    Author: Stefano Bellan (20054330)
     """
     try:
         if not request.name.strip():
@@ -144,7 +162,9 @@ def update_workout(plan_id: int, request: WorkoutUpdateRequest, user_id: int = D
 @router.delete("/workout/{plan_id}")
 def delete_workout(plan_id: int, user_id: int = Depends(get_current_user)):
     """
-    Elimina una scheda di allenamento specifica dal database.
+    Terminazione del ciclo di vita di un piano di allenamento specifico.
+    
+    Author: Stefano Bellan (20054330)
     """
     try:
         success = delete_workout_plan(user_id=user_id, plan_id=plan_id)

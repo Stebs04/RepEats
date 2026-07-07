@@ -1,3 +1,4 @@
+<!-- Integrazione front-end - Author: Stefano Bellan (20054330) -->
 <!DOCTYPE html>
 
 <html class="dark" lang="en"><head>
@@ -137,7 +138,7 @@
 </script>
 </head>
 <body class="bg-background text-on-background min-h-screen flex flex-col font-sans selection:bg-primary-container selection:text-on-primary-container">
-<!-- Standard TopAppBar -->
+<!-- Barra di navigazione globale - Author: Stefano Bellan (20054330) -->
 <header class="fixed top-0 w-full z-50 bg-background/70 backdrop-blur-md border-b border-white/10 shadow-sm flex justify-between items-center px-container-margin h-16 transition-all duration-300">
 <div class="flex items-center gap-base cursor-pointer" onclick="window.location.href='dashboard.html'">
 <img alt="RepEats Logo" class="h-8 w-8 rounded-full object-cover border border-primary-container/30 shadow-[0_0_10px_rgba(57,255,20,0.3)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5JBYk8WthW7ev1bT3z8Cy2GFQsuz6f9wTkG2tfBMfIhPyUDM9KcCpfKCcaT_r_x-7zMexkfGclcgnFTeAPKasNrSwvLtnDr1v7qArTOZY239GPP11A4CY-urfgo4WbR0-3gEJbP8Wzi9PztiGEmbXfB0CUPp2rskclALSQx9acPybxmOxUQJGKbtsvBugOgJIbJkCkPr4HpBY0zoyzmPNgC22xHUUADyVPmfjL_aL1MbER8BWXzWIlpPVymD_gSYr53gj9dQ2A9sq"/>
@@ -277,9 +278,9 @@
 </div>
 </section>
 
-<!-- Chat Sidebar Backdrop -->
+<!-- Gestione dell'overlay per la sidebar - Author: Stefano Bellan (20054330) -->
 <div id="chatBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300" onclick="toggleSidebar()"></div>
-<!-- Chat Sidebar for History -->
+<!-- Pannello a scomparsa per lo storico delle conversazioni - Author: Stefano Bellan (20054330) -->
 <div id="chatSidebar" class="fixed top-0 right-0 w-full sm:w-80 md:w-72 h-full bg-surface-container-high/95 backdrop-blur-xl border-l border-white/5 p-4 sm:p-5 z-50 translate-x-full transition-transform duration-300 overflow-y-auto flex flex-col gap-2">
     <div class="flex justify-between items-center mb-4 pt-2">
         <h3 class="font-headline-md text-on-surface text-[18px] flex items-center gap-2"><span class="material-symbols-outlined text-tertiary-fixed text-[20px]">history</span> Vecchie Chat</h3>
@@ -289,7 +290,7 @@
         <span class="material-symbols-outlined text-[18px]">add</span> Nuova Chat
     </button>
     <div id="sessionList" class="flex flex-col gap-2 flex-1 overflow-y-auto hide-scrollbar">
-        <!-- Sessions loaded here -->
+        <!-- Rendering dinamico dell'elenco storico -->
     </div>
 </div>
 
@@ -316,7 +317,7 @@
 </nav>
 
 <script>
-    // 1. Verifichiamo se l'utente ha fatto il login, altrimenti lo rimandiamo indietro
+    // Controllo di integrità della sessione utente locale
     let token = sessionStorage.getItem('repEats_token');
     if (!token) {
         token = localStorage.getItem('repEats_token');
@@ -333,10 +334,10 @@
         throw new Error('AUTH_REDIRECT');
     }
 
-    // Header di autenticazione riutilizzato in tutte le fetch protette.
+    // Configurazione condivisa degli header di autorizzazione
     const authHeaders = { 'Authorization': `Bearer ${token}` };
 
-    // Controllo completamento profilo obbligatorio
+    // Validazione dei dati anagrafici minimi necessari per l'utilizzo del servizio
     async function checkProfileGuard() {
         try {
             const res = await fetch(`/api/profile/get`, { headers: authHeaders });
@@ -355,12 +356,12 @@
     const sendBtn = document.getElementById('sendBtn');
     let currentConversationId = null;
 
-    // Funzione per formattare l'ora corrente
+    // Formattazione timestamp locale per la messaggistica
     function getCurrentTime() {
         return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Funzione per aggiungere la nuvoletta dell'utente (verde, a destra)
+    // Rendering asincrono del blocco di testo lato client
     function appendUserMessage(text) {
         const time = getCurrentTime();
         const html = `
@@ -375,9 +376,9 @@
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    // ---- Parser Markdown completo ----
+    // Engine di elaborazione del Markdown customizzato per il rendering inline
     function parseMarkdown(text) {
-        // Escape HTML di sicurezza
+        // Sanitizzazione dell'input per prevenire attacchi XSS
         const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
         let lines = text.split('\n');
@@ -387,7 +388,7 @@
         while (i < lines.length) {
             let line = lines[i];
 
-            // Tabelle markdown: rilevato quando troviamo una riga con |...|...
+            // Interprete della sintassi tabellare
             if (/^\|.+\|/.test(line)) {
                 let tableLines = [];
                 while (i < lines.length && /^\|/.test(lines[i])) {
@@ -413,7 +414,7 @@
                 continue;
             }
 
-            // Lista puntata (-, *, +)
+            // Interprete delle liste non ordinate
             if (/^[-*+]\s/.test(line)) {
                 html += '<ul class="list-none my-2 flex flex-col gap-1">';
                 while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
@@ -425,7 +426,7 @@
                 continue;
             }
 
-            // Lista numerata
+            // Interprete delle enumerazioni ordinate
             if (/^\d+\.\s/.test(line)) {
                 html += '<ol class="list-none my-2 flex flex-col gap-1" start="1">';
                 let num = 1;
@@ -439,7 +440,7 @@
                 continue;
             }
 
-            // Heading ##
+            // Interprete delle intestazioni gerarchiche
             if (/^###\s/.test(line)) {
                 html += `<h3 class="font-bold text-primary-fixed text-[16px] mt-3 mb-1">${inlineMarkdown(esc(line.replace(/^###\s/, '')))}</h3>`;
                 i++; continue;
@@ -453,13 +454,13 @@
                 i++; continue;
             }
 
-            // Riga vuota = spazio
+            // Gestione della spaziatura verticale esplicita
             if (line.trim() === '') {
                 html += '<div class="h-2"></div>';
                 i++; continue;
             }
 
-            // Paragrafo normale
+            // Rendering del blocco testuale di base
             html += `<p class="leading-relaxed">${inlineMarkdown(esc(line))}</p>`;
             i++;
         }
@@ -467,7 +468,7 @@
     }
 
     function inlineMarkdown(text) {
-        // Gestisce bold, italic, codice inline (in sequenza per evitare conflitti)
+        // Applicazione di regole stilistiche per il text-formatting
         return text
             .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -475,7 +476,7 @@
             .replace(/`(.+?)`/g, '<code class="bg-surface-container-highest px-1 rounded text-primary-fixed text-[13px]">$1</code>');
     }
 
-    // Funzione per aggiungere la nuvoletta di Lumina (azzurra, a sinistra)
+    // Rendering asincrono della bolla di risposta del bot
     function appendBotMessage(text) {
         const container = document.getElementById('chatContainer') || document.getElementById('chatHistory');
         const botDiv = document.createElement('div');
@@ -490,8 +491,7 @@
     }
 
 
-    // Crea una nuvoletta bot VUOTA e restituisce il div del contenuto,
-    // così lo streaming può riempirlo progressivamente token per token.
+    // Inizializzazione della coda di visualizzazione per gestire lo stream di testo parziale in ingresso
     function createStreamingBotBubble() {
         const container = document.getElementById('chatContainer') || document.getElementById('chatHistory');
         const botDiv = document.createElement('div');
@@ -504,7 +504,7 @@
         return botDiv.firstElementChild;
     }
 
-    // Aggiunge la nuvoletta del "caricamento..."
+    // Rendering dello stato di avanzamento per l'attesa di ricezione
     function appendLoading() {
         const html = `
             <div id="loadingBubble" class="flex flex-col gap-1 w-[85%] md:w-2/3">
@@ -518,26 +518,26 @@
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    // Rimuove la nuvoletta del caricamento
+    // Cleanup dell'indicatore di stato post-ricezione
     function removeLoading() {
         const loading = document.getElementById('loadingBubble');
         if (loading) loading.remove();
     }
 
-    // Invio del messaggio
+    // Gestione asincrona per il payload di invio della conversazione
     async function sendMessage() {
         const message = chatInput.value.trim();
         if (!message) return;
 
-        // Mostriamo il messaggio dell'utente e svuotiamo l'input
+        // Aggiornamento DOM per il testo inviato e reset dello stato di input
         appendUserMessage(message);
         chatInput.value = '';
         
-        // Mostriamo l'animazione di caricamento
+        // Avvio visuale per il processo in background
         appendLoading();
 
         try {
-            // Chiamata all'API in streaming (Server-Sent Events).
+            // Configurazione della pipe su protocollo SSE
             const response = await fetch('/api/chat/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders },
@@ -556,7 +556,7 @@
                 return;
             }
 
-            // Consumo dello stream SSE token-per-token.
+            // Deserializzazione e iterazione sullo stream binario
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -568,7 +568,7 @@
                 if (done) break;
                 buffer += decoder.decode(value, { stream: true });
 
-                // Ogni evento SSE è separato da una riga vuota (\n\n).
+                // Parsing frammentato in ossequio al delimiter SSE
                 let sep;
                 while ((sep = buffer.indexOf('\n\n')) >= 0) {
                     const frame = buffer.slice(0, sep);
@@ -591,7 +591,7 @@
                         acc += (acc ? '\n\n' : '') + '⚠️ Errore: ' + evt.detail;
                         contentEl.innerHTML = parseMarkdown(acc);
                     }
-                    // evt.type === 'end': nessuna azione extra per il nutrizionista
+                    // By-pass per gli eventi terminali standard
                 }
             }
 
@@ -604,7 +604,7 @@
         }
     }
 
-    // Event listeners chat
+    // Sottoscrizione dei dispatcher di interfaccia
     sendBtn.addEventListener('click', sendMessage);
     chatInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
@@ -612,9 +612,9 @@
         }
     });
 
-    // Scanner Alimenti (Vision AI) rimosso dal main block perché gestito nel modal a fondo pagina
+    // Isolamento logico della pipeline visiva per modularità dell'interfaccia
 
-    // ---- Chat Sidebar Logic ----
+    // Gestione di visibilità per il drawer laterale della conversazione
     function toggleSidebar() {
         const sidebar = document.getElementById('chatSidebar');
         const backdrop = document.getElementById('chatBackdrop');
@@ -744,7 +744,7 @@
         if (!sidebar.classList.contains('hidden')) toggleSidebar();
     }
 
-    // Funzione per i quick-chip buttons
+    // Dispatcher per i messaggi precompilati in accesso rapido
     function sendQuickMessage(text) {
         chatInput.value = text;
         sendMessage();
@@ -768,7 +768,7 @@
     }
 
     function showScannerResult(html, isWarning) {
-        // Hide loading, show result
+        // Transizione di stato DOM verso la modalità display
         document.getElementById('scannerLoading').classList.add('hidden');
         document.getElementById('scannerLoading').classList.remove('flex');
         document.getElementById('scannerForm').classList.add('hidden');
@@ -778,7 +778,7 @@
         const progressBar = document.getElementById('scannerResultProgress');
         const checkIcon = resultDiv.querySelector('.material-symbols-outlined');
         
-        // Set icon based on result type
+        // Attribuzione condizionale per le classi di iconografia
         if (isWarning) {
             checkIcon.textContent = 'warning';
             checkIcon.classList.remove('text-tertiary-fixed');
@@ -793,7 +793,7 @@
         resultDiv.classList.remove('hidden');
         resultDiv.classList.add('flex');
         
-        // Reset and animate progress bar
+        // Attivazione dell'animazione per l'indicatore di timeout
         progressBar.style.transition = 'none';
         progressBar.style.width = '100%';
         requestAnimationFrame(() => {
@@ -803,7 +803,7 @@
             });
         });
         
-        // Auto-close after 10 seconds
+        // Schedulazione dello smontaggio automatico del modale
         scannerAutoCloseTimer = setTimeout(() => {
             closeScannerModal();
         }, 10000);
@@ -811,7 +811,7 @@
 
 </script>
 
-<!-- Scanner Modal -->
+<!-- Sovrapposizione modale per la gestione del caricamento immagini - Author: Stefano Bellan (20054330) -->
 <div id="scannerModal" class="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
     <div class="glass-panel w-full max-w-md rounded-2xl p-6 border border-tertiary-fixed/30 flex flex-col gap-4 relative">
         <button onclick="closeScannerModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-error"><span class="material-symbols-outlined">close</span></button>
@@ -922,10 +922,10 @@
                 
                 const meal = data.data;
                 
-                // Controlla se i valori sono tutti zero (caso degenere)
+                // Verifica di coerenza sui dati nutritivi a fini di fault tolerance
+                // Se la rete neurale fallisce, innesca la segnalazione all'utente
                 const tuttiZero = meal.calories === 0 && meal.proteins === 0 && meal.carbohydrates === 0 && meal.fats === 0;
                 if (tuttiZero && (meal.name === "" || meal.name === "Prodotto non identificato")) {
-                    // Caso non identificato: mostra errore nel modal e chiudi dopo 3s
                     showScannerResult(`
                         <div class="text-center">
                             <p class="text-base font-bold text-yellow-400 mb-2">⚠️ Alimento non identificato</p>
@@ -935,8 +935,7 @@
                     return;
                 }
 
-                // La fonte è decisa dal backend: "openfoodfacts" solo se il tool
-                // barcode è stato realmente usato, altrimenti "stima" (foto di cibo).
+                // Distinzione tra valori certi ottenuti da database EAN e stime visive dell'engine
                 const isStimato = meal.fonte !== "openfoodfacts";
                 const badge = isStimato ? '<span class="text-xs text-on-surface-variant italic">(valori stimati)</span>' : '<span class="text-xs text-tertiary-fixed italic">(dati OpenFoodFacts)</span>';
 

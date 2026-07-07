@@ -1,6 +1,11 @@
 """
-Router per la gestione della chat AI.
-Gestisce l'invio dei messaggi, il recupero del contesto utente e l'interazione con l'agente.
+Router API per le interazioni testuali con l'intelligenza artificiale.
+
+Gestisce in modo centralizzato lo streaming dei messaggi, il recupero 
+dello storico conversazionale e l'arricchimento del contesto utente 
+prima di delegare l'esecuzione all'agente.
+
+Author: Stefano Bellan (20054330)
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from fastapi.responses import StreamingResponse
@@ -36,7 +41,11 @@ from backend.security import get_current_user
 router = APIRouter()
 
 class ChatMessageRequest(BaseModel):
-    """Payload per l'invio di un messaggio nella chat."""
+    """
+    Rappresentazione strongly-typed della singola richiesta inviata dal client.
+    
+    Author: Stefano Bellan (20054330)
+    """
     conversation_id: Optional[int] = None
     message: str
     chat_type: Optional[str] = "nutritionist"
@@ -44,27 +53,15 @@ class ChatMessageRequest(BaseModel):
 
 def _workout_snapshot(user_id: int) -> list:
     """
-    Crea una "fotografia" immutabile (tupla di tuple) dello stato attuale delle
-    schede di allenamento dell'utente: id, nome e, per ogni esercizio, nome +
-    gruppo muscolare + set/reps/recupero.
+    Genera un'immagine immutabile e comparabile dello stato corrente delle schede di allenamento.
 
-    PERCHE' ESISTE — Action hallucination del Tool Calling
-    ------------------------------------------------------
-    Il Coach opera in Tool Calling autonomo: decide *da solo* se e quando
-    invocare `create_workout_plan_tool` / `modify_workout_plan_tool`. Un limite
-    intrinseco degli LLM in questa modalita' e' l'"action hallucination":
-    l'agente genera un testo perfettamente plausibile ("Ho salvato la tua scheda
-    Push A") SENZA aver effettivamente emesso la tool call. Il testo mente, ma
-    e' indistinguibile da un successo reale.
+    Questo meccanismo funge da rete di sicurezza contro le "allucinazioni di azione" tipiche degli LLM.
+    Dal momento che un modello potrebbe affermare in output di aver eseguito un'operazione 
+    di salvataggio senza aver realmente triggerato il tool, questa fotografia pre-run ci permette di
+    verificare deterministicamente se il database ha subito mutazioni dopo la risposta.
+    La scelta della tupla semplifica le operazioni di diff riducendole a un banale confronto di uguaglianza.
 
-    Non possiamo fidarci della risposta in linguaggio naturale per sapere se il
-    DB e' cambiato. L'UNICO segnale deterministico e' lo stato del database
-    stesso: fotografiamo le schede PRIMA della run e le riconfrontiamo DOPO
-    (`snapshot_dopo != snapshot_prima`). Se lo stato non e' cambiato, nessun
-    tool e' stato chiamato — a prescindere da cosa afferma il testo.
-
-    La tupla e' hashable/comparabile per uguaglianza cosi' il confronto e' un
-    semplice `!=`, senza diffing manuale.
+    Author: Stefano Bellan (20054330)
     """
     return [
         (
@@ -78,16 +75,18 @@ def _workout_snapshot(user_id: int) -> list:
 
 def _extract_ai_text(response) -> str:
     """
-    Estrazione robusta del testo dalla risposta del team agent.
-    Con show_members_responses=True, response.content potrebbe essere:
-    - una stringa (il caso normale)
-    - None se l'output è strutturato in modo diverso
-    - un oggetto non-stringa
+    Sanitizza e recupera il payload testuale dall'oggetto di ritorno dell'agente.
+    
+    Gestisce in modo difensivo le strutture eterogenee restituite in modalità multi-agente,
+    assicurandosi di isolare sempre l'ultimo segmento testuale valido o fornendo 
+    un fallback sicuro in caso di parsing fallito.
+    
+    Author: Stefano Bellan (20054330)
     """
     if isinstance(response.content, str) and response.content.strip():
         return response.content
     if hasattr(response, 'messages') and response.messages:
-        # Prende l'ultimo messaggio assistant disponibile
+        # Estrapoliamo programmaticamente l'ultima porzione di testo utile elaborata dall'assistant
         assistant_msgs = [m for m in response.messages if getattr(m, 'role', '') == 'assistant']
         if assistant_msgs:
             return getattr(assistant_msgs[-1], 'content', str(response.content))
@@ -96,25 +95,28 @@ def _extract_ai_text(response) -> str:
 
 
 def _sse(payload: dict) -> str:
-    """Serializza un evento come frame Server-Sent Events."""
+    """
+    Impacchetta un dizionario Python in una stringa conforme allo standard Server-Sent Events.
+    
+    Author: Stefano Bellan (20054330)
+    """
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 @router.post("/send")
 def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(get_current_user)):
     """
-    Elabora un nuovo messaggio dell'utente in STREAMING (Server-Sent Events).
-    Inizializza una nuova conversazione se assente e inietta il contesto all'agente.
-
-    Protocollo eventi (pattern start-content-end):
-    - {"type": "start", "conversation_id": <id>}  → una volta, prima del testo
-    - {"type": "content", "delta": "<pezzo>"}      → N volte, token per token
-    - {"type": "end", "workouts_updated": <bool>}  → una volta, a fine risposta
-    - {"type": "error", "detail": "<msg>"}         → in caso di errore
+    Innesca l'elaborazione del messaggio instradando la risposta tramite protocollo SSE.
+    
+    Provvede all'allocazione di un nuovo spazio conversazionale qualora necessario
+    e imposta il protocollo trasmissivo per gestire il caricamento token per token,
+    includendo gli eventi di setup e terminazione per pilotare coerentemente l'interfaccia.
+    
+    Author: Stefano Bellan (20054330)
     """
-    # Preparazione SINCRONA (fuori dal generatore) così che un errore qui
-    # produca ancora un 500 pulito prima di aprire lo stream.
-    # Identità ricavata esclusivamente dal JWT, mai dal client.
+    # Blocchiamo la preparazione in fase sincrona per garantire che, in caso di data failure,
+    # il server risponda con uno status HTTP corretto prima di compromettere il buffer di streaming.
+    # Affidiamo il recupero dell'identità esclusivamente al middleware di decodifica JWT.
     user_id = current_user
     try:
         user_data = get_user_data(user_id)
@@ -136,11 +138,9 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Errore nell'elaborazione del messaggio: {str(e)}")
 
-    # Fotografia delle schede PRIMA della run: e' il termine di paragone della
-    # rete di sicurezza. Non ci fidiamo di cio' che l'agente DICE di aver fatto;
-    # confrontiamo lo stato reale del DB prima/dopo per sapere cosa ha fatto
-    # DAVVERO (vedi _workout_snapshot per il razionale sull'action hallucination).
-    # Solo il Coach scrive schede: per il Nutritionist lo snapshot e' inutile.
+    # Fotografiamo programmaticamente il cluster fitness prima dell'esecuzione
+    # per avere un pivot di confronto post-run. Selezioniamo questa via solo
+    # per l'agente Coach, essendo l'unico autorizzato ad alterare le schede.
     is_coach = request.chat_type == "coach"
     snapshot_prima = _workout_snapshot(user_id) if is_coach else None
 
@@ -148,8 +148,8 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         try:
             yield _sse({"type": "start", "conversation_id": conv_id})
 
-            # Streaming token-per-token: in mode=route gli eventi RunContentEvent
-            # di livello team trasportano il testo dell'agente instradato.
+            # Intercettiamo progressivamente i token scaricati dall'engine LLM
+            # incapsulandoli in frame SSE per abbattere il time-to-first-byte percepito.
             chunks = []
             for event in team_agent.run(request.message, stream=True):
                 if isinstance(event, RunContentEvent) and isinstance(event.content, str) and event.content:
@@ -158,40 +158,26 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
 
             ai_text = "".join(chunks).strip() or "Mi dispiace, non ho ricevuto una risposta."
 
-            # ============================================================
-            # RETE DI SICUREZZA AUTO-RIPARANTE (solo Coach)
-            # ------------------------------------------------------------
-            # Difesa deterministica contro l'action hallucination del Tool
-            # Calling: l'agente puo' produrre un testo che AFFERMA il salvataggio
-            # senza aver emesso la tool call. Rileviamo la discrepanza incrociando
-            # due segnali:
-            #   1) claims_save  — il TESTO dichiara un salvataggio/modifica
-            #      (segnale semantico, di per se' inaffidabile);
-            #   2) workouts_updated — il DB e' CAMBIATO davvero rispetto allo
-            #      snapshot iniziale (segnale deterministico, fonte di verita').
-            # Testo che promette + DB invariato == tool NON chiamato.
-            #
-            # In quel caso iniettiamo un recovery_prompt: un messaggio di sistema
-            # invisibile all'utente che re-innesca l'agente forzandolo a emettere
-            # ORA la tool call con la scheda che ha appena proposto a parole. E'
-            # il meccanismo di fallback che "ripara" la run fallita senza mostrare
-            # errori all'utente: la risposta originale resta quella gia' mostrata,
-            # il salvataggio avviene dietro le quinte. Dopo il recovery
-            # ri-fotografiamo il DB per riflettere l'esito reale nel flag finale.
-            # ============================================================
+            # Valutazione di congruenza strutturale (Applicabile solo al Coach)
+            # 
+            # Implementa un sistema euristico per mitigare i disallineamenti tra
+            # testo generato e invocazione reale delle function calling API.
+            # Comparando il delta semantico del messaggio con il delta dello stato 
+            # fisico del database, individuiamo eventuali allucinazioni operative.
+            # Se viene rilevata l'anomalia, forziamo il recupero iniettando in coda
+            # un system prompt nascosto che impone la riparazione istantanea del
+            # mancato salvataggio, il tutto in via trasparente per il client.
             workouts_updated = False
             if is_coach:
                 workouts_updated = _workout_snapshot(user_id) != snapshot_prima
                 low = ai_text.lower()
-                # Segnale semantico: l'agente parla di una "scheda" e usa un
-                # verbo di persistenza. Volutamente ampio — un falso positivo
-                # costa solo una run di recovery in piu', un falso negativo
-                # lascerebbe l'utente con una scheda fantasma mai salvata.
+                # Ricerca euristica: intercettiamo espressioni indicative di intenti 
+                # di scrittura. Una regex volutamente permissiva ammortizza il rischio
+                # di perdere salvataggi legittimi mascherati da un fraseggio atipico.
                 claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
                 if claims_save and not workouts_updated:
-                    # Prompt di recovery: NON e' rivolto all'utente. Ordina
-                    # all'agente di ricavare scheda+esercizi dal proprio testo
-                    # precedente e di chiamare adesso il tool corretto.
+                    # Esecuzione del fallback: passiamo il prompt correttivo 
+                    # all'engine forzando il parser interno a riconoscere il task saltato.
                     recovery_prompt = (
                         "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
                         "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una scheda di allenamento, "
@@ -228,7 +214,7 @@ async def analyze_food_image(
     file: UploadFile = File(...),
     current_user: int = Depends(get_current_user)
 ):
-    # Identità ricavata esclusivamente dal JWT, mai dal client.
+    # Astrazione del contesto utente delegata interamente alla validazione del token
     user_id = current_user
     contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
@@ -239,15 +225,11 @@ async def analyze_food_image(
         user_data = get_user_data(user_id)
         obiettivo = user_data.get("goal_type", "mantenimento") if user_data else "mantenimento"
 
-        # ================================================================
-        # FASE 0: Rilevamento barcode.
-        # Priorità al codice inserito a mano dall'utente (fallback robusto
-        # quando la foto è troppo sfocata/rumorosa per l'OCR): se presente e
-        # plausibile (8-14 cifre) lo usiamo direttamente, saltando lo scan.
-        # Altrimenti detection deterministica sui pixel (OpenCV), nessun LLM:
-        # se l'immagine è cibo senza codice a barre scan_barcode restituisce
-        # None e si passa alla stima visiva. Zero allucinazioni.
-        # ================================================================
+        # Esecuzione del blocco di decodifica visiva
+        # Privilegiamo l'input esplicito se fornito (bypass sicuro in casi di 
+        # scarsa qualità ottica), passando poi alla libreria di detection sui pixel
+        # per limitare le inferenze pesanti. Se il binario restituisce vuoto,
+        # fallback calcolato e deterministico verso l'engine semantico.
         barcode_pulito = "".join(filter(str.isdigit, barcode_manuale or ""))
         if 8 <= len(barcode_pulito) <= 14:
             barcode = barcode_pulito
@@ -258,8 +240,8 @@ async def analyze_food_image(
         testo_analisi = None
 
         if barcode:
-            # Percorso barcode: tool chiamato direttamente dal codice,
-            # proporzione calcolata in Python (nessuna stima LLM).
+            # Il flusso prosegue a monte in Python nativo garantendo tempi costanti
+            # e proteggendoci dalle approssimazioni tipiche del modello.
             prod = get_product_info_by_barcode(BarcodeSearchInput(barcode=barcode))
             if prod.energy_kcal_100g is not None:
                 fattore = grammatura / 100.0
@@ -271,13 +253,13 @@ async def analyze_food_image(
                     f"{round((prod.carbohydrates_100g or 0) * fattore, 1)}g carboidrati, "
                     f"{round((prod.fat_100g or 0) * fattore, 1)}g grassi."
                 )
-            # Prodotto non trovato: si prosegue con la stima visiva qui sotto.
+            # In caso di esito nullo, degradazione dolce verso la pipeline visuale
 
         if testo_analisi is None:
-            # ================================================================
-            # FASE 1: Stima visiva pura. L'agente NON ha il tool OpenFoodFacts
-            # registrato, quindi non può usarlo nemmeno per errore.
-            # ================================================================
+            # Attivazione engine visivo
+            # Disaccoppiamo le capability omettendo il function calling, garantendo
+            # che il sub-agente lavori esclusivamente sull'interpretazione visiva
+            # senza incorrere in iterazioni API indesiderate.
             agent_fase1 = VisionNutritionistAgent(with_barcode_tool=False)
             prompt_fase1 = (
                 f"Riconosci l'alimento in questa immagine. "
@@ -297,10 +279,9 @@ async def analyze_food_image(
             else:
                 testo_analisi = str(response_fase1.content)
 
-        # ================================================================
-        # FASE 2: Agente Parser - converte il testo in MealAnalysis JSON
-        # Nessuna immagine, nessun tool: solo conversione testo → struttura
-        # ================================================================
+        # Serializzazione della risposta
+        # Deleghiamo a un worker separato il mapping dal discorso naturale
+        # alla struttura JSON stretta validata contro il nostro schema Pydantic.
         agente_parser = Agent(
             model=GroqModel(id="meta-llama/llama-4-scout-17b-16e-instruct"),
             description="Converti dati nutrizionali in JSON strutturato.",
@@ -331,7 +312,7 @@ async def analyze_food_image(
         raw_content = response_fase2.content
         if isinstance(raw_content, str):
             clean_json = raw_content.replace("```json", "").replace("```", "").strip()
-            # Rimuovi eventuali caratteri non-JSON all'inizio/fine
+            # Pulizia regressiva per scartare prefissi o markdown spurio
             if clean_json.find('{') != -1:
                 clean_json = clean_json[clean_json.find('{'):clean_json.rfind('}')+1]
             analysis = MealAnalysis.model_validate_json(clean_json)

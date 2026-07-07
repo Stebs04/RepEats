@@ -56,7 +56,7 @@
 <body class="bg-background text-on-surface min-h-screen flex items-center justify-center p-4">
 
     <div class="w-full max-w-md bg-surface-container-low border border-surface-variant rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        <!-- Decorazione luminosa sfocata -->
+        <!-- Rendering degli accenti grafici ambientali - Author: Stefano Bellan (20054330) -->
         <div class="absolute -top-10 -right-10 w-32 h-32 bg-primary/20 blur-3xl rounded-full"></div>
         <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-secondary/20 blur-3xl rounded-full"></div>
 
@@ -104,7 +104,7 @@
         </div>
     </div>
 
-    <!-- Script per collegare il form al backend -->
+    <!-- Logica di autenticazione client-side e gestione del token JWT - Author: Stefano Bellan (20054330) -->
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -138,24 +138,23 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Salviamo il solo token JWT (nessun dato utente in chiaro).
-                    // sessionStorage: valido finché il tab/browser non viene chiuso.
+                    // Persistenza temporanea del token JWT nel session storage per mitigazione data leak
                     sessionStorage.setItem('repEats_token', data.access_token);
 
                     if (rememberMe) {
-                        // "Ricordami" attivo: salviamo anche in localStorage con scadenza 7 giorni
+                        // Persistenza a lungo termine per estensione della validità della sessione
                         localStorage.setItem('repEats_token', data.access_token);
                         localStorage.setItem('repEats_expires', Date.now() + 7 * 24 * 60 * 60 * 1000);
                     } else {
-                        // "Ricordami" disattivato: puliamo eventuali vecchi dati in localStorage
+                        // Garbage collection esplicita in caso di rinuncia alla persistenza estesa
                         localStorage.removeItem('repEats_token');
                         localStorage.removeItem('repEats_expires');
                     }
 
-                    // Usiamo replace per non aggiungere la pagina di login alla history
+                    // Reindirizzamento atomico verso la dashboard disabilitando il back-tracing del routing
                     window.location.replace('/dashboard.html');
                 } else {
-                    // Errore nel login
+                    // Gestione di fallback visuale per credenziali invalidate dal server
                     errorBox.textContent = data.detail || "Errore durante il login";
                     errorBox.classList.remove('hidden');
                 }

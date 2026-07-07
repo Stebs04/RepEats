@@ -1,26 +1,16 @@
 """
-Pipeline di ingestion/sincronizzazione delle Knowledge Base RAG di RepEats.
+Gestore del ciclo di vita dei documenti e dell'ingestion per le Knowledge Base.
 
-Responsabilità (separata dal builder in src/database/knowledge_base.py):
-- scansiona la cartella dei documenti (`src/knowledge_base/docs/`),
-- seleziona il reader adatto al formato (txt, md, pdf, docx),
-- applica il chunking configurabile e l'arricchimento con metadati,
-- instrada ogni documento verso la KB del suo DOMINIO (fitness / nutrition),
-- SINCRONIZZA l'indice con la cartella: indicizza i nuovi, ri-indicizza i
-  modificati e rimuove dall'indice i documenti eliminati da docs/.
+Isola la logica di popolamento rispetto alla configurazione strutturale del DB.
+Si occupa di ispezionare la directory sorgente, selezionare il parser idoneo per 
+estensione, applicare le regole di frammentazione del testo (chunking) e iniettare 
+i metadati rilevanti. Il flusso di sincronizzazione garantisce consistenza con il 
+file system, rilevando aggiunte, modifiche o rimozioni tramite un manifest locale,
+evitando in questo modo costosi ricalcoli sugli asset immutati.
 
-La sincronizzazione si basa su un manifest (mtime + dimensione) salvato accanto
-al vector store, così da rilevare le differenze ad ogni avvio senza rileggere
-inutilmente file immutati.
+Supporta l'esecuzione standalone da CLI per operazioni manuali o batch.
 
-Eseguibile come modulo:
-    python -m src.knowledge_base.ingest            # sincronizza docs/ con l'indice
-    python -m src.knowledge_base.ingest --full     # forza la re-indicizzazione di tutto
-    python -m src.knowledge_base.ingest --delete NOME [--domain fitness|nutrition]
-
-`sync()` viene invocata automaticamente all'avvio dell'applicazione (main.py).
-
-Autore: Stefano Bellan (20054330)
+Author: Stefano Bellan (20054330)
 """
 
 import os
@@ -36,8 +26,8 @@ from src.database.knowledge_base import (
     DEFAULT_DOMAIN,
 )
 
-# Parametri di chunking (override via env). RecursiveChunking spezza il testo
-# rispettando i confini naturali (paragrafi/frasi) fino a chunk_size caratteri.
+# Impostiamo i parametri dimensionali per il partizionamento semantico del testo,
+# modulabili dall'esterno per adattarsi alla tokenizzazione del modello scelto.
 CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1500"))
 CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "150"))
 
@@ -45,18 +35,30 @@ SUPPORTED_EXTENSIONS = (".txt", ".md", ".pdf", ".docx")
 
 
 def _docs_dir() -> str:
-    """Percorso assoluto della cartella dei documenti da indicizzare."""
+    """
+    Risolve il path assoluto della directory di staging dei documenti.
+    
+    Author: Stefano Bellan (20054330)
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, "docs")
 
 
 def _manifest_path() -> str:
-    """Percorso del manifest che traccia lo stato dei documenti indicizzati."""
+    """
+    Restituisce l'indirizzo del file di controllo per il tracking delle versioni.
+    
+    Author: Stefano Bellan (20054330)
+    """
     return os.path.join(vector_store_dir(), ".ingest_manifest.json")
 
 
 def _load_manifest() -> dict:
-    """Carica il manifest precedente ({source: {domain, sig}}). Vuoto se assente."""
+    """
+    Legge lo stato precedente dell'indicizzazione gestendo l'assenza del file in modo silente.
+    
+    Author: Stefano Bellan (20054330)
+    """
     path = _manifest_path()
     if not os.path.exists(path):
         return {}
@@ -68,7 +70,11 @@ def _load_manifest() -> dict:
 
 
 def _save_manifest(manifest: dict) -> None:
-    """Persiste il manifest aggiornato."""
+    """
+    Scrive su disco lo snapshot aggiornato del repository documentale.
+    
+    Author: Stefano Bellan (20054330)
+    """
     os.makedirs(vector_store_dir(), exist_ok=True)
     with open(_manifest_path(), "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
@@ -76,9 +82,13 @@ def _save_manifest(manifest: dict) -> None:
 
 def _file_signature(file_path: str) -> str:
     """
-    Firma di contenuto del file per rilevare modifiche: mtime + dimensione.
-    Se cambia uno dei due, il documento è considerato modificato e va re-indicizzato.
-    Include anche la firma del sidecar, così un cambio di metadati/dominio è rilevato.
+    Calcola un identificativo univoco e leggero per stabilire l'immutabilità dell'asset.
+    
+    Combina timestamp di sistema e dimensione del file primario assieme a quelli
+    dell'eventuale sidecar JSON, permettendo di intercettare qualsiasi alterazione
+    senza dover calcolare hash completi del contenuto.
+    
+    Author: Stefano Bellan (20054330)
     """
     st = os.stat(file_path)
     sig = f"{int(st.st_mtime)}:{st.st_size}"
@@ -91,11 +101,12 @@ def _file_signature(file_path: str) -> str:
 
 def _make_reader(ext: str):
     """
-    Restituisce il reader Agno adatto all'estensione, con la strategia di
-    chunking condivisa. Import locali: i reader binari (pdf/docx) hanno
-    dipendenze pesanti (pypdf, python-docx) caricate solo quando servono.
-
-    Ritorna None per estensioni non supportate.
+    Associa l'estensione del file all'implementazione del parser corrispondente.
+    
+    Ottimizziamo il footprint di memoria ricorrendo agli import differiti, dato che
+    alcune librerie di decodifica binaria non sono necessarie per i formati testuali.
+    
+    Author: Stefano Bellan (20054330)
     """
     chunking = RecursiveChunking(chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
     ext = ext.lower()
@@ -116,15 +127,13 @@ def _make_reader(ext: str):
 
 def _build_metadata(file_path: str) -> dict:
     """
-    Arricchisce ogni documento con metadati di provenienza.
-
-    Ordine di precedenza:
-    1. Un file sidecar `<documento>.meta.json` (se presente) fornisce i campi
-       espliciti (es. domain, title, fonte, anno).
-    2. In assenza del sidecar, i metadati sono derivati dal nome del file e il
-       dominio è quello di default (fitness).
-
-    Il campo `domain` determina in quale KB/tabella finisce il documento.
+    Raccoglie le informazioni ausiliarie per categorizzare il documento vettoriale.
+    
+    In assenza di un file sidecar dedicato, il processo fa ricorso a valori di
+    default inferiti dal file system, garantendo un posizionamento robusto all'interno
+    della tabella corretta del dominio di competenza.
+    
+    Author: Stefano Bellan (20054330)
     """
     filename = os.path.basename(file_path)
     stem, _ = os.path.splitext(filename)
@@ -143,7 +152,7 @@ def _build_metadata(file_path: str) -> dict:
         except (json.JSONDecodeError, OSError) as e:
             print(f"[WARN] Sidecar metadata ignorato per {filename}: {e}")
 
-    # Difesa: dominio non valido nel sidecar -> ricade sul default.
+    # Normalizzazione dei dati in ingresso in caso di associazioni non valide
     if metadata.get("domain") not in DOMAIN_TABLES:
         print(f"[WARN] Dominio '{metadata.get('domain')}' non valido per {filename}, "
               f"uso '{DEFAULT_DOMAIN}'.")
@@ -153,7 +162,11 @@ def _build_metadata(file_path: str) -> dict:
 
 
 def _iter_documents(docs_dir: str):
-    """Genera i percorsi assoluti dei documenti indicizzabili, in ordine stabile."""
+    """
+    Scorre la repository fornendo un ordine di elaborazione prevedibile.
+    
+    Author: Stefano Bellan (20054330)
+    """
     for name in sorted(os.listdir(docs_dir)):
         if name.endswith(".meta.json"):
             continue
@@ -163,7 +176,7 @@ def _iter_documents(docs_dir: str):
 
 
 # ---------------------------------------------------------------------------
-# Cache delle KB per dominio (evita di ricostruire l'embedder più volte in un run)
+# Meccanismo di riuso in memoria per gli accessi ai namespace dei vettori
 # ---------------------------------------------------------------------------
 def _kb(domain: str, cache: dict):
     if domain not in cache:
@@ -173,8 +186,12 @@ def _kb(domain: str, cache: dict):
 
 def _index_file(file_path: str, cache: dict, skip_if_exists: bool = False) -> str | None:
     """
-    Indicizza (upsert) un singolo file nella KB del suo dominio.
-    Ritorna il dominio in cui è stato indicizzato, o None in caso di skip/errore.
+    Esegue l'operazione di caricamento e conversione vettoriale per un singolo asset.
+    
+    Restituisce lo spazio dei nomi presso cui i frammenti sono stati riversati,
+    facilitando il tracciamento sul manifest e ignorando fallimenti isolati.
+    
+    Author: Stefano Bellan (20054330)
     """
     ext = os.path.splitext(file_path)[1]
     reader = _make_reader(ext)
@@ -195,22 +212,23 @@ def _index_file(file_path: str, cache: dict, skip_if_exists: bool = False) -> st
         print(f"[OK] Indicizzato: {metadata['source']} (dominio: {domain})")
         return domain
     except Exception as e:
-        # Un documento problematico non deve interrompere l'intera pipeline.
+        # Isola i fallimenti procedurali per permettere la convergenza del batch
         print(f"[ERRORE] {metadata['source']}: {e}")
         return None
 
 
 def delete_document(source: str, domain: str | None = None) -> bool:
     """
-    Rimuove dall'indice tutti i chunk di un documento, identificato dal nome file
-    (metadato `source`).
-
+    Purga la base dati rimuovendo integralmente le righe associate a una risorsa.
+    
     Args:
-        source: nome del file come indicizzato (es. "indice_glicemico.docx").
-        domain: dominio in cui cercare. Se None prova entrambi.
-
+        source: Identificativo originale del file indicizzato.
+        domain: Parametro opzionale per limitare la scope della cancellazione.
+        
     Returns:
-        True se almeno un dominio ha rimosso qualcosa.
+        bool: Riscontro positivo se l'operazione ha impattato lo store.
+        
+    Author: Stefano Bellan (20054330)
     """
     domains = [domain] if domain else list(DOMAIN_TABLES)
     removed_any = False
@@ -229,18 +247,19 @@ def delete_document(source: str, domain: str | None = None) -> bool:
 
 def sync(full: bool = False) -> dict:
     """
-    Sincronizza l'indice con la cartella docs/.
-
-    - Documenti NUOVI  -> indicizzati.
-    - Documenti MODIFICATI (mtime/dimensione o sidecar cambiati) -> re-indicizzati.
-    - Documenti ELIMINATI da docs/ -> rimossi dall'indice.
-    - Documenti INVARIATI -> saltati (nessun ricalcolo di embedding).
-
+    Allinea l'attuale topologia documentale con i record presenti a database.
+    
+    Il processo compara lo snapshot fisico con il manifest salvato alla precedente
+    esecuzione per identificare aggiunte, alterazioni di contenuto e cancellazioni,
+    evitando del tutto elaborazioni ridondanti sugli asset statici.
+    
     Args:
-        full: se True ignora il manifest e re-indicizza tutti i file presenti.
-
+        full: Forza l'overwrite bypassando il controllo di cache locale.
+        
     Returns:
-        Riepilogo {"added","updated","deleted","unchanged"}.
+        dict: Metriche sintetiche dell'operazione di merge.
+        
+    Author: Stefano Bellan (20054330)
     """
     docs_dir = _docs_dir()
     if not os.path.isdir(docs_dir):
@@ -252,27 +271,27 @@ def sync(full: bool = False) -> dict:
     new_manifest: dict = {}
     stats = {"added": 0, "updated": 0, "deleted": 0, "unchanged": 0}
 
-    # File attualmente presenti in docs/
+    # Elencazione del contenuto corrente esposto nel file system
     current = {os.path.basename(p): p for p in _iter_documents(docs_dir)}
 
-    # 1) Rimozione dei documenti spariti da docs/ (presenti nel manifest, non su disco)
+    # Fasi di pulizia: evizione delle risorse dismesse in base al differenziale
     for source, entry in prev.items():
         if source not in current:
             if delete_document(source, domain=entry.get("domain")):
                 stats["deleted"] += 1
 
-    # 2) Aggiunta / aggiornamento dei documenti presenti
+    # Flusso di ingest per i file novelli o contrassegnati come stale
     for source, file_path in current.items():
         sig = _file_signature(file_path)
         old = prev.get(source)
 
         if old and old.get("sig") == sig:
-            # Invariato: mantiene la voce di manifest esistente.
+            # Passthrough rapido per asset verificati ed identici al run precedente
             new_manifest[source] = old
             stats["unchanged"] += 1
             continue
 
-        # Se il dominio è cambiato rispetto a prima, rimuovi dalla vecchia tabella.
+        # Rilocazione inter-dominio: eliminiamo le vecchie tracce per evitare split cerebrali
         if old and old.get("domain"):
             new_domain = _build_metadata(file_path)["domain"]
             if new_domain != old["domain"]:
@@ -280,7 +299,7 @@ def sync(full: bool = False) -> dict:
 
         domain = _index_file(file_path, cache, skip_if_exists=False)
         if domain is None:
-            # Errore/skip: non lo registriamo, così al prossimo avvio ci riprova.
+            # Registriamo in modo permissivo: riproveremo alla successiva transazione
             continue
         new_manifest[source] = {"domain": domain, "sig": sig}
         stats["added" if not old else "updated"] += 1
@@ -311,7 +330,7 @@ if __name__ == "__main__":
         if "--domain" in args:
             dom = args[args.index("--domain") + 1]
         deleted = delete_document(args[1], domain=dom)
-        # Mantieni il manifest coerente dopo una delete manuale.
+        # Aggiorniamo la contabilità dei file post operazione di cancellazione forzata
         if deleted:
             man = _load_manifest()
             man.pop(args[1], None)

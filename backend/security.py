@@ -1,9 +1,10 @@
 """
-Logica di sicurezza centralizzata per l'autenticazione basata su JWT.
+Author: Timothy Giolito (20054431)
 
-Isola in un unico modulo la creazione dei token di accesso e la dipendenza
-FastAPI che li valida, così che i router restino puliti e l'identità dell'utente
-sia ricavata ESCLUSIVAMENTE dal token firmato (mai da parametri passati dal client).
+Ho racchiuso qui dentro tutta l'infrastruttura di sicurezza legata ai JWT.
+Avere un modulo dedicato mi permette di tenere i router in ordine e di avere la certezza 
+che l'identità di chi fa una richiesta arrivi esclusivamente dal payload del token firmato, 
+senza mai fidarci ciecamente dei parametri inviati liberamente dai client.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -14,26 +15,26 @@ from fastapi.security import OAuth2PasswordBearer
 
 from src.database.user_service import get_user_data
 
-# Configurazione letta dall'ambiente (.env). I default servono solo a evitare
-# crash in sviluppo: in produzione JWT_SECRET_KEY DEVE essere impostata.
+# Author: Timothy Giolito (20054431)
+# Variabili ambientali lette dal sistema operativo. Ho inserito dei valori fittizi di ripiego
+# giusto per riuscire a far girare il backend in locale senza impazzire col file .env, 
+# ma ovviamente in ambiente di produzione la chiave deve essere ben configurata.
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "chiave-di-sviluppo-non-sicura")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# Schema Bearer: estrae automaticamente il token dall'header
-# `Authorization: Bearer <token>`. tokenUrl punta all'endpoint di login.
+# Author: Timothy Giolito (20054431)
+# Dichiariamo lo schema di autenticazione in modo che FastAPI sappia cercare 
+# il token Bearer direttamente nell'header HTTP Authorization di ogni chiamata protetta.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def create_access_token(data: dict) -> str:
     """
-    Genera un JWT firmato includendo i claim forniti e una scadenza (`exp`).
-
-    Args:
-        data: Claim da includere nel payload (es. `{"sub": "<user_id>"}`).
-
-    Returns:
-        Il token JWT codificato come stringa.
+    Author: Timothy Giolito (20054431)
+    
+    Genera un token firmato iniettando i dati che vogliamo mantenere tracciati
+    e appendendo un timestamp di scadenza, dopodiché mi restituisce tutto serializzato.
     """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -43,14 +44,12 @@ def create_access_token(data: dict) -> str:
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> int:
     """
-    Dipendenza FastAPI: valida il token, ne estrae l'ID utente e ne verifica
-    l'esistenza nel database.
-
-    Solleva 401 Unauthorized se il token è mancante, invalido, scaduto oppure
-    riferito a un utente inesistente.
-
-    Returns:
-        L'ID dell'utente autenticato (int).
+    Author: Timothy Giolito (20054431)
+    
+    Questa funzione fa da guardia ai cancelli. Agisce come dipendenza di FastAPI per validare
+    al volo il token in ingresso, decodificarlo, estrarre l'ID dell'utente e accertarsi
+    che quel profilo esista ancora nel nostro database prima di farlo passare.
+    Se c'è puzza di bruciato per scadenze o manomissioni, sbatte fuori la richiesta con un 401.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,7 +66,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> int:
     except (jwt.PyJWTError, ValueError, TypeError):
         raise credentials_exception
 
-    # Verifica che l'utente esista ancora (usa i servizi DB esistenti).
+    # Author: Timothy Giolito (20054431)
+    # Controllo di integrità: dobbiamo essere certi che chi ha prodotto il token
+    # esista ancora fisicamente sul database prima di procedere.
     if get_user_data(user_id) is None:
         raise credentials_exception
 

@@ -1,13 +1,8 @@
 """
-Modulo dell'Agente Fitness (Personal Trainer).
-Gestisce la creazione dell'agente PT specializzato in programmazione dell'allenamento,
-esercizi, recupero muscolare e motivazione sportiva.
+Modulo per l'inizializzazione dell'agente neurale orientato al fitness.
+Incapsula le logiche di profilazione dell'allenamento, gestione dei carichi e prevenzione, delegando il routing all'orchestrazione di livello superiore.
 
-Questo modulo contiene SOLO la definizione dell'agente PT, senza logica di orchestrazione.
-Il routing e il contesto condiviso sono gestiti dall'orchestratore (src/orchestrator.py).
-
-Created by Timothy Giolito
-Modified by Stefano Bellan 20054330 - Separazione agente dall'orchestratore
+Author: Timothy Giolito (20054431)
 """
 
 from agno.agent import Agent
@@ -21,19 +16,16 @@ import ast
 
 def _parse_exercises(exercises) -> list:
     """
-    Converte il parametro 'exercises' ricevuto dall'LLM in una lista di dizionari.
-    Tollera i formati imperfetti più comuni prodotti dai modelli: code fence
-    markdown (```json ... ```), apici singoli in stile Python, un singolo
-    oggetto invece di una lista, o una lista già deserializzata.
-
-    Raises:
-        ValueError: se il contenuto non è interpretabile come lista di esercizi.
+    Deserializzazione e sanitizzazione dell'output generato dal modello in formato JSON.
+    Implementa logiche di fallback per ast.literal_eval e decodifica di code block markdown.
+    
+    Author: Timothy Giolito (20054431)
     """
     if isinstance(exercises, (list, dict)):
         parsed = exercises
     else:
         raw = str(exercises).strip()
-        # Rimozione di eventuali code fence markdown attorno al JSON
+        # Epurazione dei delimitatori markdown non standard
         if raw.startswith("```"):
             raw = raw.strip("`").strip()
             if raw[:4].lower() == "json":
@@ -41,13 +33,13 @@ def _parse_exercises(exercises) -> list:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
-            # Fallback per liste/dizionari scritti con sintassi Python (apici singoli)
+            # Fallback per parser nativo in caso di fallimento della decodifica JSON stretta
             try:
                 parsed = ast.literal_eval(raw)
             except (ValueError, SyntaxError):
                 raise ValueError("il parametro 'exercises' non è una lista JSON valida")
 
-    # Un singolo esercizio passato come oggetto viene avvolto in una lista
+    # Casting forzato a lista per gestire instradamenti di oggetti singoli
     if isinstance(parsed, dict):
         parsed = [parsed]
 
@@ -59,37 +51,19 @@ def _parse_exercises(exercises) -> list:
 
 def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, enable_tools: bool = True) -> Agent:
     """
-    Crea e restituisce l'agente Personal Trainer di RepEats.
-
-    L'agente è configurato con:
-    - Knowledge Base RAG per protocolli di allenamento.
-    - Contesto utente (biometria, nutrizione, cronologia chat).
-    - Guardrails per limitare le risposte al solo dominio fitness.
-
-    Args:
-        user_context: Stringa con il contesto condiviso (dati utente, macro, cronologia).
-        knowledge_base: Knowledge Base configurata con i protocolli di allenamento.
-        user_data: Dizionario con i dati dell'utente, incluso l'ID.
-        enable_tools: Se False l'agente non registra i tool di persistenza (create/modify/get
-                      workout plan). Utile per valutazioni/test dove si vuole la sola risposta
-                      testuale senza scritture sul database. In produzione resta True.
-
-    Returns:
-        Agent: L'agente Personal Trainer configurato.
+    Factory per l'istanza Agno specializzata nel dominio fitness.
+    Configura il binding con la knowledge base RAG, il contesto operativo e i sistemi di guardrail.
+    
+    Author: Timothy Giolito (20054431)
     """
     user_id = user_data.get('user_id')
 
     def create_workout_plan_tool(plan_name: str, exercises: str) -> str:
         """
-        Crea e salva nel database una nuova scheda di allenamento per l'utente.
-        Usa questo strumento SOLO DOPO che l'utente ha ESPLICITAMENTE confermato di
-        voler salvare una scheda che gli hai già mostrato nel turno precedente.
-        Non usarlo mai nello stesso turno in cui proponi la scheda per la prima volta.
-
-        Args:
-            plan_name: Nome della scheda (es. "Scheda Ipertrofia Uppper Body").
-            exercises: Una stringa JSON rappresentante una lista di dizionari per gli esercizi.
-                       Ogni dizionario deve avere le chiavi: "name" (str), "muscle_group" (str), "sets" (int), "reps" (str), "rest_time" (str).
+        Metodo per il deployment di un nuovo protocollo di allenamento all'interno del database.
+        L'invocazione deve avvenire esclusivamente in modalità differita a seguito di autorizzazione esplicita.
+        
+        Author: Timothy Giolito (20054431)
         """
         try:
             ex_list = _parse_exercises(exercises)
@@ -104,13 +78,10 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
 
     def modify_workout_plan_tool(plan_name: str, exercises: str) -> str:
         """
-        Modifica una scheda di allenamento esistente (identificata dal nome) nel database.
-        Se la scheda non esiste, verrà creata.
+        Interfaccia per la mutazione dello stato di un protocollo di allenamento preesistente.
+        Comporta l'upsert degli identificativi nel datastore.
         
-        Args:
-            plan_name: Nome della scheda da modificare (es. "Scheda Ipertrofia Uppper Body").
-            exercises: L'elenco AGGIORNATO COMPLETO degli esercizi in formato stringa JSON (lista di dizionari).
-                       Ogni dizionario deve avere le chiavi: "name" (str), "muscle_group" (str), "sets" (int), "reps" (str), "rest_time" (str).
+        Author: Timothy Giolito (20054431)
         """
         try:
             ex_list = _parse_exercises(exercises)
@@ -125,12 +96,9 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
 
     def get_workout_plan_tool(plan_name: str) -> str:
         """
-        Recupera gli esercizi di una scheda di allenamento esistente nel database.
-        Usa questo strumento PRIMA di modificare una scheda per ottenere l'elenco completo degli esercizi attuali,
-        così da poterli includere (insieme alle tue modifiche) quando chiami modify_workout_plan_tool senza cancellarli.
+        Lettura in stato persistito di un set di esercizi ai fini di mutazione successiva.
         
-        Args:
-            plan_name: Nome della scheda da recuperare.
+        Author: Timothy Giolito (20054431)
         """
         try:
             plans = get_user_workout_plans(user_id)
@@ -146,9 +114,9 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
         role="Personal Trainer specializzato in programmazione dell'allenamento, esercizi, recupero muscolare e motivazione sportiva.",
         model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
         knowledge=knowledge_base,
-        # RAG classico: i documenti pertinenti vengono recuperati e iniettati nel
-        # prompt ad ogni turno, SENZA dipendere dal fatto che il modello decida di
-        # chiamare un tool di ricerca (llama-4-scout è inaffidabile in quello).
+        # Modalità RAG eager: iniezione deterministica del contesto informativo per bypassare
+        # le fluttuazioni stocastiche nella chiamata autonoma degli strumenti di ricerca.
+        # Author: Timothy Giolito (20054431)
         add_knowledge_to_context=True,
         search_knowledge=False,
         instructions=[
