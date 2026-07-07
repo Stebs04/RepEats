@@ -15,7 +15,7 @@ import tempfile
 import os
 import re
 import json
-from agno.run.team import RunContentEvent
+from agno.run.team import RunContentEvent, RunErrorEvent
 from agno.models.message import Image as AgnoImage
 from agno.agent import Agent
 from agno.models.groq import Groq as GroqModel
@@ -98,10 +98,34 @@ def _extract_ai_text(response) -> str:
 def _sse(payload: dict) -> str:
     """
     Impacchetta un dizionario Python in una stringa conforme allo standard Server-Sent Events.
-    
+
     Author: Stefano Bellan (20054330)
     """
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+# Lista di affermazioni che valgono come conferma esplicita di salvataggio (Fase 2).
+_SAVE_AFFERM = ("si", "sì", "ok", "okay", "va bene", "perfetto", "salva", "salvala",
+                "certo", "confermo", "d'accordo", "daccordo", "procedi", "vai",
+                "memorizza", "yes", "sisi")
+
+
+def _is_save_confirmation(user_message: str, prev_assistant: str) -> bool:
+    """
+    Rileva se l'utente ha confermato il salvataggio di una scheda proposta nel turno precedente.
+
+    🔴 Il frontend antepone SEMPRE il prefisso di routing 'Al Coach: ' a ogni messaggio: va
+    rimosso PRIMA del confronto, altrimenti l'affermazione non matcha mai (es. 'Al Coach: salvala'
+    diventa 'al coach salvala') e il salvataggio deterministico non parte, lasciando il modello
+    debole a rigenerare la scheda in loop.
+
+    Author: Stefano Bellan (20054330)
+    """
+    msg = re.sub(r'^\s*al(?:la)?\s+coach\s*:?\s*', '', user_message.strip(), flags=re.IGNORECASE)
+    um = re.sub(r'[^\w\s]', '', msg.lower()).strip()
+    is_afferm = any(um == a or um.startswith(a + " ") for a in _SAVE_AFFERM)
+    is_proposal = any(k in prev_assistant.lower() for k in ["salv", "profil", "memorizz", "scheda", "vuoi"])
+    return is_afferm and is_proposal
 
 
 @router.post("/send")
@@ -154,14 +178,8 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
     fase2_conferma = False
     if is_coach:
         # Author: Stefano Bellan (20054330)
-        _um = re.sub(r'[^\w\s]', '', request.message.strip().lower())
-        _afferm = ("si", "sì", "ok", "okay", "va bene", "perfetto", "salva", "salvala",
-                   "certo", "confermo", "d'accordo", "daccordo", "procedi", "vai",
-                   "memorizza", "yes", "sisi")
-        _prev_lower = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "").lower()
-        _is_affermative = any(_um == a or _um.startswith(a + " ") for a in _afferm)
-        _is_proposal = any(k in _prev_lower for k in ["salv", "profil", "memorizz", "scheda", "vuoi"])
-        fase2_conferma = _is_affermative and _is_proposal
+        _prev_assist = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
+        fase2_conferma = _is_save_confirmation(request.message, _prev_assist)
 
     # Prompt di salvataggio forzato: recupera dalla cronologia le schede proposte in Fase 1
     # e chiama davvero il tool corretto, rispondendo solo con la conferma esatta.
@@ -196,12 +214,32 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             # Intercettiamo progressivamente i token scaricati dall'engine LLM
             # incapsulandoli in frame SSE per abbattere il time-to-first-byte percepito.
             chunks = []
+            run_error = None
             for event in team_agent.run(request.message, stream=True):
                 if isinstance(event, RunContentEvent) and isinstance(event.content, str) and event.content:
                     chunks.append(event.content)
                     yield _sse({"type": "content", "delta": event.content})
+                elif isinstance(event, RunErrorEvent):
+                    # Il modello/provider ha fallito (es. rate limit Groq 429): l'evento di
+                    # errore NON è un RunContentEvent, quindi senza questo ramo lo streaming
+                    # resta vuoto e l'utente vede solo un generico "non ho ricevuto risposta".
+                    run_error = str(getattr(event, "content", "") or "Errore sconosciuto")
 
-            ai_text = "".join(chunks).strip() or "Mi dispiace, non ho ricevuto una risposta."
+            ai_text = "".join(chunks).strip()
+
+            # Nessun testo generato ma errore del provider: mostra un messaggio utile e chiudi.
+            if not ai_text and run_error:
+                _low = run_error.lower()
+                if "rate_limit" in _low or "429" in _low or "tokens per day" in _low:
+                    friendly = "⚠️ Ho esaurito il numero di richieste disponibili per ora. Riprova tra qualche minuto."
+                else:
+                    friendly = "⚠️ Si è verificato un errore momentaneo del servizio. Riprova tra poco."
+                yield _sse({"type": "content", "delta": friendly})
+                save_message(conv_id, "assistant", friendly)
+                yield _sse({"type": "end", "workouts_updated": False})
+                return
+
+            ai_text = ai_text or "Mi dispiace, non ho ricevuto una risposta."
 
             # Valutazione di congruenza strutturale (Applicabile solo al Coach)
             #
@@ -419,3 +457,15 @@ def delete_session(conversation_id: int):
         return {"message": "Cancellato con successo"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    # Self-check detection Fase 2: il prefisso di routing NON deve rompere il match.
+    _prop = "Ecco la scheda. Vuoi che la salvi nel tuo profilo?"
+    assert _is_save_confirmation("Al Coach: salvala", _prop)
+    assert _is_save_confirmation("Al Coach: sì", _prop)
+    assert _is_save_confirmation("sì, salvala", _prop)
+    assert _is_save_confirmation("Al Coach: ok", _prop)
+    assert not _is_save_confirmation("Al Coach: cambia il primo esercizio", _prop)
+    assert not _is_save_confirmation("Al Coach: salvala", "Ciao, come posso aiutarti?")
+    print("OK _is_save_confirmation")

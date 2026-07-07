@@ -616,8 +616,10 @@
             removeLoading();
             if (!contentEl) appendBotMessage("Mi dispiace, non ho ricevuto una risposta.");
             // Author: Timothy Giolito (20054431)
+            // Rilevo il salvataggio dalla frase forzata di conferma (marcatore deterministico), non dal flag snapshot che è inaffidabile su upsert o riconferme.
+            const saveConfirmed = acc.includes("Scheda salvata");
             // Aggiorno visivamente la proposta iniziale con un badge di conferma invece di stampare una nuova bolla, rimuovendo i turni superflui post-salvataggio.
-            if (workoutsUpdated && acc.includes("Scheda salvata")) {
+            if (saveConfirmed) {
                 const botMsgs = chatHistory.querySelectorAll('.bg-surface-variant\\/50');
                 if (botMsgs.length >= 2) {
                     botMsgs[botMsgs.length - 2].innerHTML += '<div class="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container/20 text-primary-container border border-primary-container/30 text-sm font-semibold shadow-[0_0_10px_rgba(57,255,20,0.1)]"><span class="material-symbols-outlined text-[18px]">check_circle</span> Scheda salvata nel profilo</div>';
@@ -627,7 +629,7 @@
                 if (userMsgs.length > 0) userMsgs[userMsgs.length - 1].remove();
             }
             // Controllo se sono state apportate modifiche ai piani di allenamento e, se necessario, chiedo un aggiornamento visivo immediato.
-            if (workoutsUpdated) loadWorkoutPlans();
+            if (workoutsUpdated || saveConfirmed) loadWorkoutPlans();
 
         } catch (error) {
             removeLoading();
