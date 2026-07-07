@@ -610,6 +610,40 @@ def update_workout_plan(user_id: int, plan_name: str, exercises: list):
             order_index=idx
         )
         session.add(new_ex)
-        
+
     session.commit()
     session.close()
+
+def save_multiple_workout_plans(user_id: int, plans_data: list):
+    """
+    Author: Timothy Giolito (20054431)
+
+    Salva un'intera programmazione settimanale in maniera atomica.
+    Riceve una lista di dizionari (ciascuno con 'name' e 'exercises') e committa
+    tutto in una singola transazione per garantire consistenza dei dati.
+    """
+    session = get_session()
+    try:
+        for plan_data in plans_data:
+            new_plan = WorkoutPlan(user_id=user_id, name=plan_data.get('name', 'Scheda'))
+            session.add(new_plan)
+            session.flush()
+
+            exercises = plan_data.get('exercises', [])
+            for idx, ex in enumerate(exercises):
+                new_ex = WorkoutExercise(
+                    plan_id=new_plan.id,
+                    name=ex.get('name', 'Esercizio'),
+                    muscle_group=ex.get('muscle_group', ''),
+                    sets=ex.get('sets', 3),
+                    reps=str(ex.get('reps', '10')),
+                    rest_time=str(ex.get('rest_time', '90s')),
+                    order_index=idx
+                )
+                session.add(new_ex)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()

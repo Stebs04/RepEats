@@ -146,9 +146,47 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
     is_coach = request.chat_type == "coach"
     snapshot_prima = _workout_snapshot(user_id) if is_coach else None
 
+    # Rilevazione Fase 2 (conferma di salvataggio) PRIMA della run: l'utente ha detto
+    # "sì/ok/salva" a una proposta di salvataggio del turno precedente. Serve a bypassare
+    # la ri-generazione verbosa della scheda da parte del modello debole (che ignora il
+    # divieto testuale) e a forzare il solo salvataggio con conferma secca.
+    # ponytail: euristica su lista di affermazioni; se serve più copertura, ampliare _afferm.
+    fase2_conferma = False
+    if is_coach:
+        _um = request.message.strip().lower()
+        _afferm = ("si", "sì", "ok", "okay", "va bene", "perfetto", "salva", "salvala",
+                   "certo", "confermo", "d'accordo", "yes", "sisi")
+        _prev = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
+        fase2_conferma = any(_um == a or _um.startswith(a + " ") for a in _afferm) and "salv" in _prev.lower()
+
+    # Prompt di salvataggio forzato: recupera dalla cronologia le schede proposte in Fase 1
+    # e chiama davvero il tool corretto, rispondendo solo con la conferma esatta.
+    # Author: Stefano Bellan (20054330)
+    recovery_prompt = (
+        "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
+        "l'utente ha CONFERMATO il salvataggio della/e scheda/e che gli hai proposto nel turno precedente, "
+        "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
+        "Recupera i dati di TUTTE le schede/giorni proposti nel turno precedente (nella cronologia) e chiama ADESSO lo strumento: "
+        "`create_weekly_workout_plan_tool` per un piano su più giorni, `create_workout_plan_tool` per una scheda singola, "
+        "`modify_workout_plan_tool` per la modifica di una scheda esistente. NON riscrivere la scheda in testo: chiama solo il tool. "
+        "Rispondi ESCLUSIVAMENTE con la frase esatta: 'Ok, scheda salvata.' senza aggiungere altro."
+    )
+
     def event_stream():
         try:
             yield _sse({"type": "start", "conversation_id": conv_id})
+
+            # FASE 2 DETERMINISTICA: l'utente ha confermato. Non lasciamo ri-scrivere l'intera
+            # scheda al modello (che altrimenti ridumpa tutto il piano): eseguiamo il solo
+            # salvataggio in background ed emettiamo esclusivamente la conferma secca.
+            if is_coach and fase2_conferma:
+                team_agent.run(recovery_prompt, stream=False)
+                updated = _workout_snapshot(user_id) != snapshot_prima
+                ai_text = "Ok, scheda salvata." if updated else "Non sono riuscito a salvare la scheda. Riprova a chiedermela."
+                yield _sse({"type": "content", "delta": ai_text})
+                save_message(conv_id, "assistant", ai_text)
+                yield _sse({"type": "end", "workouts_updated": updated})
+                return
 
             # Intercettiamo progressivamente i token scaricati dall'engine LLM
             # incapsulandoli in frame SSE per abbattere il time-to-first-byte percepito.
@@ -161,10 +199,10 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             ai_text = "".join(chunks).strip() or "Mi dispiace, non ho ricevuto una risposta."
 
             # Valutazione di congruenza strutturale (Applicabile solo al Coach)
-            # 
+            #
             # Implementa un sistema euristico per mitigare i disallineamenti tra
             # testo generato e invocazione reale delle function calling API.
-            # Comparando il delta semantico del messaggio con il delta dello stato 
+            # Comparando il delta semantico del messaggio con il delta dello stato
             # fisico del database, individuiamo eventuali allucinazioni operative.
             # Se viene rilevata l'anomalia, forziamo il recupero iniettando in coda
             # un system prompt nascosto che impone la riparazione istantanea del
@@ -173,27 +211,13 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             if is_coach:
                 workouts_updated = _workout_snapshot(user_id) != snapshot_prima
                 low = ai_text.lower()
-                # Ricerca euristica: intercettiamo espressioni indicative di intenti 
+                # Ricerca euristica: intercettiamo espressioni indicative di intenti
                 # di scrittura. Una regex volutamente permissiva ammortizza il rischio
                 # di perdere salvataggi legittimi mascherati da un fraseggio atipico.
                 claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
                 if claims_save and not workouts_updated:
-                    # Esecuzione del fallback: passiamo il prompt correttivo
-                    # all'engine forzando il parser interno a riconoscere il task saltato.
-                    # Ricalibrazione del target di estrazione per il fallback di scrittura.
-                    # Sposta il focus dalla risposta corrente (priva di payload strutturale)
-                    # allo storico conversazionale per recuperare i parametri generati in Fase 1,
-                    # includendo l'autorizzazione al function calling multiplo per piani settimanali.
-                    # Author: Stefano Bellan (20054330)
-                    recovery_prompt = (
-                        "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
-                        "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una o più schede di allenamento, "
-                        "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
-                        "Recupera i dati delle schede che hai proposto nel turno precedente (nella cronologia della conversazione) "
-                        "e chiama ADESSO lo strumento `create_workout_plan_tool` (oppure `modify_workout_plan_tool` se si trattava della modifica di "
-                        "una scheda esistente) per salvarla davvero. Se si tratta di un piano su più giorni, DEVI chiamare lo strumento "
-                        "più volte, una per ogni singola scheda/giorno. Rispondi solo con una breve conferma."
-                    )
+                    # Fallback per allucinazione di scrittura: il modello dichiara un
+                    # salvataggio senza aver chiamato il tool. Forziamo la riparazione.
                     team_agent.run(recovery_prompt, stream=False)
                     workouts_updated = _workout_snapshot(user_id) != snapshot_prima
 

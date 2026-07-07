@@ -128,7 +128,7 @@ L'unica fonte di verità è lo **stato del database**. La rete di sicurezza in `
 
 1. **Snapshot deterministico (`_workout_snapshot`)** — prima della run fotografa le schede (id, nomi, esercizi con set/reps/recupero) in una tupla comparabile; a fine run rifotografa. `snapshot_dopo != snapshot_prima` è l'unico segnale deterministico di scrittura reale.
 2. **Rilevazione discrepanza** — incrocia due segnali: il testo *dichiara* un salvataggio (`claims_save`, semantico e inaffidabile) **e** il DB è *invariato* (deterministico). Testo che promette + DB fermo = tool non chiamato.
-3. **`recovery_prompt` auto-riparante** — inietta un messaggio di sistema **invisibile all'utente** che re-innesca l'agente forzandolo a chiamare *adesso* il tool corretto, ricavando scheda ed esercizi dal proprio testo. La risposta già mostrata resta intatta; il salvataggio avviene dietro le quinte. Dopo il recovery si ri-verifica lo snapshot.
+3. **`recovery_prompt` auto-riparante** — inietta un messaggio di sistema **invisibile all'utente** che re-innesca l'agente forzandolo a chiamare *adesso* il tool corretto (`create_weekly_workout_plan_tool` per i piani multi-giorno, `modify_workout_plan_tool` per una singola modifica), recuperando le schede ed esercizi dallo **storico della conversazione** (proposti in Fase 1), non dal solo ultimo testo. La risposta già mostrata resta intatta; il salvataggio avviene dietro le quinte. Dopo il recovery si ri-verifica lo snapshot.
 
 ---
 
@@ -147,10 +147,14 @@ L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMod
 * **Focus:** programmazione allenamenti, schede, esercizi, tecnica, recupero, motivazione.
 * **Knowledge Base:** RAG sui protocolli ufficiali di allenamento (`protocolli_allenamento`).
 * **Tools di persistenza:**
-  - `create_workout_plan_tool` — salva una nuova scheda;
+  - `create_workout_plan_tool` — salva **una singola** scheda nuova;
+  - `create_weekly_workout_plan_tool` — salva un **intero piano settimanale** (più schede) in modo **atomico**: riceve una lista JSON di giorni (ognuno con `name` ed `exercises`) e li committa in un'unica transazione (tutte o nessuna, via `save_multiple_workout_plans`);
   - `modify_workout_plan_tool` — aggiorna una scheda esistente;
   - `get_workout_plan_tool` — legge una scheda (usato in Fase 1 per non perdere esercizi in modifica).
-* **Human-in-the-loop (2 fasi):** salvare è una **scrittura** e richiede conferma esplicita. **Fase 1** — propone la scheda in Markdown senza chiamare tool. **Fase 2** — solo dopo un "ok" dell'utente chiama fisicamente il tool. Schede su più giorni ⇒ una scheda separata per giorno (tool chiamato più volte).
+* **Due tipi di creazione:**
+  - **Singola scheda** (es. "fammi un allenamento gambe") ⇒ `create_workout_plan_tool`, una chiamata.
+  - **Piano settimanale** (più giorni, es. Lun/Mer/Ven) ⇒ **una sola** chiamata a `create_weekly_workout_plan_tool` con tutti i giorni: salvataggio atomico, niente schede parziali se una fallisce. Ogni singola scheda del piano deve rispettare **indipendentemente** il tempo a disposizione.
+* **Human-in-the-loop (2 fasi):** salvare è una **scrittura** e richiede conferma esplicita. **Fase 1** — propone la/e scheda/e in Markdown senza chiamare tool. **Fase 2** — solo dopo un "ok" dell'utente chiama fisicamente il tool corretto (singolo o settimanale) e risponde esclusivamente con `Ok, scheda salvata.`, senza riproporre né richiedere altre conferme.
 * **Vincolo temporale rigido:** la scheda deve rientrare nel *tempo a disposizione* dell'utente; l'agente stima la durata (serie × (esecuzione + recupero) + riscaldamento/defaticamento) e taglia se sfora.
 * **Controllo nutrizionale pre-allenamento:** legge l'intake dal contesto e avvisa (senza bloccare) se l'utente si allena troppo a digiuno.
 * **Limiti:** non fornisce consigli nutrizionali; rimanda alla sezione Nutrition.

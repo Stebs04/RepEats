@@ -9,7 +9,7 @@ from agno.agent import Agent
 from agno.models.groq import Groq
 from agno.knowledge.knowledge import Knowledge
 from agno.guardrails import PromptInjectionGuardrail
-from src.database.user_service import save_workout_plan, update_workout_plan, get_user_workout_plans
+from src.database.user_service import save_workout_plan, update_workout_plan, get_user_workout_plans, save_multiple_workout_plans
 import json
 import ast
 
@@ -75,6 +75,38 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
             return f"Scheda '{plan_name}' salvata con successo nel database!"
         except Exception as e:
             return f"Errore durante il salvataggio della scheda: {str(e)}"
+
+    def create_weekly_workout_plan_tool(plans: list) -> str:
+        """
+        Metodo per il deployment atomico di un'intera settimana di allenamento.
+        Riceve 'plans' come lista NATIVA di giorni (niente stringa JSON: evita il doppio
+        escaping che gonfia l'output e ne provoca il troncamento a metà tool call).
+
+        Author: Timothy Giolito (20054431)
+        """
+        try:
+            plans_list = _parse_exercises(plans) # Riutilizziamo il parser base (accetta lista nativa)
+        except ValueError as ve:
+            return f"Errore di parsing: {ve}."
+
+        # Guard: intercetta la struttura degenere in cui il modello scambia i gruppi
+        # muscolari per esercizi (esercizi senza 'name' reale o giorni senza 'exercises').
+        # Rifiuta PRIMA del commit con un errore azionabile, così l'LLM ripassa i dati corretti.
+        for plan in plans_list:
+            exercises = plan.get('exercises')
+            if not isinstance(exercises, list) or not exercises:
+                return (f"Errore struttura nel giorno '{plan.get('name', '?')}': manca la lista 'exercises' con gli esercizi reali. "
+                        "Richiama il tool passando ogni giorno come {'name': <giorno>, 'exercises': [{'name': <esercizio reale>, 'muscle_group', 'sets', 'reps', 'rest_time'}, ...]}.")
+            for ex in exercises:
+                if not isinstance(ex, dict) or not str(ex.get('name', '')).strip():
+                    return (f"Errore struttura nel giorno '{plan.get('name', '?')}': un esercizio è privo del campo 'name' reale "
+                            "(es. 'Bench Press'). NON usare i gruppi muscolari come esercizi. Richiama il tool con gli esercizi completi mostrati in Fase 1.")
+
+        try:
+            save_multiple_workout_plans(user_id, plans_list)
+            return "Ok, scheda salvata."
+        except Exception as e:
+            return f"Errore durante il salvataggio della programmazione: {str(e)}"
 
     def modify_workout_plan_tool(plan_name: str, exercises: str) -> str:
         """
@@ -146,6 +178,7 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
 
             "# ⏱️ BUDGET TEMPORALE (VINCOLO RIGIDO E OBBLIGATORIO)",
             "La scheda DEVE stare DENTRO il 'Tempo a disposizione' indicato nel contesto (o quello chiesto esplicitamente dall'utente). Sforare il tempo è un ERRORE GRAVE.",
+            "Assicurati che OGNI SINGOLA SCHEDA del piano settimanale rispetti in modo indipendente il 'Tempo a disposizione'.",
             "Prima di finalizzare, calcola mentalmente la durata totale con questa stima:",
             "- Riscaldamento + defaticamento/stretching = circa 10 minuti totali (5+5). Se il tempo disponibile è <= 15 minuti, riducili a 2+2.",
             "- Per OGNI esercizio: durata = numero_serie × (esecuzione + recupero). Stima l'esecuzione di una serie a ~45 secondi (0,75 min) e usa il tempo di recupero che assegni.",
@@ -207,18 +240,22 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
             "",
             "## FASE 2 - SCRITTURA (turno successivo, SOLO dopo conferma esplicita dell'utente)",
             "- Procedi SOLO se l'utente ha confermato in modo esplicito (es. 'ok', 'salva', 'sì', 'perfetto', 'va bene'). Se la risposta è ambigua o chiede modifiche, torni alla Fase 1 e non scrivi nulla.",
+            "- 🔴 In Fase 2 NON riscrivere l'analisi, le tabelle o la scheda in Markdown: NON rigenerare il testo del turno precedente. Chiama SUBITO il tool e basta. Riscrivere tutto gonfia la risposta e fa TRONCARE la chiamata allo strumento (errore).",
             "- Recupera i dati della scheda che hai proposto nel turno precedente (li trovi nella cronologia della conversazione) e chiama fisicamente il tool passandogli il JSON degli esercizi.",
             "  - Nuova scheda: chiama `create_workout_plan_tool`.",
             "  - Modifica di una scheda esistente: chiama `modify_workout_plan_tool` con la lista COMPLETA aggiornata.",
             "- 🔴 In questa fase è TASSATIVO chiamare davvero il tool: se dici di aver salvato ma non chiami lo strumento, la scheda va PERSA.",
-            "- Scheda su PIÙ GIORNI (es. Lunedì, Mercoledì, Venerdì): crea una scheda SEPARATA per ogni giorno, chiamando il tool PIÙ VOLTE con un 'plan_name' specifico (es. 'Lunedì - Petto e Tricipiti'). NON unire i giorni in un'unica scheda. La conferma unica dell'utente copre tutti i giorni proposti.",
-            "- Solo DOPO aver chiamato il tool avvisa l'utente con una frase semplice (es. 'Fatto, ho salvato la scheda nel tuo profilo!').",
+            "- Scheda su PIÙ GIORNI (es. piano settimanale): chiama UNA SOLA VOLTA lo strumento `create_weekly_workout_plan_tool`. Il parametro `plans` è un ARRAY/lista nativa (NON una stringa: non serializzare in stringa, non fare escaping delle virgolette). Il salvataggio è atomico. NON includere i giorni di riposo.",
+            "  ATTENZIONE ALLA STRUTTURA: ogni elemento di `plans` è un GIORNO con 'name' (nome del giorno/scheda) e 'exercises' (la lista degli ESERCIZI REALI di quel giorno, NON i gruppi muscolari). Ogni esercizio DEVE avere 'name' (es. 'Bench Press'), 'muscle_group', 'sets', 'reps', 'rest_time'. NON confondere i gruppi muscolari con gli esercizi: 'Petto e Tricipiti' è il nome del giorno, gli esercizi sono Bench Press, Cable Fly, Tricep Pushdown, ecc. Copia gli STESSI esercizi che hai mostrato in tabella in Fase 1.",
+            "  Esempio ESATTO del valore di `plans` (array, ogni giorno con i suoi 4-6 esercizi completi):",
+            "  [{\"name\": \"Lunedì - Petto e Tricipiti\", \"exercises\": [{\"name\": \"Bench Press\", \"muscle_group\": \"Petto\", \"sets\": 3, \"reps\": \"10-12\", \"rest_time\": \"90s\"}, {\"name\": \"Cable Fly\", \"muscle_group\": \"Petto\", \"sets\": 3, \"reps\": \"12-15\", \"rest_time\": \"60s\"}, {\"name\": \"Tricep Pushdown\", \"muscle_group\": \"Tricipiti\", \"sets\": 3, \"reps\": \"10-12\", \"rest_time\": \"90s\"}]}, {\"name\": \"Martedì - Schiena e Bicipiti\", \"exercises\": [ ... ]}]",
+            "- Al termine del salvataggio, DEVI restituire ESCLUSIVAMENTE il seguente messaggio esatto: 'Ok, scheda salvata.' Non aggiungere altre parole, saluti, o nuove proposte. NON chiedere ulteriori conferme e non rigenerare la scheda appena salvata.",
             "",
             "## REGOLE COMUNI",
             "- NON menzionare MAI il nome degli strumenti che usi (es. non dire 'uso create_workout_plan_tool'). Sii colloquiale.",
-            "- Per gli esercizi passati ai tool fornisci sempre 'muscle_group', 'sets', 'reps' e 'rest_time'."
+            "- Per gli esercizi passati ai tool fornisci SEMPRE 'name' (il nome reale dell'esercizio, es. 'Squat'), 'muscle_group', 'sets', 'reps' e 'rest_time'. MAI lasciare 'name' vuoto o generico."
         ],
-        tools=[create_workout_plan_tool, modify_workout_plan_tool, get_workout_plan_tool] if enable_tools else [],
+        tools=[create_workout_plan_tool, create_weekly_workout_plan_tool, modify_workout_plan_tool, get_workout_plan_tool] if enable_tools else [],
         pre_hooks=[PromptInjectionGuardrail()],
         markdown=True
     )
