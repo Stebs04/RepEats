@@ -116,6 +116,20 @@ I dati biometrici, l'intake nutrizionale e la cronologia chat sono **contenuto d
 
 ---
 
+### 2.4 Rete di Sicurezza Anti-Hallucination (Coach)
+
+> Questa è la difesa ingegneristica centrale del progetto — dettagli anche in [`docs/LLM_ARCHITECTURE.md`](docs/LLM_ARCHITECTURE.md).
+
+Il Coach salva le schede via **Tool Calling autonomo** (decide da solo quando invocare i tool). Il limite intrinseco degli LLM è l'**action hallucination**: l'agente può generare *"Ho salvato la tua scheda Push A"* **senza aver realmente emesso la tool call**. Il testo mente ed è indistinguibile da un successo reale.
+
+L'unica fonte di verità è lo **stato del database**. La rete di sicurezza in `backend/chat_api.py`:
+
+1. **Snapshot deterministico (`_workout_snapshot`)** — prima della run fotografa le schede (id, nomi, esercizi con set/reps/recupero) in una tupla comparabile; a fine run rifotografa. `snapshot_dopo != snapshot_prima` è l'unico segnale deterministico di scrittura reale.
+2. **Rilevazione discrepanza** — incrocia due segnali: il testo *dichiara* un salvataggio (`claims_save`, semantico e inaffidabile) **e** il DB è *invariato* (deterministico). Testo che promette + DB fermo = tool non chiamato.
+3. **`recovery_prompt` auto-riparante** — inietta un messaggio di sistema **invisibile all'utente** che re-innesca l'agente forzandolo a chiamare *adesso* il tool corretto, ricavando scheda ed esercizi dal proprio testo. La risposta già mostrata resta intatta; il salvataggio avviene dietro le quinte. Dopo il recovery si ri-verifica lo snapshot.
+
+---
+
 ## 3. Il Team di Agenti (Framework Agno)
 
 L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMode.route`**: riceve la richiesta e la instrada al membro corretto, restituendo la risposta dell'agente specializzato **senza modificarla**.
@@ -153,20 +167,6 @@ L'analisi di un pasto è un pipeline deterministico-poi-generativo, a stadi:
 * **Fase 0 — Barcode (deterministica, no LLM):** priorità al codice inserito a mano dall'utente (fallback robusto a foto sfocate); altrimenti detection sui pixel con OpenCV/zxing-cpp. Se c'è un barcode valido, i dati OpenFoodFacts vengono scalati sulla grammatura **in Python**, senza stima LLM (zero allucinazioni sui valori).
 * **Fase 1 — Stima visiva:** solo se non c'è barcode o il prodotto non è trovato. `VisionNutritionistAgent` (senza tool) riconosce l'alimento e stima i macro scalati sulla grammatura.
 * **Fase 2 — Parser:** un agente dedicato converte il testo libero in un `MealAnalysis` (Pydantic) tipizzato, che viene poi salvato come `MealLog`.
-
----
-
-### 2.5 Rete di Sicurezza Anti-Hallucination (Coach)
-
-> Questa è la difesa ingegneristica centrale del progetto — dettagli anche in [`docs/LLM_ARCHITECTURE.md`](docs/LLM_ARCHITECTURE.md).
-
-Il Coach salva le schede via **Tool Calling autonomo** (decide da solo quando invocare i tool). Il limite intrinseco degli LLM è l'**action hallucination**: l'agente può generare *"Ho salvato la tua scheda Push A"* **senza aver realmente emesso la tool call**. Il testo mente ed è indistinguibile da un successo reale.
-
-L'unica fonte di verità è lo **stato del database**. La rete di sicurezza in `backend/chat_api.py`:
-
-1. **Snapshot deterministico (`_workout_snapshot`)** — prima della run fotografa le schede (id, nomi, esercizi con set/reps/recupero) in una tupla comparabile; a fine run rifotografa. `snapshot_dopo != snapshot_prima` è l'unico segnale deterministico di scrittura reale.
-2. **Rilevazione discrepanza** — incrocia due segnali: il testo *dichiara* un salvataggio (`claims_save`, semantico e inaffidabile) **e** il DB è *invariato* (deterministico). Testo che promette + DB fermo = tool non chiamato.
-3. **`recovery_prompt` auto-riparante** — inietta un messaggio di sistema **invisibile all'utente** che re-innesca l'agente forzandolo a chiamare *adesso* il tool corretto, ricavando scheda ed esercizi dal proprio testo. La risposta già mostrata resta intatta; il salvataggio avviene dietro le quinte. Dopo il recovery si ri-verifica lo snapshot.
 
 ---
 
@@ -262,34 +262,7 @@ Campi: `id` univoco, `agent` (`"coach"`/`"nutritionist"`), `metric` (una delle t
 
 ---
 
-## 6. Aggiungere un Documento alla Knowledge Base (RAG)
-
-Aggiungere conoscenza agli agenti = **mettere un file in una cartella**, nessun codice. La pipeline di ingestion (§2.2.4) fa il resto.
-
-1. **Copia il documento** in `src/knowledge_base/docs/`. Formati: `.txt`, `.md`, `.pdf`, `.docx` (i PDF protetti da password non sono leggibili).
-2. **Instrada il dominio** con un sidecar `<nome>.meta.json` a fianco del file. Il campo `domain` decide in quale KB finisce:
-   ```json
-   { "domain": "nutrition", "title": "Tabelle SINU LARN", "fonte": "SINU 2014" }
-   ```
-   `domain: "fitness"` → tabella `protocolli_allenamento` (Coach); `domain: "nutrition"` → tabella `conoscenza_nutrizione` (Nutrizionista). **Senza sidecar il dominio è `fitness`** (default), quindi per documenti nutrizionali il sidecar è obbligatorio.
-3. **Indicizza.** Automatico al prossimo avvio dell'app (`sync()` in `main.py`), oppure subito a mano:
-   ```bash
-   python -m src.knowledge_base.ingest        # sincronizza docs/ con l'indice
-   ```
-
-**Idempotenza:** lo stato è tracciato in `lancedb_vectors/.ingest_manifest.json`. `sync()` indicizza i nuovi, ri-indicizza i modificati (rilevati via `mtime`/dimensione) e rimuove dall'indice quelli cancellati dal disco. I documenti invariati vengono saltati.
-
-**Modificare / rimuovere:** cambia il file e riavvia (o rilancia `ingest`); per rimuoverlo cancellalo da `docs/` (rimosso al prossimo `sync()`) o esplicitamente:
-```bash
-python -m src.knowledge_base.ingest --delete NOME --domain nutrition
-python -m src.knowledge_base.ingest --full     # re-indicizza tutto da zero
-```
-
-> **Nota:** cambiare l'embedder (`EMBEDDER_ID`) cambia la dimensionalità dei vettori e richiede un `--full` per rigenerare gli indici.
-
----
-
-## 7. Guida all'Avvio
+## 6. Guida all'Avvio
 
 ### Prerequisiti
 - **Python 3.11**
@@ -339,7 +312,7 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 ---
 
-## 8. Cosa Aspettarsi al Primo Avvio
+## 7. Cosa Aspettarsi al Primo Avvio
 
 All'avvio l'app verifica la raggiungibilità del DB e sincronizza la Knowledge Base (`sync()`): indicizza in LanceDB i documenti presenti in `src/knowledge_base/docs/`. La prima volta l'embedding richiede alcune decine di secondi (download di MiniLM + indicizzazione); ai riavvii successivi il manifest di idempotenza salta i documenti invariati, rendendo l'operazione quasi istantanea.
 
@@ -347,9 +320,9 @@ L'app è servita su `http://127.0.0.1:8000`; la root reindirizza al frontend. Do
 
 ---
 
-## 9. Troubleshooting
+## 8. Troubleshooting
 
-### 7.1 Conflitto Vision + Tool + Structured Output (Groq)
+### 8.1 Conflitto Vision + Tool + Structured Output (Groq)
 
 **Sintomo:** errori API o risposte vuote quando si tenta analisi immagine, chiamata tool e output JSON nella stessa run.
 
@@ -357,7 +330,7 @@ L'app è servita su `http://127.0.0.1:8000`; la root reindirizza al frontend. Do
 
 **Soluzione (già implementata):** il flusso pasto è spezzato in fasi separate (Vision → Parser, vedi §3.4). Ogni agente fa una sola cosa per chiamata.
 
-### 7.2 Barcode non letto dalla foto
+### 8.2 Barcode non letto dalla foto
 
 **Sintomo:** un pasto con codice a barre viene stimato visivamente invece che letto da OpenFoodFacts.
 
@@ -367,7 +340,7 @@ L'app è servita su `http://127.0.0.1:8000`; la root reindirizza al frontend. Do
 
 ---
 
-## 10. Suddivisione del Lavoro
+## 9. Suddivisione del Lavoro
 
 Stefano si è occupato del **Nutrizionista**, Timothy del **Coach**; il resto dell'applicativo è stato diviso equamente.
 
@@ -386,7 +359,7 @@ Stefano si è occupato del **Nutrizionista**, Timothy del **Coach**; il resto de
 
 ---
 
-## 11. Utilizzo di Strumenti AI
+## 10. Utilizzo di Strumenti AI
 
 Durante lo sviluppo abbiamo usato strumenti AI come supporto — in particolare **Antigravity** e **Claude Code** — sempre sotto la nostra supervisione diretta e con validazione critica di ogni output. Ci hanno assistito in: sviluppo UI/UX, ottimizzazione dei system prompt degli agenti, integrazione frontend-backend, refactoring di funzioni complesse, scelte architetturali e stesura della documentazione.
 
