@@ -178,17 +178,21 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
                 # di perdere salvataggi legittimi mascherati da un fraseggio atipico.
                 claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
                 if claims_save and not workouts_updated:
-                    # Esecuzione del fallback: passiamo il prompt correttivo 
+                    # Esecuzione del fallback: passiamo il prompt correttivo
                     # all'engine forzando il parser interno a riconoscere il task saltato.
+                    # Ricalibrazione del target di estrazione per il fallback di scrittura.
+                    # Sposta il focus dalla risposta corrente (priva di payload strutturale)
+                    # allo storico conversazionale per recuperare i parametri generati in Fase 1,
+                    # includendo l'autorizzazione al function calling multiplo per piani settimanali.
+                    # Author: Stefano Bellan (20054330)
                     recovery_prompt = (
                         "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
-                        "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una scheda di allenamento, "
+                        "nella tua ultima risposta hai dichiarato di aver salvato o aggiornato una o più schede di allenamento, "
                         "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
-                        "Questa era la tua ultima risposta:\n\n"
-                        f"{ai_text}\n\n"
-                        "Ricava da questa risposta il nome della scheda e i suoi esercizi, e chiama ADESSO lo strumento "
-                        "`create_workout_plan_tool` (oppure `modify_workout_plan_tool` se si trattava della modifica di "
-                        "una scheda esistente) per salvarla davvero. Rispondi solo con una breve conferma."
+                        "Recupera i dati delle schede che hai proposto nel turno precedente (nella cronologia della conversazione) "
+                        "e chiama ADESSO lo strumento `create_workout_plan_tool` (oppure `modify_workout_plan_tool` se si trattava della modifica di "
+                        "una scheda esistente) per salvarla davvero. Se si tratta di un piano su più giorni, DEVI chiamare lo strumento "
+                        "più volte, una per ogni singola scheda/giorno. Rispondi solo con una breve conferma."
                     )
                     team_agent.run(recovery_prompt, stream=False)
                     workouts_updated = _workout_snapshot(user_id) != snapshot_prima
