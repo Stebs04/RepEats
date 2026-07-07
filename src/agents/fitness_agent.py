@@ -72,7 +72,8 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
                     f"di oggetti con chiavi: name, muscle_group, sets, reps, rest_time.")
         try:
             save_workout_plan(user_id, plan_name, ex_list)
-            return f"Scheda '{plan_name}' salvata con successo nel database!"
+            # Author: Timothy Giolito (20054431)
+            return "Scheda salvata con successo! ISTRUZIONE TASSATIVA: Ora devi rispondere all'utente ESCLUSIVAMENTE con la frase '✅ Scheda salvata nel profilo.' senza aggiungere markdown, testo o rigenerare la tabella della scheda."
         except Exception as e:
             return f"Errore durante il salvataggio della scheda: {str(e)}"
 
@@ -104,7 +105,8 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
 
         try:
             save_multiple_workout_plans(user_id, plans_list)
-            return "Ok, scheda salvata."
+            # Author: Timothy Giolito (20054431)
+            return "Scheda salvata con successo! ISTRUZIONE TASSATIVA: Ora devi rispondere all'utente ESCLUSIVAMENTE con la frase '✅ Scheda salvata nel profilo.' senza aggiungere markdown, testo o rigenerare la tabella della scheda."
         except Exception as e:
             return f"Errore durante il salvataggio della programmazione: {str(e)}"
 
@@ -122,7 +124,8 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
                     f"di oggetti con chiavi: name, muscle_group, sets, reps, rest_time.")
         try:
             update_workout_plan(user_id, plan_name, ex_list)
-            return f"Scheda '{plan_name}' modificata e aggiornata con successo nel database!"
+            # Author: Timothy Giolito (20054431)
+            return "Scheda salvata con successo! ISTRUZIONE TASSATIVA: Ora devi rispondere all'utente ESCLUSIVAMENTE con la frase '✅ Scheda salvata nel profilo.' senza aggiungere markdown, testo o rigenerare la tabella della scheda."
         except Exception as e:
             return f"Errore durante la modifica della scheda: {str(e)}"
 

@@ -153,11 +153,15 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
     # ponytail: euristica su lista di affermazioni; se serve più copertura, ampliare _afferm.
     fase2_conferma = False
     if is_coach:
-        _um = request.message.strip().lower()
+        # Author: Stefano Bellan (20054330)
+        _um = re.sub(r'[^\w\s]', '', request.message.strip().lower())
         _afferm = ("si", "sì", "ok", "okay", "va bene", "perfetto", "salva", "salvala",
-                   "certo", "confermo", "d'accordo", "yes", "sisi")
-        _prev = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
-        fase2_conferma = any(_um == a or _um.startswith(a + " ") for a in _afferm) and "salv" in _prev.lower()
+                   "certo", "confermo", "d'accordo", "daccordo", "procedi", "vai",
+                   "memorizza", "yes", "sisi")
+        _prev_lower = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "").lower()
+        _is_affermative = any(_um == a or _um.startswith(a + " ") for a in _afferm)
+        _is_proposal = any(k in _prev_lower for k in ["salv", "profil", "memorizz", "scheda", "vuoi"])
+        fase2_conferma = _is_affermative and _is_proposal
 
     # Prompt di salvataggio forzato: recupera dalla cronologia le schede proposte in Fase 1
     # e chiama davvero il tool corretto, rispondendo solo con la conferma esatta.
@@ -169,7 +173,7 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         "Recupera i dati di TUTTE le schede/giorni proposti nel turno precedente (nella cronologia) e chiama ADESSO lo strumento: "
         "`create_weekly_workout_plan_tool` per un piano su più giorni, `create_workout_plan_tool` per una scheda singola, "
         "`modify_workout_plan_tool` per la modifica di una scheda esistente. NON riscrivere la scheda in testo: chiama solo il tool. "
-        "Rispondi ESCLUSIVAMENTE con la frase esatta: 'Ok, scheda salvata.' senza aggiungere altro."
+        "Rispondi ESCLUSIVAMENTE con la frase esatta: '✅ Scheda salvata nel profilo.' senza aggiungere altro."
     )
 
     def event_stream():
@@ -182,7 +186,8 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             if is_coach and fase2_conferma:
                 team_agent.run(recovery_prompt, stream=False)
                 updated = _workout_snapshot(user_id) != snapshot_prima
-                ai_text = "Ok, scheda salvata." if updated else "Non sono riuscito a salvare la scheda. Riprova a chiedermela."
+                # Author: Stefano Bellan (20054330)
+                ai_text = "✅ Scheda salvata nel profilo." if updated else "Non sono riuscito a salvare la scheda. Riprova a chiedermela."
                 yield _sse({"type": "content", "delta": ai_text})
                 save_message(conv_id, "assistant", ai_text)
                 yield _sse({"type": "end", "workouts_updated": updated})
