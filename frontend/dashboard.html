@@ -250,6 +250,15 @@
 </div>
 </div>
 </div>
+<!-- Ripartizione anelli macro per fascia alimentare - Author: Stefano Bellan (20054330) -->
+<section class="mb-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-container">pie_chart</span> Ripartizione per Fascia
+</h2>
+<div id="breakdownContainer" class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Generazione DOM dinamica via JavaScript -->
+</div>
+</section>
 <!-- Moduli attivi per task giornalieri -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-md mb-xl" id="actionCards" style="display:none;">
 <!-- Modulo sinottico per la sessione di allenamento -->
@@ -587,6 +596,9 @@
 
                 // Costruzione nodi interfaccia per le aggregazioni nutrizionali
                 if (data.meals) renderMeals(data.meals);
+
+                // Anelli di ripartizione consumo/target per singola fascia alimentare
+                if (data.meals && data.targets) renderBreakdown(data.meals, data.targets.targets_by_category || {});
             }
         } catch(e) {
             console.error("Errore nel caricamento dei dati dashboard:", e);
@@ -663,6 +675,68 @@
             btn.innerHTML = originalText;
         }
     });
+
+    // Costruzione anelli di progressione per fascia alimentare, riusando la stessa
+    // grafica SVG dei totali giornalieri. Ogni fascia ottiene 4 anelli (kcal, pro, carb, fat)
+    // confrontando il consumato con il target di categoria. Author: Stefano Bellan (20054330)
+    function renderBreakdown(meals, targetsByCat) {
+        const container = document.getElementById('breakdownContainer');
+        container.innerHTML = '';
+        const categories = ['Colazione', 'Pranzo', 'Cena', 'Spuntino'];
+
+        // Definizione dei 4 anelli: chiave macro, etichetta, colore, se in grammi
+        const rings = [
+            { key: 'calories',      tgt: 'calories',      label: 'Cal',  color: 'primary-container',   glow: 'rgba(57,255,20,0.8)',  unit: '' },
+            { key: 'proteins',      tgt: 'proteins',      label: 'Pro',  color: 'tertiary-container',  glow: 'rgba(0,246,246,0.8)',  unit: 'g' },
+            { key: 'carbs',         tgt: 'carbohydrates', label: 'Carb', color: 'secondary-container', glow: 'rgba(250,92,28,0.8)',  unit: 'g' },
+            { key: 'fats',          tgt: 'fats',          label: 'Fat',  color: 'secondary',           glow: 'rgba(255,181,156,0.8)', unit: 'g' },
+        ];
+
+        const pending = [];
+        categories.forEach(cat => {
+            const catMeals = meals[cat] || [];
+            const consumed = { calories: 0, proteins: 0, carbs: 0, fats: 0 };
+            catMeals.forEach(m => {
+                consumed.calories += m.calories || 0;
+                consumed.proteins += m.proteins || 0;
+                consumed.carbs += m.carbs || 0;
+                consumed.fats += m.fats || 0;
+            });
+            const tgt = targetsByCat[cat] || {};
+
+            const card = document.createElement('div');
+            card.className = 'glass-card rounded-xl p-md';
+            let ringsHtml = '';
+            rings.forEach(r => {
+                const cid = `bk-${cat}-${r.key}`;
+                const val = Math.round(consumed[r.key] || 0);
+                const max = Math.round(tgt[r.tgt] || 0);
+                pending.push({ cid, val: consumed[r.key] || 0, max: tgt[r.tgt] || 0 });
+                ringsHtml += `
+<div class="flex flex-col items-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant mb-1">${r.label}</span>
+<div class="relative w-20 h-20">
+<svg class="w-full h-full" viewbox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle id="${cid}" class="text-${r.color} progress-ring-circle stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 3px ${r.glow});"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center leading-none">
+<span class="text-on-surface font-bold text-[13px]">${val}${r.unit}</span>
+<span class="text-on-surface-variant text-[10px]">/ ${max}${r.unit}</span>
+</div>
+</div>
+</div>`;
+            });
+
+            card.innerHTML = `
+<h3 class="font-body-md text-body-md text-on-surface font-bold mb-sm">${cat}</h3>
+<div class="grid grid-cols-4 gap-2">${ringsHtml}</div>`;
+            container.appendChild(card);
+        });
+
+        // Callback differita per innescare la transizione CSS degli archi
+        setTimeout(() => pending.forEach(p => setProgress(p.cid, p.val, p.max)), 300);
+    }
 
     function renderMeals(meals) {
         const container = document.getElementById('mealsContainer');

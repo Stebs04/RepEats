@@ -284,23 +284,16 @@ def calculate_daily_macros(user_id: int):
         perc_carbs = 0.45
          
     # Author: Timothy Giolito (20054431)
-    # Ricavo i grammi netti dividendo le calorie allocate per il valore energetico del macro
     proteins = (target_calories * perc_pro) / 4.0
     fats = (target_calories * perc_fat) / 9.0
     carbohydrates = (target_calories * perc_carbs) / 4.0
-    
+
     # Author: Timothy Giolito (20054431)
-    # Impacchetto i risultati pronti per essere passati via API
-    return {
-        "tdee": round(tdee, 1),
-        "target_calories": round(target_calories, 1),
-        "proteins": round(proteins, 1),
-        "fats": round(fats, 1),
-        "carbohydrates": round(carbohydrates, 1),
-        "target_proteins": round(proteins, 1),
-        "target_fats": round(fats, 1),
-        "target_carbohydrates": round(carbohydrates, 1)
-    }
+    categories_split = {"Colazione": 0.20, "Pranzo": 0.35, "Cena": 0.35, "Spuntino": 0.10}
+    targets_by_category = {cat: {"calories": round(target_calories * perc, 1), "proteins": round(proteins * perc, 1), "fats": round(fats * perc, 1), "carbohydrates": round(carbohydrates * perc, 1)} for cat, perc in categories_split.items()}
+
+    # Author: Timothy Giolito (20054431)
+    return {"tdee": round(tdee, 1), "target_calories": round(target_calories, 1), "proteins": round(proteins, 1), "fats": round(fats, 1), "carbohydrates": round(carbohydrates, 1), "target_proteins": round(proteins, 1), "target_fats": round(fats, 1), "target_carbohydrates": round(carbohydrates, 1), "targets_by_category": targets_by_category}
 
 def get_macros_by_date(user_id: int, target_date: date | None = None):
     """
@@ -472,9 +465,27 @@ def save_workout_plan(user_id: int, plan_name: str, exercises: list):
             order_index=idx
         )
         session.add(new_ex)
-        
+
     session.commit()
     session.close()
+
+def get_macros_breakdown_by_category(user_id: int, target_date: date | None = None):
+    """
+    Author: Timothy Giolito (20054431)
+
+    Aggrega i macronutrienti consumati dall'utente nella data richiesta spaccandoli per fascia
+    alimentare (Colazione, Pranzo, Cena, Spuntino), così l'AI sa cosa manca per ogni pasto.
+    """
+    session = get_session()
+    if target_date is None: target_date = datetime.now(timezone.utc).date()
+    risultati = session.query(MealLog.category, func.sum(MealLog.calories), func.sum(MealLog.proteins), func.sum(MealLog.fats), func.sum(MealLog.carbohydrates)).filter(MealLog.user_id == user_id, func.date(MealLog.timestamp) == target_date).group_by(MealLog.category).all()
+    session.close()
+
+    breakdown = {cat: {"calories": 0, "proteins": 0, "fats": 0, "carbohydrates": 0} for cat in ["Colazione", "Pranzo", "Cena", "Spuntino"]}
+    for row in risultati:
+        cat = row[0] if row[0] else "Sconosciuto"
+        if cat in breakdown: breakdown[cat] = {"calories": row[1] or 0, "proteins": row[2] or 0, "fats": row[3] or 0, "carbohydrates": row[4] or 0}
+    return breakdown
 
 def get_user_workout_plans(user_id: int):
     """

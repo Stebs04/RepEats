@@ -82,6 +82,7 @@ def generate_response(entry: dict) -> str:
         user_data=user_data,
         macros=macros,
         daily_targets=targets,
+        breakdown_odierno={},
         chat_history=entry.get("chat_history", []),
         chat_type=chat_type,
         # In valutazione vogliamo la sola risposta testuale: niente tool di

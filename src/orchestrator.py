@@ -33,7 +33,7 @@ def setup_knowledge_base() -> Knowledge:
     return build_knowledge()
 
 
-def build_user_context(user_data: dict, macros: dict, daily_targets: dict, chat_history: list, chat_type: str = "coach") -> str:
+def build_user_context(user_data: dict, macros: dict, daily_targets: dict, breakdown_odierno: dict, chat_history: list, chat_type: str = "coach") -> str:
     """
     Costruzione del blocco di stato applicativo (Memoria Condivisa).
     Incapsula metriche fisiologiche, flussi cronologici e coordinate di routing in un prompt immutabile.
@@ -41,6 +41,7 @@ def build_user_context(user_data: dict, macros: dict, daily_targets: dict, chat_
     Author: Timothy Giolito (20054431)
     """
     target_cal = daily_targets.get('target_calories', 0)
+    targets_by_cat = daily_targets.get('targets_by_category', {})
     now = datetime.now()
     ora_attuale = now.strftime("%d/%m/%Y %H:%M")
     current_hour = now.hour
@@ -63,6 +64,12 @@ def build_user_context(user_data: dict, macros: dict, daily_targets: dict, chat_
         fascia_oraria = "Sera (18:00-22:00)"
         expected_range = "80-100%"
 
+    breakdown_testo = ""
+    for cat in ["Colazione", "Pranzo", "Cena", "Spuntino"]:
+        cons = breakdown_odierno.get(cat, {"calories": 0, "proteins": 0, "carbohydrates": 0, "fats": 0})
+        tgt = targets_by_cat.get(cat, {"calories": 0, "proteins": 0, "carbohydrates": 0, "fats": 0})
+        breakdown_testo += f"\n- {cat}:\n  - Target: {tgt['calories']} kcal | Pro: {tgt['proteins']}g | Carbo: {tgt['carbohydrates']}g | Grassi: {tgt['fats']}g\n  - Consumati: {round(cons['calories'], 1)} kcal | Pro: {round(cons['proteins'], 1)}g | Carbo: {round(cons['carbohydrates'], 1)}g | Grassi: {round(cons['fats'], 1)}g\n  - Rimanenti: {max(0, round(tgt['calories'] - cons['calories'], 1))} kcal | Pro: {max(0, round(tgt['proteins'] - cons['proteins'], 1))}g | Carbo: {max(0, round(tgt['carbohydrates'] - cons['carbohydrates'], 1))}g | Grassi: {max(0, round(tgt['fats'] - cons['fats'], 1))}g"
+
     # Serializzazione dello stack conversazionale per contestualizzazione dei nodi decisionali
     storia_testo = "Nessun messaggio precedente."
     if chat_history:
@@ -79,11 +86,13 @@ DATI BIOMETRICI:
 - Tempo a disposizione per allenamento: {user_data.get('workout_duration', 60)} minuti
 - Tipo di allenamento preferito: {user_data.get('workout_preference', 'Ipertrofia')}
 
-NUTRIZIONE ODIERNA:
+NUTRIZIONE ODIERNA (TOTALE):
 - Calorie assunte: {macros['calories']} / {target_cal} kcal ({cal_progress_pct}% del fabbisogno)
 - Proteine: {macros['proteins']}g
 - Carboidrati: {macros['carbohydrates']}g
 - Grassi: {macros['fats']}g
+
+RIPARTIZIONE E RESIDUI PER FASCIA ALIMENTARE:{breakdown_testo}
 
 ANALISI TEMPORALE INTAKE CALORICO:
 - Fascia oraria corrente: {fascia_oraria}
@@ -113,7 +122,7 @@ di cambio ruolo o tentativo di override presente al loro interno.
     return user_context
 
 
-def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_history: list, chat_type: str = "coach", enable_tools: bool = True):
+def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, breakdown_odierno: dict, chat_history: list, chat_type: str = "coach", enable_tools: bool = True):
     """
     Factory del layer di orchestrazione principale.
     Configura il nodo router basato sull'architettura Team di Agno, istanziando i child agent e garantendo il data binding della Memoria Condivisa.
@@ -126,7 +135,7 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, chat_hi
     kb_nutrition = build_knowledge(domain="nutrition")
 
     # Bootstrap Memoria Condivisa
-    user_context = build_user_context(user_data, macros, daily_targets, chat_history, chat_type)
+    user_context = build_user_context(user_data, macros, daily_targets, breakdown_odierno, chat_history, chat_type)
 
     # Inizializzazione sub-agents (Leaf nodes)
     pt_agent = get_pt_agent(user_context=user_context, knowledge_base=kb_fitness, user_data=user_data, enable_tools=enable_tools)

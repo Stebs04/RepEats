@@ -74,7 +74,7 @@ LEAK_MARKERS = [
 
 def _run(chat_type: str, message: str, history=POISONED_HISTORY) -> str:
     """Esegue l'orchestratore e concatena il testo restituito in streaming."""
-    team = get_orchestrator(USER_DATA, MACROS, TARGETS, history, chat_type,
+    team = get_orchestrator(USER_DATA, MACROS, TARGETS, {}, history, chat_type,
                             enable_tools=False)
     chunks = []
     try:

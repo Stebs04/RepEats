@@ -29,6 +29,7 @@ from src.database.user_service import (
     get_chat_history, 
     create_new_conversation,
     calculate_daily_macros,
+    get_macros_breakdown_by_category,
     save_meal_log,
     get_user_conversations,
     rename_conversation,
@@ -122,6 +123,7 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         user_data = get_user_data(user_id)
         macros_odierni = get_macros_by_date(user_id)
         daily_targets = calculate_daily_macros(user_id)
+        breakdown_odierno = get_macros_breakdown_by_category(user_id)
 
         conv_id = request.conversation_id
         if not conv_id:
@@ -132,7 +134,7 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         save_message(conv_id, "user", request.message)
 
         history = get_chat_history(conv_id)
-        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, history, request.chat_type)
+        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, history, request.chat_type)
     except Exception as e:
         import traceback
         traceback.print_exc()
