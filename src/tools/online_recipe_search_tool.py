@@ -9,8 +9,6 @@ suggerire all'utente ricette concrete e contestualizzate.
 Author: Stefano Bellan (20054330)
 """
 
-# Strutture dati per la modellazione e validazione dei contratti I/O
-from pydantic import BaseModel, Field
 # Client HTTP per interrogare il motore di ricerca
 import requests
 # Parser per estrarre i risultati dalla pagina HTML restituita
@@ -23,21 +21,10 @@ import re
 _SEARCH_URL = "https://html.duckduckgo.com/html/"
 
 # Numero massimo di risultati da riportare all'agente per non appesantire il contesto.
-_MAX_RESULTS = 6
+_MAX_RESULTS = 8
 
-# Minimo di risultati sotto il quale ritentiamo con una query allargata: l'utente
-# vuole SEMPRE almeno 3 alternative online.
+# Minimo di risultati sotto il quale ritentiamo con query progressivamente più larghe.
 _MIN_RESULTS = 3
-
-
-class OnlineRecipeSearchInput(BaseModel):
-    """
-    Schema per validare l'input della ricerca web di ricette.
-
-    Author: Stefano Bellan (20054330)
-    """
-    # Parole chiave complete della ricerca (sito, tipo pasto, vincoli di macro)
-    query: str = Field(..., description="Parole chiave per la ricerca web della ricetta (es. 'ricetta pollo GialloZafferano 400 kcal').")
 
 
 # Un User-Agent da browser è necessario perché l'endpoint HTML rifiuta i client anonimi
@@ -50,6 +37,16 @@ _NO_RESULT_FALLBACK = (
     "NON dire all'utente di cercare da solo online e NON elencare 'ricerche da provare'. "
     "Proponi TU adesso UNA ricetta completa e concreta (titolo, ingredienti con grammature "
     "e procedimento breve) coerente con i macro richiesti, in base alle tue conoscenze."
+)
+
+# Siti di cucina italiani noti, usati come ancora nelle query di retry per
+# migliorare la pertinenza dei risultati e aumentare il tasso di match.
+_RECIPE_SITES = ["GialloZafferano", "Cookist", "FattoInCasaDaBenedetta"]
+
+# Parole riempitive che non aggiungono valore alla ricerca e anzi la intasano.
+_FILLER_WORDS = re.compile(
+    r'\b(con|per|dal|del|della|delle|dei|degli|una|uno|un|il|lo|la|le|gli|di|da|in|su|che|e|o|a)\b',
+    re.IGNORECASE
 )
 
 
@@ -68,6 +65,18 @@ def _simplify_query(query: str) -> str:
     return re.sub(r'\s+', ' ', q).strip()
 
 
+def _extract_keywords(query: str) -> str:
+    """
+    Estrae solo le parole chiave significative dalla query, rimuovendo
+    articoli, preposizioni e filler che diluiscono la ricerca.
+
+    Author: Stefano Bellan (20054330)
+    """
+    q = _simplify_query(query)
+    q = _FILLER_WORDS.sub(' ', q)
+    return re.sub(r'\s+', ' ', q).strip()
+
+
 def _build_web_query(raw_query: str) -> str:
     """
     Trasforma la query dell'agente in una ricerca web efficace per ricette.
@@ -81,6 +90,34 @@ def _build_web_query(raw_query: str) -> str:
     if "ricett" not in q.lower():
         q = f"ricetta {q}"
     return q.strip()
+
+
+def _build_fallback_queries(raw_query: str) -> list:
+    """
+    Genera una lista di query di retry progressivamente più larghe.
+
+    Strategia a 3 livelli:
+    1. Query originale + sito di ricette noto (GialloZafferano)
+    2. Solo keyword estratte + 'ricetta' + secondo sito (Cookist)
+    3. Keyword minime + 'ricetta facile' + terzo sito (FattoInCasa)
+
+    Author: Stefano Bellan (20054330)
+    """
+    keywords = _extract_keywords(raw_query)
+    base = _build_web_query(raw_query)
+
+    fallbacks = []
+    # Livello 1: query base + sito noto
+    fallbacks.append(f"{base} {_RECIPE_SITES[0]}")
+    # Livello 2: solo keyword + ricetta + sito alternativo
+    if keywords:
+        fallbacks.append(f"ricetta {keywords} {_RECIPE_SITES[1]}")
+    # Livello 3: keyword essenziali + ricetta facile
+    essential = " ".join(keywords.split()[:3])  # max 3 parole chiave
+    if essential:
+        fallbacks.append(f"ricetta facile {essential} {_RECIPE_SITES[2]}")
+
+    return fallbacks
 
 
 def _fetch_results(query: str) -> list:
@@ -107,28 +144,50 @@ def _fetch_results(query: str) -> list:
         titolo = link_tag.get_text(" ", strip=True)
         link = link_tag.get("href", "")
 
+        # Scartiamo risultati senza link valido (l'agente DEVE includere i link)
+        if not link or not link.startswith("http"):
+            continue
+
         # Lo snippet è opzionale: quando presente riporta gli ingredienti o la descrizione
         snippet_tag = result.select_one(".result__snippet")
         snippet = snippet_tag.get_text(" ", strip=True) if snippet_tag else ""
 
-        blocco = f"\n- {titolo}\n  Fonte: {link}"
+        # Formato con link markdown pronto all'uso: l'agente può copiarlo direttamente
+        blocco = f"\n- [{titolo}]({link})"
         if snippet:
             blocco += f"\n  {snippet}"
         risultati.append(blocco)
     return risultati
 
 
-def search_online_recipes(input_data: OnlineRecipeSearchInput) -> str:
+def _deduplicate(results: list) -> list:
+    """
+    Rimuove risultati duplicati preservando l'ordine di inserimento.
+
+    Author: Stefano Bellan (20054330)
+    """
+    seen = set()
+    unique = []
+    for r in results:
+        if r not in seen:
+            seen.add(r)
+            unique.append(r)
+    return unique
+
+
+def search_online_recipes(query: str) -> str:
     """
     Cerca ricette reali sul web e restituisce i migliori risultati formattati.
 
-    Interroga il motore con la query fornita; se torna a vuoto (tipico con query piene
-    di vincoli numerici) ritenta UNA volta con una versione semplificata senza numeri.
+    Interroga il motore con la query fornita; se torna con meno di 3 risultati,
+    ritenta con query progressivamente più larghe (fino a 3 tentativi) per
+    massimizzare le probabilità di trovare ricette pertinenti.
     Le eccezioni di rete vengono gestite in modo silente restituendo un messaggio
     gestibile, senza sollevare eccezioni che interromperebbero il ciclo dell'agente.
 
     Args:
-        input_data (OnlineRecipeSearchInput): Oggetto contenente la query validata.
+        query (str): Parole chiave per la ricerca web della ricetta
+            (es. 'ricetta pollo GialloZafferano 400 kcal').
 
     Returns:
         str: Elenco formattato dei risultati oppure un'istruzione di fallback che
@@ -136,15 +195,20 @@ def search_online_recipes(input_data: OnlineRecipeSearchInput) -> str:
 
     Author: Stefano Bellan (20054330)
     """
-    web_query = _build_web_query(input_data.query)
+    web_query = _build_web_query(query)
     try:
         risultati = _fetch_results(web_query)
+
+        # Se i risultati sono insufficienti, ritentiamo con query progressivamente
+        # più larghe fino a raggiungere il minimo richiesto.
         if len(risultati) < _MIN_RESULTS:
-            # Query troppo stretta: allarghiamo con sinonimi e un sito di ricette noto,
-            # unendo i nuovi risultati a quelli già trovati (senza duplicati).
-            for blocco in _fetch_results(f"{web_query} ricette light GialloZafferano"):
-                if blocco not in risultati:
+            for fallback_query in _build_fallback_queries(query):
+                for blocco in _fetch_results(fallback_query):
                     risultati.append(blocco)
+                risultati = _deduplicate(risultati)
+                if len(risultati) >= _MIN_RESULTS:
+                    break
+
     except requests.RequestException as exc:
         # Degradazione controllata: l'LLM riceve un testo gestibile invece di un crash
         return f"Ricerca online non disponibile in questo momento ({exc}). {_NO_RESULT_FALLBACK}"
@@ -154,7 +218,9 @@ def search_online_recipes(input_data: OnlineRecipeSearchInput) -> str:
 
     intro = (
         f"Ricette trovate online per '{web_query}'. PROPONI ALL'UTENTE ALMENO {_MIN_RESULTS} "
-        f"di queste alternative, ognuna con TITOLO e LINK, scegliendo quelle più coerenti con i macro richiesti:\n"
+        f"di queste ricette. Ogni ricetta DEVE essere presentata con il TITOLO come link "
+        f"cliccabile markdown (copia il formato '[Titolo](URL)' esattamente come fornito sotto). "
+        f"Aggiungi per ciascuna una stima dei macro e spiega perché è adatta al fabbisogno:\n"
     )
     return intro + "\n".join(risultati[:_MAX_RESULTS])
 
@@ -170,4 +236,13 @@ if __name__ == "__main__":
     _w = _build_web_query("cena salmone 600 kcal 40g proteine")
     assert "ricett" in _w.lower() and not any(c.isdigit() for c in _w), _w
     assert "salmone" in _w, _w
-    print("OK query builders:", repr(_s), "|", repr(_w))
+    # Le keyword devono essere pulite senza filler
+    _k = _extract_keywords("pranzo con pollo e verdure per la cena 500 kcal")
+    assert "pollo" in _k and "verdure" in _k, _k
+    assert "con" not in _k.split() and "per" not in _k.split(), _k
+    # I fallback devono generare almeno 3 query
+    _fb = _build_fallback_queries("cena salmone 600 kcal 40g proteine")
+    assert len(_fb) >= 2, _fb
+    print("OK query builders:", repr(_s), "|", repr(_w), "|", repr(_k))
+    print("OK fallbacks:", _fb)
+

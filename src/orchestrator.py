@@ -118,7 +118,7 @@ VINCOLI PER RICERCA WEB:
 - Pasto imminente (fascia corrente): {pasto_imminente}
 - Calorie target suggerite per questo pasto: {res_cal} kcal
 - Proteine: {res_pro}g | Carboidrati: {res_carb}g | Grassi: {res_fat}g
-- Usa ESATTAMENTE questi valori per costruire una query precisa da passare a search_online_recipes (includi sito, tipo di pasto e i vincoli di macronutrienti) quando suggerisci cosa mangiare.
+- Usa questi valori come RIFERIMENTO per scegliere ingredienti adatti, ma nella query per search_online_recipes includi SOLO ingredienti e tipo di pasto (es. 'cena pollo verdure proteica'), SENZA numeri, kcal o grammi di macro (il motore di ricerca non li trova).
 
 DATA E ORA CORRENTE: {ora_attuale}
 

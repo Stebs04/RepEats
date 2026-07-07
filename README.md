@@ -116,6 +116,10 @@ Ogni agente (Orchestratore, Coach, Nutrizionista, Vision) monta il `PromptInject
 
 I dati biometrici, l'intake nutrizionale e la cronologia chat sono **contenuto da processare, non istruzioni**. Vengono incapsulati in tag XML dedicati (`<user_context>`, `<chat_history>`) e i system prompt impongono esplicitamente di trattare tutto ciò che è dentro quei tag come semplice testo, ignorando qualunque comando, cambio di ruolo o tentativo di override annidato. Così il testo generato dall'utente resta confinato e non può diventare regola di sistema.
 
+#### 2.3.3 Guardrail Off-Topic (rifiuto domande fuori ambito)
+
+Entrambi gli agenti (Coach e Nutrizionista) rifiutano **immediatamente** qualsiasi domanda che non riguardi strettamente il proprio dominio — politica, geografia, storia, matematica, programmazione, intrattenimento, cultura generale, ecc. Il rifiuto è imposto con un **messaggio template fisso** e non ammette eccezioni: l'agente non tenta nemmeno di rispondere parzialmente. Il prompt include inoltre una **lista di frasi vietate** che impedisce al modello di rivelare il proprio processo interno (es. "ho cercato online", "elaboriamo una ricerca web").
+
 ---
 
 ### 2.4 Rete di Sicurezza Anti-Hallucination (Coach)
@@ -164,7 +168,7 @@ L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMod
 
 Diviso in classi distinte per aggirare un limite dell'API Groq: **vision + function calling + structured output non coesistono in una singola chiamata**. Separando le fasi, ogni agente fa una cosa sola.
 
-* **`ConversationalNutritionistAgent`** — chat discorsiva. Legge l'intake odierno dal contesto, calcola i **macro rimanenti** rispetto al target e suggerisce pasti/ricette coerenti. Rispetta **allergie e restrizioni dietetiche** del profilo (vincolo obbligatorio iniettato nel prompt). RAG su `conoscenza_nutrizione` (tabelle SINU, linee guida). **Procedura "cosa mangiare" (obbligatoria, in un'unica risposta):** (1) costruisce **prima** una ricetta principale fondata sui documenti **RAG** (valori/porzioni/linee guida), calibrata sui macro residui; (2) **poi** chiama il tool di **ricerca ricette online** (§3.5) per proporre **almeno 3 alternative reali** con titolo e link; (3) unisce tutto in **un solo messaggio** ("*La mia proposta*" dal RAG + "*Altre alternative online*"), senza raccontare i passaggi né nominare strumenti.
+* **`ConversationalNutritionistAgent`** — chat discorsiva. Legge l'intake odierno dal contesto, calcola i **macro rimanenti** rispetto al target e suggerisce pasti/ricette coerenti. Rispetta **allergie e restrizioni dietetiche** del profilo (vincolo obbligatorio iniettato nel prompt). RAG su `conoscenza_nutrizione` (tabelle SINU, linee guida). **Procedura "cosa mangiare" (obbligatoria, in un'unica risposta):** (1) costruisce **prima** una ricetta principale fondata sui documenti **RAG** (valori/porzioni/linee guida), calibrata sui macro residui; (2) **poi** chiama il tool di **ricerca ricette online** (§3.5) per proporre **almeno 3 alternative reali** con titolo e link; (3) unisce tutto in **un solo messaggio** ("*La mia proposta*" dal RAG + "*Altre ricette trovate online*"), dove ogni ricetta include sempre un link cliccabile alla fonte. Non racconta i passaggi né nomina strumenti.
 * **`VisionNutritionistAgent`** — analizza immagini di cibo/barcode e risponde in **testo libero** (poi validato dal Parser). Con barcode usa il tool `get_product_info_by_barcode` (OpenFoodFacts); su foto di cibo puro il tool non viene nemmeno registrato, così non può usarlo per errore e stima i macro dalla categoria.
 
 ### 3.4 Pipeline di Analisi Pasto da Immagine (`POST /api/chat/vision`)
@@ -177,13 +181,14 @@ L'analisi di un pasto è un pipeline deterministico-poi-generativo, a stadi:
 
 ### 3.5 Ricerca Ricette Online (Nutrizionista)
 
-Oltre alla knowledge base interna, il Nutrizionista conversazionale dispone del tool `search_online_recipes` (`src/tools/online_recipe_search_tool.py`) per proporre **ricette reali e concrete** invece di limitarsi a stime generiche. È lo STEP 2 della procedura "cosa mangiare" (§3.3): la ricetta principale arriva dal RAG, il tool aggiunge **almeno 3 alternative online**.
+Oltre alla knowledge base interna, il Nutrizionista conversazionale dispone del tool `search_online_recipes` (`src/tools/online_recipe_search_tool.py`) per proporre **ricette reali e concrete** invece di limitarsi a stime generiche. È lo STEP 2 della procedura "cosa mangiare" (§3.3): la ricetta principale arriva dal RAG, il tool aggiunge **almeno 3 ricette trovate online**, ciascuna con titolo come link cliccabile alla fonte.
 
 * **Trigger:** quando l'utente chiede *cosa mangiare* il system prompt impone (obbligatoriamente) di chiamare il tool prima di rispondere.
-* **Contesto dedicato:** l'orchestratore inietta nel prompt un blocco **`VINCOLI PER RICERCA WEB`** con Kcal e macro target del pasto imminente (derivati dalla fascia oraria e dai residui giornalieri), così l'LLM formula una query aderente ai fabbisogni.
-* **Query robusta (`_build_web_query`):** i vincoli **numerici** (kcal, grammi, nomi dei macro) vengono **rimossi** dalla query prima della ricerca — non matchano nessun titolo di ricetta e azzeravano i risultati — e si garantisce la parola *ricetta* per puntare a siti di cucina. È l'LLM, non il motore, a filtrare poi sui macro.
-* **Garanzia di ≥3 risultati:** se la prima ricerca torna meno di 3 risultati, il tool **ritenta con una query allargata** (sinonimi + sito di ricette noto) e unisce gli esiti senza duplicati; l'output istruisce esplicitamente l'agente a proporne almeno 3 con titolo e link.
-* **Motore di ricerca:** ricerca reale via endpoint HTML di DuckDuckGo (nessuna API key), con parsing tramite **BeautifulSoup** (fino a 6 risultati: titolo, link, snippet).
+* **Contesto dedicato:** l'orchestratore inietta nel prompt un blocco **`VINCOLI PER RICERCA WEB`** con Kcal e macro target del pasto imminente (derivati dalla fascia oraria e dai residui giornalieri). I valori servono da **riferimento** per la scelta degli ingredienti, ma la query inviata al motore contiene solo ingredienti e tipo di pasto (mai numeri, che azzererebbero i match).
+* **Query robusta (`_build_web_query`):** i vincoli **numerici** (kcal, grammi, nomi dei macro) e le parole riempitive (articoli, preposizioni) vengono **rimossi** dalla query prima della ricerca — non matchano nessun titolo di ricetta — e si garantisce la parola *ricetta* per puntare a siti di cucina. È l'LLM, non il motore, a filtrare poi sui macro.
+* **Garanzia di ≥3 risultati — strategia a 3 livelli di fallback:** se la prima ricerca torna meno di 3 risultati, il tool **ritenta con query progressivamente più larghe**: (1) query base + GialloZafferano, (2) sole keyword + Cookist, (3) keyword essenziali + "ricetta facile" + FattoInCasaDaBenedetta. Ad ogni livello i risultati vengono uniti senza duplicati; la cascata si ferma appena si raggiungono ≥3 match.
+* **Output con link markdown pronti:** ogni risultato è formattato come `[Titolo](URL)` — un link markdown che l'LLM può copiare direttamente nella risposta. Risultati senza URL http valido vengono scartati. L'istruzione allegata impone esplicitamente all'agente di presentare ogni ricetta come titolo cliccabile.
+* **Motore di ricerca:** ricerca reale via endpoint HTML di DuckDuckGo (nessuna API key), con parsing tramite **BeautifulSoup** (fino a 8 risultati: titolo, link, snippet).
 * **Resilienza di rete:** le eccezioni HTTP sono gestite in modo silente e degradano in un messaggio che **impone all'LLM di proporre lui una ricetta completa** (mai rimandare l'utente a cercare da solo), senza sollevare eccezioni che interromperebbero la chat.
 
 > **Nota sullo scraping:** dipendendo dal markup HTML del motore di ricerca, il tool è per natura fragile a modifiche lato provider. Per un uso in produzione stabile è preferibile un servizio di ricerca dotato di API ufficiale.
@@ -223,7 +228,9 @@ Login/registrazione in `backend/auth.py`. Le rotte protette ricavano l'identità
 
 ### 4.4 Migrazioni Schema (Alembic)
 
-Lo schema **non** viene più creato automaticamente all'avvio (niente `create_all()`): l'evoluzione è gestita da [Alembic](https://alembic.sqlalchemy.org/) con migrazioni versionate in `alembic/versions/`. All'avvio l'app verifica soltanto che il DB sia raggiungibile. Alembic legge `DATABASE_URL` dal `.env`.
+Lo schema **non** viene creato con `create_all()`: l'evoluzione è gestita da [Alembic](https://alembic.sqlalchemy.org/) con migrazioni versionate in `alembic/versions/`. Alembic legge `DATABASE_URL` dal `.env`.
+
+**Primo avvio automatico:** all'avvio `init_database()` verifica la raggiungibilità del DB e controlla l'esistenza della tabella `alembic_version`. Se assente (database vergine), esegue **automaticamente** `alembic upgrade head` via API Python, creando lo schema completo. Ai successivi avvii il controllo rileva la tabella già presente e salta le migrazioni.
 
 ### 4.5 Comunicazione Frontend-Backend (SSE)
 
@@ -301,19 +308,14 @@ DATABASE_URL=sqlite:///repeats_local.db
 
 > Senza `.env` correttamente configurato l'applicazione non parte. Verificalo **ogni volta** prima dell'avvio.
 
-### Setup del database (Alembic)
+### Setup del database
 
-Su un database nuovo/vuoto, crea le tabelle applicando le migrazioni:
+**Nessun comando manuale richiesto.** Al primo avvio l'applicazione rileva automaticamente un database vergine (tabella `alembic_version` assente) e applica tutte le migrazioni Alembic, creando lo schema completo. Ai successivi avvii viene eseguito solo un controllo di connettività.
 
-```bash
-alembic upgrade head
-```
-
-Se hai già un DB creato dalla vecchia logica `create_all()`, allinea lo stato senza rieseguire le CREATE:
-
-```bash
-alembic stamp head
-```
+> Se hai già un DB creato dalla vecchia logica `create_all()` senza migrazioni, allinea lo stato manualmente una tantum:
+> ```bash
+> alembic stamp head
+> ```
 
 ### Avvio
 
@@ -335,7 +337,7 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 ## 7. Cosa Aspettarsi al Primo Avvio
 
-All'avvio l'app verifica la raggiungibilità del DB e sincronizza la Knowledge Base (`sync()`): indicizza in LanceDB i documenti presenti in `src/knowledge_base/docs/`. La prima volta l'embedding richiede alcune decine di secondi (download di MiniLM + indicizzazione); ai riavvii successivi il manifest di idempotenza salta i documenti invariati, rendendo l'operazione quasi istantanea.
+All'avvio l'app verifica la raggiungibilità del DB; se il database è vergine (primo avvio in assoluto), **applica automaticamente le migrazioni Alembic** creando tutte le tabelle — non serve eseguire `alembic upgrade head` a mano. Successivamente sincronizza la Knowledge Base (`sync()`): indicizza in LanceDB i documenti presenti in `src/knowledge_base/docs/`. La prima volta l'embedding richiede alcune decine di secondi (download di MiniLM + indicizzazione); ai riavvii successivi il manifest di idempotenza salta i documenti invariati, rendendo l'operazione quasi istantanea.
 
 L'app è servita su `http://127.0.0.1:8000`; la root reindirizza al frontend. Dopo il login puoi chattare con **Coach** (schede) e **Nutrition** (pasti, chat, foto/barcode).
 

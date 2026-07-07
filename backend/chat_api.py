@@ -20,7 +20,7 @@ from agno.models.message import Image as AgnoImage
 from agno.agent import Agent
 from agno.models.groq import Groq as GroqModel
 from src.agents.nutritionst import NutritionistAgent, VisionNutritionistAgent, MealAnalysis
-from src.tools.openfoodfacts_tool import get_product_info_by_barcode, BarcodeSearchInput
+from src.tools.openfoodfacts_tool import get_product_info_by_barcode
 from src.tools.barcode_scanner import scan_barcode
 from src.database.user_service import (
     get_user_data, 
@@ -371,7 +371,7 @@ async def analyze_food_image(
         if barcode:
             # Il flusso prosegue a monte in Python nativo garantendo tempi costanti
             # e proteggendoci dalle approssimazioni tipiche del modello.
-            prod = get_product_info_by_barcode(BarcodeSearchInput(barcode=barcode))
+            prod = get_product_info_by_barcode(barcode=barcode)
             if prod.energy_kcal_100g is not None:
                 fattore = grammatura / 100.0
                 fonte = "openfoodfacts"

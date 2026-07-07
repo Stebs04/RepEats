@@ -16,15 +16,6 @@ import requests
 # Utilità di sistema per l'accesso dinamico alle variabili d'ambiente
 import os
 
-class BarcodeSearchInput(BaseModel):
-    """
-    Schema per validare l'input della richiesta del codice a barre.
-    
-    Author: Stefano Bellan (20054330)
-    """
-    # Identificativo EAN-13 ricavato dallo scanner
-    barcode: str = Field(..., description="Il codice a barre numerico del prodotto (EAN-13).")
-
 class ProductOutput(BaseModel):
     """
     Modello di risposta che incapsula i valori macro-nutrizionali estratti.
@@ -42,13 +33,13 @@ class ProductOutput(BaseModel):
     # Quota lipidica per cento grammi di riferimento
     fat_100g: Optional[float] = Field(None, description="Grammi di grassi per 100g.")
 
-def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput:
+def get_product_info_by_barcode(barcode: str) -> ProductOutput:
     """
     Contatta il servizio di Open Food Facts per mappare un codice a barre sui suoi valori nutrizionali.
-    
+
     Args:
-        input_data (BarcodeSearchInput): Oggetto contenente il parametro di ricerca validato.
-        
+        barcode (str): Il codice a barre numerico del prodotto (EAN-13).
+
     Returns:
         ProductOutput: Struttura con i macro e i riferimenti energetici. In caso di errore o
         assenza di dati vengono restituiti campi vuoti per favorire la resilienza del flusso.
@@ -62,7 +53,7 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
     headers = {"User-Agent": f"{app_name} - Project University Version"}
     
     # Generazione dell'endpoint inserendo il parametro in modo sicuro
-    url = f"https://world.openfoodfacts.org/api/v2/product/{input_data.barcode}.json"
+    url = f"https://world.openfoodfacts.org/api/v2/product/{barcode}.json"
     
     # Chiamata bloccante al servizio esterno con timeout preimpostato per non incastrare l'agente
     response = requests.get(url, headers=headers, timeout=10)
@@ -72,7 +63,7 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
     # deleghiamo la risoluzione finale al sistema chiamante senza crash.
     if response.status_code == 404:
         return ProductOutput(
-            product_name=f"Prodotto con barcode {input_data.barcode} non trovato nel database OpenFoodFacts. Prova a stimare i valori nutrizionali manualmente."
+            product_name=f"Prodotto con barcode {barcode} non trovato nel database OpenFoodFacts. Prova a stimare i valori nutrizionali manualmente."
         )
     
     if response.status_code != 200:
@@ -86,7 +77,7 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
     # Verifichiamo il flag di stato restituito dal backend prima di accedere ai nodi dati
     if data.get("status") != 1:
         return ProductOutput(
-            product_name=f"Prodotto con barcode {input_data.barcode} non presente nel database OpenFoodFacts."
+            product_name=f"Prodotto con barcode {barcode} non presente nel database OpenFoodFacts."
         )
         
     # Isoliamo il nodo radice garantendo una chiave di default per evitare crash
@@ -103,7 +94,7 @@ def get_product_info_by_barcode(input_data: BarcodeSearchInput) -> ProductOutput
         or product_data.get("product_name_en")
         or product_data.get("generic_name")
         or product_data.get("brands")
-        or f"Prodotto {input_data.barcode}"
+        or f"Prodotto {barcode}"
     )
 
     # Cerchiamo di recuperare le kcal dirette. In molti record è presente unicamente
