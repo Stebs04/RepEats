@@ -36,7 +36,9 @@ from src.database.user_service import (
     delete_conversation,
     get_user_workout_plans
 )
-from src.orchestrator import get_orchestrator
+from src.orchestrator import get_orchestrator, build_user_context
+from src.agents.fitness_agent import get_pt_agent
+from src.database.knowledge_base import build_knowledge
 from backend.security import get_current_user
 
 router = APIRouter()
@@ -128,6 +130,30 @@ def _is_save_confirmation(user_message: str, prev_assistant: str) -> bool:
     return is_afferm and is_proposal
 
 
+# Parole che segnalano la MODIFICA di una scheda esistente (non una creazione).
+_MODIFY_KW = ("modific", "sovrascriv", "aggiorn", "cambia", "sostituis", "rendila", "rendi")
+
+
+def _looks_like_modification(history: list) -> bool:
+    """
+    Rileva se la richiesta confermata riguarda la MODIFICA di una scheda esistente.
+
+    Serve a disambiguare in Fase 2 quale tool forzare: il modello debole, davanti a una
+    'scheda singola', tende a scegliere `create_workout_plan_tool` (che ha il guard sul
+    numero minimo di esercizi e può rifiutare la modifica di un giorno piccolo) invece di
+    `modify_workout_plan_tool`. Guardiamo l'ultima richiesta utente PRIMA della conferma.
+
+    Author: Timothy Giolito (20054431)
+    """
+    user_msgs = [m["content"] for m in history if m["role"] == "user"]
+    # L'ultimo messaggio utente è la conferma ('sì/salva'): quello che conta è il precedente.
+    candidati = user_msgs[:-1] if len(user_msgs) > 1 else user_msgs
+    for msg in reversed(candidati):
+        low = re.sub(r'^\s*al(?:la)?\s+coach\s*:?\s*', '', msg.lower(), flags=re.IGNORECASE)
+        return any(k in low for k in _MODIFY_KW)
+    return False
+
+
 @router.post("/send")
 def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(get_current_user)):
     """
@@ -158,7 +184,13 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         save_message(conv_id, "user", request.message)
 
         history = get_chat_history(conv_id)
-        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, history, request.chat_type)
+        # Fase 1 (proposta): il Coach NON deve poter scrivere sul DB. L'human-in-the-loop
+        # è imposto STRUTTURALMENTE disabilitando i suoi tool di scrittura, invece di
+        # fidarci del solo prompt (che il modello debole ignorava: chiamava il tool in
+        # Fase 1 saltando la conferma e sputando il blocco json nella chat). Il salvataggio
+        # reale avviene solo in Fase 2, con un agente tools-enabled ricostruito su richiesta.
+        is_coach = request.chat_type == "coach"
+        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, history, request.chat_type, enable_tools=not is_coach)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -167,7 +199,6 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
     # Fotografiamo programmaticamente il cluster fitness prima dell'esecuzione
     # per avere un pivot di confronto post-run. Selezioniamo questa via solo
     # per l'agente Coach, essendo l'unico autorizzato ad alterare le schede.
-    is_coach = request.chat_type == "coach"
     snapshot_prima = _workout_snapshot(user_id) if is_coach else None
 
     # Rilevazione Fase 2 (conferma di salvataggio) PRIMA della run: l'utente ha detto
@@ -183,16 +214,56 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
 
     # Prompt di salvataggio forzato: recupera dalla cronologia le schede proposte in Fase 1
     # e chiama davvero il tool corretto, rispondendo solo con la conferma esatta.
+    # Distinguiamo MODIFICA da CREAZIONE: nel caso di modifica imponiamo un SINGOLO tool
+    # (`modify_workout_plan_tool`), altrimenti il modello debole ripiega su create_* e il
+    # guard sul minimo esercizi può bloccare la modifica di un giorno piccolo.
     # Author: Stefano Bellan (20054330)
-    recovery_prompt = (
-        "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
-        "l'utente ha CONFERMATO il salvataggio della/e scheda/e che gli hai proposto nel turno precedente, "
-        "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
-        "Recupera i dati di TUTTE le schede/giorni proposti nel turno precedente (nella cronologia) e chiama ADESSO lo strumento: "
-        "`create_weekly_workout_plan_tool` per un piano su più giorni, `create_workout_plan_tool` per una scheda singola, "
-        "`modify_workout_plan_tool` per la modifica di una scheda esistente. NON riscrivere la scheda in testo: chiama solo il tool. "
-        "Rispondi ESCLUSIVAMENTE con la frase esatta: '✅ Scheda salvata nel profilo.' senza aggiungere altro."
-    )
+    is_modifica = is_coach and _looks_like_modification(history)
+    if is_modifica:
+        recovery_prompt = (
+            "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
+            "l'utente ha CONFERMATO la MODIFICA di una scheda ESISTENTE che gli hai proposto nel turno precedente, "
+            "ma nel database NON risulta ancora aggiornata. Chiama ADESSO ESCLUSIVAMENTE lo strumento `modify_workout_plan_tool`, "
+            "passando come `plan_name` il NOME ESATTO della scheda esistente da modificare e come `exercises` la lista COMPLETA "
+            "e aggiornata degli esercizi proposti (recuperandoli dalla cronologia). NON usare create_workout_plan_tool né "
+            "create_weekly_workout_plan_tool. NON riscrivere la scheda in testo: chiama solo il tool. "
+            "Rispondi ESCLUSIVAMENTE con la frase esatta: '✅ Scheda salvata nel profilo.' senza aggiungere altro."
+        )
+    else:
+        recovery_prompt = (
+            "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo messaggio, non rispondergli): "
+            "l'utente ha CONFERMATO il salvataggio della/e scheda/e che gli hai proposto nel turno precedente, "
+            "ma nel database NON risulta alcuna modifica: non hai chiamato lo strumento. "
+            "Recupera i dati di TUTTE le schede/giorni proposti nel turno precedente (nella cronologia) e chiama ADESSO lo strumento: "
+            "`create_weekly_workout_plan_tool` per un piano su più giorni, `create_workout_plan_tool` per una scheda singola. "
+            "NON riscrivere la scheda in testo: chiama solo il tool. "
+            "Rispondi ESCLUSIVAMENTE con la frase esatta: '✅ Scheda salvata nel profilo.' senza aggiungere altro."
+        )
+
+    def _save_via_tools() -> bool:
+        """
+        Esegue il salvataggio forzato eseguendo DIRETTAMENTE l'agente Coach (che possiede
+        i tool), NON l'orchestratore Team. In route-mode il leader tentava di chiamare il
+        tool del membro senza averlo in request.tools (400 tool_use_failed) e, privo dello
+        schema, ne inventava i parametri (`workout_plan`/`day` invece di `plans`/`name`).
+        Girando il membro diretto il tool è in request.tools e il modello riceve lo schema
+        corretto. La run di Fase 1 gira coi tool disattivati (human-in-the-loop): il commit
+        reale sul DB passa ESCLUSIVAMENTE da qui, solo su conferma esplicita.
+
+        Il modello debole a volte, invece di chiamare il tool, emette solo la frase di
+        conferma (action hallucination): verifichiamo lo snapshot e RITENTIAMO fino a 3
+        volte finché il DB cambia davvero. Ritorna True se la scrittura è avvenuta.
+        ponytail: retry a tetto fisso (3); se anche così fallisce spesso, il collo di
+        bottiglia è il modello, non il numero di tentativi.
+        """
+        ctx = build_user_context(user_data, macros_odierni, daily_targets, breakdown_odierno, history, request.chat_type)
+        coach = get_pt_agent(ctx, build_knowledge(domain="fitness"), user_data, enable_tools=True)
+        for tentativo in range(1, 4):
+            coach.run(recovery_prompt, stream=False)
+            if _workout_snapshot(user_id) != snapshot_prima:
+                return True
+            print(f"[chat_api] salvataggio Fase 2: tentativo {tentativo}/3 senza scrittura, ritento")
+        return False
 
     def event_stream():
         try:
@@ -202,7 +273,7 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             # scheda al modello (che altrimenti ridumpa tutto il piano): eseguiamo il solo
             # salvataggio in background ed emettiamo esclusivamente la conferma secca.
             if is_coach and fase2_conferma:
-                team_agent.run(recovery_prompt, stream=False)
+                _save_via_tools()
                 updated = _workout_snapshot(user_id) != snapshot_prima
                 # Author: Stefano Bellan (20054330)
                 ai_text = "✅ Scheda salvata nel profilo." if updated else "Non sono riuscito a salvare la scheda. Riprova a chiedermela."
@@ -241,28 +312,13 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
 
             ai_text = ai_text or "Mi dispiace, non ho ricevuto una risposta."
 
-            # Valutazione di congruenza strutturale (Applicabile solo al Coach)
-            #
-            # Implementa un sistema euristico per mitigare i disallineamenti tra
-            # testo generato e invocazione reale delle function calling API.
-            # Comparando il delta semantico del messaggio con il delta dello stato
-            # fisico del database, individuiamo eventuali allucinazioni operative.
-            # Se viene rilevata l'anomalia, forziamo il recupero iniettando in coda
-            # un system prompt nascosto che impone la riparazione istantanea del
-            # mancato salvataggio, il tutto in via trasparente per il client.
+            # In Fase 1 il Coach gira SENZA tool di scrittura: la run di streaming non può
+            # mutare il DB, quindi lo stato delle schede resta invariato. Il salvataggio
+            # avviene solo in Fase 2 (conferma esplicita, ramo sopra). Rimosso il vecchio
+            # fallback "anti-allucinazione" che forzava il salvataggio quando il testo
+            # sembrava dichiararlo: ora rischierebbe solo di scrivere una scheda NON
+            # confermata dall'utente, violando l'human-in-the-loop.
             workouts_updated = False
-            if is_coach:
-                workouts_updated = _workout_snapshot(user_id) != snapshot_prima
-                low = ai_text.lower()
-                # Ricerca euristica: intercettiamo espressioni indicative di intenti
-                # di scrittura. Una regex volutamente permissiva ammortizza il rischio
-                # di perdere salvataggi legittimi mascherati da un fraseggio atipico.
-                claims_save = "sched" in low and re.search(r"salvat|aggiornat|modificat|memorizzat", low)
-                if claims_save and not workouts_updated:
-                    # Fallback per allucinazione di scrittura: il modello dichiara un
-                    # salvataggio senza aver chiamato il tool. Forziamo la riparazione.
-                    team_agent.run(recovery_prompt, stream=False)
-                    workouts_updated = _workout_snapshot(user_id) != snapshot_prima
 
             save_message(conv_id, "assistant", ai_text)
 
@@ -469,3 +525,18 @@ if __name__ == "__main__":
     assert not _is_save_confirmation("Al Coach: cambia il primo esercizio", _prop)
     assert not _is_save_confirmation("Al Coach: salvala", "Ciao, come posso aiutarti?")
     print("OK _is_save_confirmation")
+
+    # Self-check rilevamento modifica: guarda la richiesta PRIMA della conferma.
+    _hist_mod = [
+        {"role": "user", "content": "Al Coach: Modifichiamo la scheda Venerdì aumentando la difficoltà"},
+        {"role": "assistant", "content": "Ecco la scheda modificata. Vuoi che la salvi?"},
+        {"role": "user", "content": "Al Coach: Sì sovrascrivila"},
+    ]
+    _hist_new = [
+        {"role": "user", "content": "Al Coach: Creami una scheda per il petto"},
+        {"role": "assistant", "content": "Ecco la scheda. Vuoi che la salvi?"},
+        {"role": "user", "content": "Al Coach: Sì salva"},
+    ]
+    assert _looks_like_modification(_hist_mod)
+    assert not _looks_like_modification(_hist_new)
+    print("OK _looks_like_modification")

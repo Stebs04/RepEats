@@ -35,7 +35,7 @@ L'architettura si fonda su tre principi cardine:
 |---|---|---|---|
 | **Orchestratore, Coach, Nutrizionista, Vision, Parser** | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq | Le Language Processing Units di Groq offrono latenze estremamente ridotte. Llama 4 Scout è multimodale (vision) e multilingue nativo, coprendo con un solo modello chat testuale, analisi immagini dei pasti e parsing strutturato. |
 
-Il modello è iniettato tramite il wrapper `agno.models.groq.Groq`. Il numero di run per messaggio varia per flusso: la chat è single-run (con un eventuale run di *recovery*, vedi §2.5), mentre l'analisi di un pasto da immagine è un pipeline a due/tre stadi (§3.4).
+Il modello è iniettato tramite il wrapper `agno.models.groq.Groq`. Il numero di run per messaggio varia per flusso: la chat è single-run (con un eventuale run di *salvataggio* in Fase 2 per il Coach, vedi §2.4), mentre l'analisi di un pasto da immagine è un pipeline a due/tre stadi (§3.4).
 
 ---
 
@@ -122,13 +122,13 @@ I dati biometrici, l'intake nutrizionale e la cronologia chat sono **contenuto d
 
 > Questa è la difesa ingegneristica centrale del progetto — dettagli anche in [`docs/LLM_ARCHITECTURE.md`](docs/LLM_ARCHITECTURE.md).
 
-Il Coach salva le schede via **Tool Calling autonomo** (decide da solo quando invocare i tool). Il limite intrinseco degli LLM è l'**action hallucination**: l'agente può generare *"Ho salvato la tua scheda Push A"* **senza aver realmente emesso la tool call**. Il testo mente ed è indistinguibile da un successo reale.
+Il limite intrinseco degli LLM è l'**action hallucination**: l'agente può generare *"Ho salvato la tua scheda Push A"* **senza aver realmente emesso la tool call** — oppure, al contrario, chiamare il tool di scrittura **in Fase 1** saltando la conferma dell'utente. Con `llama-4-scout` (debole) la sola disciplina del prompt non basta. La difesa combina **prevenzione strutturale** e **verifica deterministica** sullo stato del DB, in `backend/chat_api.py`:
 
-L'unica fonte di verità è lo **stato del database**. La rete di sicurezza in `backend/chat_api.py`:
-
-1. **Snapshot deterministico (`_workout_snapshot`)** — prima della run fotografa le schede (id, nomi, esercizi con set/reps/recupero) in una tupla comparabile; a fine run rifotografa. `snapshot_dopo != snapshot_prima` è l'unico segnale deterministico di scrittura reale.
-2. **Rilevazione discrepanza** — incrocia due segnali: il testo *dichiara* un salvataggio (`claims_save`, semantico e inaffidabile) **e** il DB è *invariato* (deterministico). Testo che promette + DB fermo = tool non chiamato.
-3. **`recovery_prompt` auto-riparante** — inietta un messaggio di sistema **invisibile all'utente** che re-innesca l'agente forzandolo a chiamare *adesso* il tool corretto (`create_weekly_workout_plan_tool` per i piani multi-giorno, `modify_workout_plan_tool` per una singola modifica), recuperando le schede ed esercizi dallo **storico della conversazione** (proposti in Fase 1), non dal solo ultimo testo. La risposta già mostrata resta intatta; il salvataggio avviene dietro le quinte. Dopo il recovery si ri-verifica lo snapshot.
+1. **Fase 1 senza tool di scrittura (prevenzione strutturale dell'human-in-the-loop)** — nel turno di proposta il Coach viene istanziato con `enable_tools=False`: i tool di scrittura **non sono nemmeno registrati**, quindi il modello *non può fisicamente salvare* né perdersi a emettere blocchi JSON nella chat. Può solo proporre la scheda in Markdown e chiedere conferma. La regola non è più affidata al prompt (che il modello ignorava): è imposta dall'architettura.
+2. **Rilevazione conferma (Fase 2, deterministica)** — `_is_save_confirmation` riconosce nel messaggio utente un'affermazione esplicita ("ok", "salva", "sì"…) in risposta a una proposta del turno precedente, dopo aver rimosso il prefisso di routing (`Al Coach: `) che altrimenti impedirebbe il match.
+3. **Salvataggio forzato via agente Coach diretto** — su conferma, un Coach ricostruito **con i tool abilitati** (`_save_via_tools`) esegue il `recovery_prompt`: recupera le schede ed esercizi dallo **storico della conversazione** (proposti in Fase 1) e chiama *adesso* il tool corretto. Si esegue **l'agente membro direttamente, non il Team in `route` mode**: in route-mode il leader tentava di chiamare il tool del membro senza averlo in `request.tools` (errore 400 `tool_use_failed`) e, privo dello schema, ne inventava i parametri.
+   - **Disambiguazione creazione/modifica** — `_looks_like_modification` ispeziona la richiesta *precedente alla conferma*: se contiene parole di modifica (`modific`, `sovrascriv`, `aggiorn`, `cambia`…) il `recovery_prompt` impone **un solo tool**, `modify_workout_plan_tool`. Senza questa disambiguazione il modello debole, davanti a una "scheda singola", ripiegava su `create_workout_plan_tool` — che ha il *guard sul numero minimo di esercizi* (vedi §3.2) e **rifiutava la modifica di un giorno piccolo** (es. Spalle e Addominali), lasciando il DB invariato e la modifica non salvata. Per le creazioni il prompt lascia scegliere tra `create_weekly_workout_plan_tool` (piano multi-giorno) e `create_workout_plan_tool` (scheda singola).
+4. **Snapshot deterministico (`_workout_snapshot`)** — prima e dopo il salvataggio fotografa le schede (id, nomi, esercizi con set/reps/recupero) in una tupla comparabile. `snapshot_dopo != snapshot_prima` è l'unico segnale reale di scrittura: solo se lo snapshot cambia si conferma all'utente `✅ Scheda salvata nel profilo.`, altrimenti un messaggio di errore onesto. Il vecchio fallback euristico "il testo dichiara un salvataggio ma il DB è fermo → salva d'ufficio" è stato **rimosso**: con la Fase 1 senza tool avrebbe potuto scrivere schede *non confermate*, violando l'human-in-the-loop.
 
 ---
 
@@ -154,8 +154,9 @@ L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMod
 * **Due tipi di creazione:**
   - **Singola scheda** (es. "fammi un allenamento gambe") ⇒ `create_workout_plan_tool`, una chiamata.
   - **Piano settimanale** (più giorni, es. Lun/Mer/Ven) ⇒ **una sola** chiamata a `create_weekly_workout_plan_tool` con tutti i giorni: salvataggio atomico, niente schede parziali se una fallisce. Ogni singola scheda del piano deve rispettare **indipendentemente** il tempo a disposizione.
-* **Human-in-the-loop (2 fasi):** salvare è una **scrittura** e richiede conferma esplicita. **Fase 1** — propone la/e scheda/e in Markdown senza chiamare tool. **Fase 2** — solo dopo un "ok" dell'utente chiama fisicamente il tool corretto (singolo o settimanale) e risponde esclusivamente con `Ok, scheda salvata.`, senza riproporre né richiedere altre conferme.
-* **Vincolo temporale rigido:** la scheda deve rientrare nel *tempo a disposizione* dell'utente; l'agente stima la durata (serie × (esecuzione + recupero) + riscaldamento/defaticamento) e taglia se sfora.
+* **Human-in-the-loop (2 fasi, imposto strutturalmente):** salvare è una **scrittura** e richiede conferma esplicita. **Fase 1** — il Coach gira **senza tool di scrittura** (`enable_tools=False`): può solo proporre la/e scheda/e in Markdown e chiedere conferma, non può salvare né sbrodolare JSON nella chat. **Fase 2** — solo dopo un "ok" dell'utente un Coach tools-enabled esegue il salvataggio (vedi §2.4) e conferma con `✅ Scheda salvata nel profilo.`. La disciplina non è affidata al prompt ma all'architettura.
+* **Vincolo temporale rigido (upper + lower bound):** la scheda deve **riempire** il *tempo a disposizione* del profilo, non solo starci sotto. L'agente stima la durata (serie × (esecuzione + recupero) + riscaldamento/defaticamento): se sfora **taglia**, se avanza tempo **aggiunge** esercizi, puntando all'85-100% del budget.
+* **Guard sul numero minimo di esercizi (deterministico):** i tool `create_workout_plan_tool` e `create_weekly_workout_plan_tool` **rifiutano** le schede sotto-riempite (`_min_exercises_for` deriva la soglia dal *tempo a disposizione*: es. 60 min ⇒ ≥6 esercizi/giorno) con un errore azionabile che costringe il modello a rigenerare con più esercizi. Blocca alla radice il difetto del modello debole che salvava schede di 3 esercizi con 60 minuti a disposizione.
 * **Controllo nutrizionale pre-allenamento:** legge l'intake dal contesto e avvisa (senza bloccare) se l'utente si allena troppo a digiuno.
 * **Limiti:** non fornisce consigli nutrizionali; rimanda alla sezione Nutrition.
 
@@ -163,7 +164,7 @@ L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMod
 
 Diviso in classi distinte per aggirare un limite dell'API Groq: **vision + function calling + structured output non coesistono in una singola chiamata**. Separando le fasi, ogni agente fa una cosa sola.
 
-* **`ConversationalNutritionistAgent`** — chat discorsiva. Legge l'intake odierno dal contesto, calcola i **macro rimanenti** rispetto al target e suggerisce pasti/ricette coerenti. Rispetta **allergie e restrizioni dietetiche** del profilo (vincolo obbligatorio iniettato nel prompt). RAG su `conoscenza_nutrizione` (tabelle SINU, linee guida). Quando l'utente chiede cosa mangiare, chiama il tool di **ricerca ricette online** (§3.5) per proporre ricette reali con titolo e link alla fonte.
+* **`ConversationalNutritionistAgent`** — chat discorsiva. Legge l'intake odierno dal contesto, calcola i **macro rimanenti** rispetto al target e suggerisce pasti/ricette coerenti. Rispetta **allergie e restrizioni dietetiche** del profilo (vincolo obbligatorio iniettato nel prompt). RAG su `conoscenza_nutrizione` (tabelle SINU, linee guida). **Procedura "cosa mangiare" (obbligatoria, in un'unica risposta):** (1) costruisce **prima** una ricetta principale fondata sui documenti **RAG** (valori/porzioni/linee guida), calibrata sui macro residui; (2) **poi** chiama il tool di **ricerca ricette online** (§3.5) per proporre **almeno 3 alternative reali** con titolo e link; (3) unisce tutto in **un solo messaggio** ("*La mia proposta*" dal RAG + "*Altre alternative online*"), senza raccontare i passaggi né nominare strumenti.
 * **`VisionNutritionistAgent`** — analizza immagini di cibo/barcode e risponde in **testo libero** (poi validato dal Parser). Con barcode usa il tool `get_product_info_by_barcode` (OpenFoodFacts); su foto di cibo puro il tool non viene nemmeno registrato, così non può usarlo per errore e stima i macro dalla categoria.
 
 ### 3.4 Pipeline di Analisi Pasto da Immagine (`POST /api/chat/vision`)
@@ -176,12 +177,14 @@ L'analisi di un pasto è un pipeline deterministico-poi-generativo, a stadi:
 
 ### 3.5 Ricerca Ricette Online (Nutrizionista)
 
-Oltre alla knowledge base interna, il Nutrizionista conversazionale dispone del tool `search_online_recipes` (`src/tools/online_recipe_search_tool.py`) per proporre **ricette reali e concrete** invece di limitarsi a stime generiche.
+Oltre alla knowledge base interna, il Nutrizionista conversazionale dispone del tool `search_online_recipes` (`src/tools/online_recipe_search_tool.py`) per proporre **ricette reali e concrete** invece di limitarsi a stime generiche. È lo STEP 2 della procedura "cosa mangiare" (§3.3): la ricetta principale arriva dal RAG, il tool aggiunge **almeno 3 alternative online**.
 
-* **Trigger:** quando l'utente chiede *cosa mangiare*, il system prompt impone all'agente di chiamare il tool costruendo una query mirata — sito di riferimento (es. *GialloZafferano*), tipo di pasto e vincoli di macronutrienti.
+* **Trigger:** quando l'utente chiede *cosa mangiare* il system prompt impone (obbligatoriamente) di chiamare il tool prima di rispondere.
 * **Contesto dedicato:** l'orchestratore inietta nel prompt un blocco **`VINCOLI PER RICERCA WEB`** con Kcal e macro target del pasto imminente (derivati dalla fascia oraria e dai residui giornalieri), così l'LLM formula una query aderente ai fabbisogni.
-* **Motore di ricerca:** ricerca reale via endpoint HTML di DuckDuckGo (nessuna API key), con parsing dei risultati tramite **BeautifulSoup**. Vengono estratti i primi 3-5 risultati (titolo, link, snippet con eventuali ingredienti) e restituiti come testo; l'agente presenta all'utente titolo e link alla fonte.
-* **Resilienza di rete:** le eccezioni HTTP sono gestite in modo silente e degradano in un messaggio leggibile dall'LLM (che ripiega sulle proprie conoscenze), senza sollevare eccezioni che interromperebbero la chat.
+* **Query robusta (`_build_web_query`):** i vincoli **numerici** (kcal, grammi, nomi dei macro) vengono **rimossi** dalla query prima della ricerca — non matchano nessun titolo di ricetta e azzeravano i risultati — e si garantisce la parola *ricetta* per puntare a siti di cucina. È l'LLM, non il motore, a filtrare poi sui macro.
+* **Garanzia di ≥3 risultati:** se la prima ricerca torna meno di 3 risultati, il tool **ritenta con una query allargata** (sinonimi + sito di ricette noto) e unisce gli esiti senza duplicati; l'output istruisce esplicitamente l'agente a proporne almeno 3 con titolo e link.
+* **Motore di ricerca:** ricerca reale via endpoint HTML di DuckDuckGo (nessuna API key), con parsing tramite **BeautifulSoup** (fino a 6 risultati: titolo, link, snippet).
+* **Resilienza di rete:** le eccezioni HTTP sono gestite in modo silente e degradano in un messaggio che **impone all'LLM di proporre lui una ricetta completa** (mai rimandare l'utente a cercare da solo), senza sollevare eccezioni che interromperebbero la chat.
 
 > **Nota sullo scraping:** dipendendo dal markup HTML del motore di ricerca, il tool è per natura fragile a modifiche lato provider. Per un uso in produzione stabile è preferibile un servizio di ricerca dotato di API ufficiale.
 

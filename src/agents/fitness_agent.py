@@ -49,6 +49,27 @@ def _parse_exercises(exercises) -> list:
     return parsed
 
 
+def _min_exercises_for(duration_min: int) -> int:
+    """
+    Soglia minima di esercizi per giorno in base al 'Tempo a disposizione' del profilo.
+
+    Tenuta un gradino SOTTO il target suggerito nel prompt (es. 60min → il prompt punta
+    a 7-9, qui la soglia è 6) per lasciare margine al modello ed evitare loop di
+    rigenerazione, ma abbastanza alta da bocciare le schede scarne (3 esercizi con 60 min).
+
+    Author: Stefano Bellan (20054330)
+    """
+    if duration_min <= 20:
+        return 3
+    if duration_min <= 35:
+        return 4
+    if duration_min <= 50:
+        return 5
+    if duration_min <= 70:
+        return 6
+    return 8
+
+
 def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, enable_tools: bool = True) -> Agent:
     """
     Factory per l'istanza Agno specializzata nel dominio fitness.
@@ -58,11 +79,13 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
     """
     user_id = user_data.get('user_id')
 
-    def create_workout_plan_tool(plan_name: str, exercises: str) -> str:
+    def create_workout_plan_tool(plan_name: str, exercises: list) -> str:
         """
         Metodo per il deployment di un nuovo protocollo di allenamento all'interno del database.
         L'invocazione deve avvenire esclusivamente in modalità differita a seguito di autorizzazione esplicita.
-        
+        `exercises` è una lista NATIVA di oggetti esercizio (non una stringa JSON: evita il
+        mismatch di schema per cui Groq rifiuta l'array passato a un parametro dichiarato string).
+
         Author: Timothy Giolito (20054431)
         """
         try:
@@ -70,6 +93,13 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
         except ValueError as ve:
             return (f"Errore: {ve}. Richiama subito questo strumento passando 'exercises' come lista JSON "
                     f"di oggetti con chiavi: name, muscle_group, sets, reps, rest_time.")
+        # Soglia minima esercizi in base al tempo salvato: blocca le schede sotto-riempite.
+        duration = int(user_data.get('workout_duration', 60) or 60)
+        min_ex = _min_exercises_for(duration)
+        if len(ex_list) < min_ex:
+            return (f"Errore: la scheda ha solo {len(ex_list)} esercizi, ma con {duration} minuti a disposizione servono almeno "
+                    f"{min_ex} esercizi per riempire il tempo e centrare l'obiettivo. Richiama SUBITO il tool AGGIUNGENDO esercizi "
+                    "complementari (senza sforare il tempo), poi risalva.")
         try:
             save_workout_plan(user_id, plan_name, ex_list)
             # Author: Timothy Giolito (20054431)
@@ -90,6 +120,12 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
         except ValueError as ve:
             return f"Errore di parsing: {ve}."
 
+        # Soglia minima esercizi/giorno derivata dal tempo salvato nel profilo: blocca
+        # in modo deterministico le schede sotto-riempite che il modello debole produce
+        # nonostante il prompt (es. 3 esercizi con 60 minuti a disposizione).
+        duration = int(user_data.get('workout_duration', 60) or 60)
+        min_ex = _min_exercises_for(duration)
+
         # Guard: intercetta la struttura degenere in cui il modello scambia i gruppi
         # muscolari per esercizi (esercizi senza 'name' reale o giorni senza 'exercises').
         # Rifiuta PRIMA del commit con un errore azionabile, così l'LLM ripassa i dati corretti.
@@ -102,6 +138,10 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
                 if not isinstance(ex, dict) or not str(ex.get('name', '')).strip():
                     return (f"Errore struttura nel giorno '{plan.get('name', '?')}': un esercizio è privo del campo 'name' reale "
                             "(es. 'Bench Press'). NON usare i gruppi muscolari come esercizi. Richiama il tool con gli esercizi completi mostrati in Fase 1.")
+            if len(exercises) < min_ex:
+                return (f"Errore: il giorno '{plan.get('name', '?')}' ha solo {len(exercises)} esercizi, ma con {duration} minuti a disposizione "
+                        f"servono almeno {min_ex} esercizi per riempire il tempo e centrare l'obiettivo. Richiama SUBITO il tool AGGIUNGENDO "
+                        "esercizi complementari sui gruppi muscolari di quel giorno (senza sforare il tempo), poi risalva.")
 
         try:
             save_multiple_workout_plans(user_id, plans_list)
@@ -110,11 +150,13 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
         except Exception as e:
             return f"Errore durante il salvataggio della programmazione: {str(e)}"
 
-    def modify_workout_plan_tool(plan_name: str, exercises: str) -> str:
+    def modify_workout_plan_tool(plan_name: str, exercises: list) -> str:
         """
         Interfaccia per la mutazione dello stato di un protocollo di allenamento preesistente.
         Comporta l'upsert degli identificativi nel datastore.
-        
+        `exercises` è una lista NATIVA di oggetti esercizio (non una stringa JSON: evita il
+        mismatch di schema per cui Groq rifiuta l'array passato a un parametro dichiarato string).
+
         Author: Timothy Giolito (20054431)
         """
         try:
@@ -190,7 +232,10 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
             "- Riscaldamento + defaticamento/stretching = circa 10 minuti totali (5+5). Se il tempo disponibile è <= 15 minuti, riducili a 2+2.",
             "- Per OGNI esercizio: durata = numero_serie × (esecuzione + recupero). Stima l'esecuzione di una serie a ~45 secondi (0,75 min) e usa il tempo di recupero che assegni.",
             "- Somma riscaldamento + tutti gli esercizi + defaticamento. Questa somma DEVE essere <= tempo disponibile.",
-            "Se sfori: TAGLIA. Riduci il numero di esercizi, le serie o i tempi di recupero finché la somma rientra. Meglio una scheda più corta ma nei tempi che una completa ma fuori tempo.",
+            "🔴 RIEMPI IL TEMPO (LOWER BOUND OBBLIGATORIO): la scheda deve USARE quasi tutto il 'Tempo a disposizione', non solo starci sotto. La durata totale deve stare tra l'85% e il 100% del tempo disponibile. Una scheda che riempie metà del tempo (es. 3 esercizi con 60 minuti a disposizione) è un ERRORE GRAVE: AGGIUNGI esercizi finché la durata si avvicina al budget.",
+            "Numero di esercizi (solo parte centrale, escludi riscaldamento/defaticamento) — usa questa guida e poi affina col calcolo della durata: ~30 min = 4-5 esercizi, ~45 min = 5-7, ~60 min = 7-9, ~90 min = 10-12.",
+            "Per l'ipertrofia distribuisci gli esercizi sui gruppi muscolari del giorno (2-4 esercizi per ogni gruppo muscolare): NON fermarti mai a 3 esercizi totali se il tempo ne consente di più. Copri il gruppo con esercizi complementari (es. Spalle: Military Press, Lateral Raise, Front Raise, Rear Delt Fly, Upright Row).",
+            "Se sfori il limite superiore: TAGLIA. Riduci il numero di esercizi, le serie o i tempi di recupero finché la somma rientra. Ma se avanzi tempo: AGGIUNGI esercizi. L'obiettivo è centrare il budget, non stare molto sotto.",
             "Regole pratiche per rientrare: con poco tempo (<=30 min) prediligi circuiti/superserie con recuperi brevi (30-45s) e 4-6 esercizi max. Con tempi molto ridotti (<=10 min) proponi un solo circuito breve, niente carichi pesanti.",
             "NON dichiarare durate parziali che poi non tornano (es. 'Parte centrale 35 min' se gli esercizi ne richiedono 50): i minuti che scrivi devono essere coerenti con serie e recuperi reali.",
 
@@ -256,7 +301,7 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
             "- 🔴 In questa fase è TASSATIVO chiamare davvero il tool: se dici di aver salvato ma non chiami lo strumento, la scheda va PERSA.",
             "- Scheda su PIÙ GIORNI (es. piano settimanale): chiama UNA SOLA VOLTA lo strumento `create_weekly_workout_plan_tool`. Il parametro `plans` è un ARRAY/lista nativa (NON una stringa: non serializzare in stringa, non fare escaping delle virgolette). Il salvataggio è atomico. NON includere i giorni di riposo.",
             "  ATTENZIONE ALLA STRUTTURA: ogni elemento di `plans` è un GIORNO con 'name' (nome del giorno/scheda) e 'exercises' (la lista degli ESERCIZI REALI di quel giorno, NON i gruppi muscolari). Ogni esercizio DEVE avere 'name' (es. 'Bench Press'), 'muscle_group', 'sets', 'reps', 'rest_time'. NON confondere i gruppi muscolari con gli esercizi: 'Petto e Tricipiti' è il nome del giorno, gli esercizi sono Bench Press, Cable Fly, Tricep Pushdown, ecc. Copia gli STESSI esercizi che hai mostrato in tabella in Fase 1.",
-            "  Esempio ESATTO del valore di `plans` (array, ogni giorno con i suoi 4-6 esercizi completi):",
+            "  Esempio ESATTO della STRUTTURA di `plans` (qui accorciato a pochi esercizi solo per mostrare il formato: nella scheda vera mettine abbastanza da riempire il tempo, vedi BUDGET TEMPORALE):",
             "  [{\"name\": \"Lunedì - Petto e Tricipiti\", \"exercises\": [{\"name\": \"Bench Press\", \"muscle_group\": \"Petto\", \"sets\": 3, \"reps\": \"10-12\", \"rest_time\": \"90s\"}, {\"name\": \"Cable Fly\", \"muscle_group\": \"Petto\", \"sets\": 3, \"reps\": \"12-15\", \"rest_time\": \"60s\"}, {\"name\": \"Tricep Pushdown\", \"muscle_group\": \"Tricipiti\", \"sets\": 3, \"reps\": \"10-12\", \"rest_time\": \"90s\"}]}, {\"name\": \"Martedì - Schiena e Bicipiti\", \"exercises\": [ ... ]}]",
             "- Al termine del salvataggio, DEVI restituire ESCLUSIVAMENTE il seguente messaggio esatto: 'Ok, scheda salvata.' Non aggiungere altre parole, saluti, o nuove proposte. NON chiedere ulteriori conferme e non rigenerare la scheda appena salvata.",
             "",
@@ -270,3 +315,14 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
     )
 
     return pt_agent
+
+
+if __name__ == "__main__":
+    # Self-check soglia esercizi: monotòna e sensata sui casi tipici del profilo.
+    assert _min_exercises_for(60) == 6, _min_exercises_for(60)
+    assert _min_exercises_for(30) == 4
+    assert _min_exercises_for(15) == 3
+    assert _min_exercises_for(90) == 8
+    # 3 esercizi con 60 min devono essere sotto-soglia (il bug segnalato).
+    assert 3 < _min_exercises_for(60)
+    print("OK _min_exercises_for")
