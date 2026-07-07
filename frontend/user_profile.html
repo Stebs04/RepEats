@@ -346,16 +346,7 @@
 </nav>
 
 <script>
-    let token = sessionStorage.getItem('repEats_token');
-    if (!token) {
-        token = localStorage.getItem('repEats_token');
-        const expires = localStorage.getItem('repEats_expires');
-        if (expires && Date.now() > parseInt(expires)) {
-            localStorage.removeItem('repEats_token');
-            localStorage.removeItem('repEats_expires');
-            token = null;
-        }
-    }
+    const token = sessionStorage.getItem('repEats_token');
 
     if (!token) {
         window.location.replace('/login.html');
@@ -384,7 +375,6 @@
 
     // Handler di revoca sessione locale ed evizione dei token
     document.getElementById('logoutBtn').addEventListener('click', () => {
-        localStorage.clear();
         sessionStorage.clear();
         window.location.href = '/login.html';
     });

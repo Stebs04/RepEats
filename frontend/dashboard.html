@@ -466,19 +466,7 @@
 </nav>
 <script>
     // Inizializzazione guardia di routing per la persistenza di sessione
-    let token = sessionStorage.getItem('repEats_token');
-
-    // Recupero token da storage non volatile in assenza di sessione attiva
-    if (!token) {
-        token = localStorage.getItem('repEats_token');
-        const expires = localStorage.getItem('repEats_expires');
-        if (expires && Date.now() > parseInt(expires)) {
-            // Invalida la sessione espirata effettuando purge locale
-            localStorage.removeItem('repEats_token');
-            localStorage.removeItem('repEats_expires');
-            token = null;
-        }
-    }
+    const token = sessionStorage.getItem('repEats_token');
 
     if (!token) {
         window.location.replace('/login.html');

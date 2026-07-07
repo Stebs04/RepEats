@@ -353,16 +353,7 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 <script>
-    let token = sessionStorage.getItem('repEats_token');
-    if (!token) {
-        token = localStorage.getItem('repEats_token');
-        const expires = localStorage.getItem('repEats_expires');
-        if (expires && Date.now() > parseInt(expires)) {
-            localStorage.removeItem('repEats_token');
-            localStorage.removeItem('repEats_expires');
-            token = null;
-        }
-    }
+    const token = sessionStorage.getItem('repEats_token');
 
     if (!token) {
         window.location.replace('/login.html');

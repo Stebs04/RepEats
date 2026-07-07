@@ -231,7 +231,7 @@ La chat espone le risposte in **streaming token-per-token** via **Server-Sent Ev
 - `{"type": "end", "workouts_updated": <bool>}` — a fine risposta (riflette l'esito reale della rete di sicurezza);
 - `{"type": "error", "detail": "<msg>"}` — in caso di errore.
 
-Il frontend Vanilla JS comunica via Fetch API con un **Auth Guard** in cima ad ogni script; `user_id` e token sono persistiti in `sessionStorage`/`localStorage`.
+Il frontend Vanilla JS comunica via Fetch API con un **Auth Guard** in cima ad ogni script; `user_id` e token sono persistiti in `sessionStorage`.
 
 ---
 
