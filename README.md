@@ -217,7 +217,79 @@ Il frontend Vanilla JS comunica via Fetch API con un **Auth Guard** in cima ad o
 
 ---
 
-## 5. Guida all'Avvio
+## 5. Test e Valutazione (Evals)
+
+### 5.1 Suite di Valutazione — `evals.py` (LLM-as-a-Judge)
+
+Il progetto **non usa test unitari classici**: gli output degli agenti non sono deterministici, quindi la qualità si misura con una **suite di valutazione quantitativa** in cui un secondo LLM giudica le risposte degli agenti reali. Lo script `evals.py` (root del progetto):
+
+1. Carica il dataset di test da `eval_dataset.json`.
+2. Genera le risposte facendole passare per gli **agenti reali** tramite l'orchestratore (`get_orchestrator`), con `enable_tools=False` per non scrivere sul DB durante la valutazione. Nessuna logica duplicata: si valuta ciò che l'utente riceve in produzione.
+3. Ogni risposta è giudicata da un **LLM giudice rigoroso** (stesso modello Groq), che restituisce un verdetto JSON `pass/fail`.
+4. Stampa un report tabellare con il **Pass Rate %** per categoria.
+
+**Metriche valutate** (campo `metric` di ogni caso):
+
+| Metrica | Agente | Cosa verifica il giudice |
+|---|---|---|
+| `time_constraint` | Coach | La scheda proposta rientra nel tetto di minuti (`max_minutes`), tolleranza +10%. |
+| `macro_accuracy` | Nutrizionista | I macro citati rispettano `kcal ≈ 4·P + 4·C + 9·G` (tolleranza ±20%) e sono plausibili, senza allucinazioni. |
+| `language_match` | Entrambi | La risposta è nella stessa lingua (`expected_language`) dell'ultimo messaggio utente. |
+
+**Esecuzione:**
+```bash
+python evals.py            # esegue tutto il dataset
+python evals.py --limit 4  # solo i primi 4 casi (smoke test)
+```
+
+Richiede `GROQ_API_KEY` impostata (in `.env` o ambiente). Il modello giudice è configurabile via `JUDGE_MODEL`.
+
+### 5.2 Aggiungere casi di test
+
+I casi vivono nell'array `conversations` di `eval_dataset.json`. Un caso è un oggetto JSON:
+
+```json
+{
+  "id": "nut_09_yogurt_150g",
+  "agent": "nutritionist",
+  "metric": "macro_accuracy",
+  "message": "Macro di 150g di yogurt greco 0%?",
+  "user_data": {}
+}
+```
+
+Campi: `id` univoco, `agent` (`"coach"`/`"nutritionist"`), `metric` (una delle tre sopra), `message` (input utente). Extra per metrica: `max_minutes` per `time_constraint`, `expected_language` per `language_match`. Opzionali: `chat_history`, `user_data`, `macros`, `daily_targets` (sovrascrivono i default di `evals.py`).
+
+---
+
+## 6. Aggiungere un Documento alla Knowledge Base (RAG)
+
+Aggiungere conoscenza agli agenti = **mettere un file in una cartella**, nessun codice. La pipeline di ingestion (§2.2.4) fa il resto.
+
+1. **Copia il documento** in `src/knowledge_base/docs/`. Formati: `.txt`, `.md`, `.pdf`, `.docx` (i PDF protetti da password non sono leggibili).
+2. **Instrada il dominio** con un sidecar `<nome>.meta.json` a fianco del file. Il campo `domain` decide in quale KB finisce:
+   ```json
+   { "domain": "nutrition", "title": "Tabelle SINU LARN", "fonte": "SINU 2014" }
+   ```
+   `domain: "fitness"` → tabella `protocolli_allenamento` (Coach); `domain: "nutrition"` → tabella `conoscenza_nutrizione` (Nutrizionista). **Senza sidecar il dominio è `fitness`** (default), quindi per documenti nutrizionali il sidecar è obbligatorio.
+3. **Indicizza.** Automatico al prossimo avvio dell'app (`sync()` in `main.py`), oppure subito a mano:
+   ```bash
+   python -m src.knowledge_base.ingest        # sincronizza docs/ con l'indice
+   ```
+
+**Idempotenza:** lo stato è tracciato in `lancedb_vectors/.ingest_manifest.json`. `sync()` indicizza i nuovi, ri-indicizza i modificati (rilevati via `mtime`/dimensione) e rimuove dall'indice quelli cancellati dal disco. I documenti invariati vengono saltati.
+
+**Modificare / rimuovere:** cambia il file e riavvia (o rilancia `ingest`); per rimuoverlo cancellalo da `docs/` (rimosso al prossimo `sync()`) o esplicitamente:
+```bash
+python -m src.knowledge_base.ingest --delete NOME --domain nutrition
+python -m src.knowledge_base.ingest --full     # re-indicizza tutto da zero
+```
+
+> **Nota:** cambiare l'embedder (`EMBEDDER_ID`) cambia la dimensionalità dei vettori e richiede un `--full` per rigenerare gli indici.
+
+---
+
+## 7. Guida all'Avvio
 
 ### Prerequisiti
 - **Python 3.11**
@@ -267,7 +339,7 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 ---
 
-## 6. Cosa Aspettarsi al Primo Avvio
+## 8. Cosa Aspettarsi al Primo Avvio
 
 All'avvio l'app verifica la raggiungibilità del DB e sincronizza la Knowledge Base (`sync()`): indicizza in LanceDB i documenti presenti in `src/knowledge_base/docs/`. La prima volta l'embedding richiede alcune decine di secondi (download di MiniLM + indicizzazione); ai riavvii successivi il manifest di idempotenza salta i documenti invariati, rendendo l'operazione quasi istantanea.
 
@@ -275,7 +347,7 @@ L'app è servita su `http://127.0.0.1:8000`; la root reindirizza al frontend. Do
 
 ---
 
-## 7. Troubleshooting
+## 9. Troubleshooting
 
 ### 7.1 Conflitto Vision + Tool + Structured Output (Groq)
 
@@ -295,7 +367,7 @@ L'app è servita su `http://127.0.0.1:8000`; la root reindirizza al frontend. Do
 
 ---
 
-## 8. Suddivisione del Lavoro
+## 10. Suddivisione del Lavoro
 
 Stefano si è occupato del **Nutrizionista**, Timothy del **Coach**; il resto dell'applicativo è stato diviso equamente.
 
@@ -314,7 +386,7 @@ Stefano si è occupato del **Nutrizionista**, Timothy del **Coach**; il resto de
 
 ---
 
-## 9. Utilizzo di Strumenti AI
+## 11. Utilizzo di Strumenti AI
 
 Durante lo sviluppo abbiamo usato strumenti AI come supporto — in particolare **Antigravity** e **Claude Code** — sempre sotto la nostra supervisione diretta e con validazione critica di ogni output. Ci hanno assistito in: sviluppo UI/UX, ottimizzazione dei system prompt degli agenti, integrazione frontend-backend, refactoring di funzioni complesse, scelte architetturali e stesura della documentazione.
 
