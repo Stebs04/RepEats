@@ -110,7 +110,10 @@ class ConversationalNutritionistAgent(Agent):
     Author: Stefano Bellan (20054330)
     """
 
-    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct", user_context: str = "", allergies: str = "", dietary_preferences: str = "", knowledge=None):
+    # Chat testuale: llama-3.3-70b-versatile ha tool-calling molto più affidabile di
+    # scout su Groq (scout genera spesso tool_use_failed 400 sulla ricerca ricette).
+    # No vision qui, quindi il downgrade di scout non toglie nulla.
+    def __init__(self, model_id: str = "llama-3.3-70b-versatile", user_context: str = "", allergies: str = "", dietary_preferences: str = "", knowledge=None):
         # Incorporiamo eventuali allergie o scelte dietetiche direttamente come direttive per il modello
         allergies_txt = allergies.strip() if allergies else "Nessuna allergia dichiarata"
         dietary_txt = dietary_preferences.strip() if dietary_preferences else "Nessuna restrizione dichiarata"

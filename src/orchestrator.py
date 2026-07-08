@@ -201,7 +201,8 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, breakdo
     return Team(
         name="repeats_team",
         mode=TeamMode.route,
-        model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
+        # Router chat testuale: 70b instrada in modo più affidabile di scout (tool-calling).
+        model=Groq(id="llama-3.3-70b-versatile"),
         members=active_members,
         instructions=instructions,
         markdown=True,

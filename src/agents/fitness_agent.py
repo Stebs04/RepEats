@@ -189,7 +189,9 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
     pt_agent = Agent(
         name="personaltrainer",
         role="Personal Trainer specializzato in programmazione dell'allenamento, esercizi, recupero muscolare e motivazione sportiva.",
-        model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
+        # Chat testuale con tool di salvataggio scheda: 70b ha tool-calling molto più
+        # affidabile di scout su Groq (scout genera spesso tool_use_failed 400). No vision qui.
+        model=Groq(id="llama-3.3-70b-versatile"),
         knowledge=knowledge_base,
         # Modalità RAG eager: iniezione deterministica del contesto informativo per bypassare
         # le fluttuazioni stocastiche nella chiamata autonoma degli strumenti di ricerca.
