@@ -207,7 +207,10 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, breakdo
         instructions=instructions,
         markdown=True,
         description=routing_description,
-        show_members_responses=True,
+        # ponytail: route-mode duplication guard. Con True lo stream emette sia la
+        # risposta del membro sia quella ri-generata dal leader (70b debole che ignora
+        # "restituisci esatta") → due risposte concatenate. False = solo output finale.
+        show_members_responses=False,
         # Predisposizione protocollo di iterazione stream-oriented per la trasmissione in real-time degli eventi
         stream=True,
     )
