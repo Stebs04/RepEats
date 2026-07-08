@@ -34,10 +34,12 @@ from src.database.user_service import (
     get_user_conversations,
     rename_conversation,
     delete_conversation,
-    get_user_workout_plans
+    get_user_workout_plans,
+    save_multiple_workout_plans,
+    update_workout_plan
 )
 from src.orchestrator import get_orchestrator, build_user_context
-from src.agents.fitness_agent import get_pt_agent
+from src.agents.fitness_agent import get_pt_agent, _parse_exercises
 from src.database.knowledge_base import build_knowledge
 from backend.security import get_current_user
 
@@ -311,22 +313,72 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             "Rispondi ESCLUSIVAMENTE con la frase esatta: '✅ Scheda salvata nel profilo.' senza aggiungere altro."
         )
 
+    def _save_deterministic() -> bool:
+        """
+        Salvataggio deterministico: NON deleghiamo la scrittura al tool-calling del modello
+        (il 70b su Groq spesso emette solo la frase di conferma senza mai chiamare il tool:
+        action hallucination, INSERT mai eseguito). Convertiamo il Markdown del piano già
+        proposto (ultimo messaggio assistant in cronologia) in JSON con un estrattore
+        MINIMALE dedicato, lo parsiamo qui e chiamiamo NOI le save function. INSERT garantito
+        lato server, non dipende dal tool-calling.
+
+        L'estrattore è volutamente separato dal Coach: le istruzioni del Coach vietano il
+        JSON in chat ("VIETATO scrivere JSON") e lo gaggerebbero; inoltre niente RAG e
+        temperature=0 lo rendono veloce e ripetibile. max_tokens alto per non troncare un
+        piano settimanale intero.
+
+        Ritorna True se il DB è cambiato davvero. Il min-exercise guard del tool è
+        volutamente bypassato: il piano è già stato proposto e confermato dall'utente in
+        Fase 1, bloccarlo qui perderebbe una scheda approvata.
+        """
+        plan_md = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
+        if not plan_md.strip():
+            return False
+        extractor = Agent(
+            model=GroqModel(id="llama-3.3-70b-versatile", max_tokens=2000, temperature=0),
+            instructions=[
+                "Sei un convertitore. Trasforma la scheda di allenamento qui sotto in un array JSON.",
+                "Rispondi ESCLUSIVAMENTE con JSON valido: niente testo, niente spiegazioni, niente ``` .",
+                "Formato: [{\"name\": \"<nome giorno o scheda>\", \"exercises\": [{\"name\": \"<esercizio reale, es. Bench Press>\", \"muscle_group\": \"<gruppo>\", \"sets\": 3, \"reps\": \"10-12\", \"rest_time\": \"90s\"}]}]",
+                "Una scheda singola = array di UN solo elemento. Includi TUTTI gli esercizi mostrati. NON usare i gruppi muscolari come nomi di esercizi. Salta i giorni di riposo.",
+            ],
+            markdown=False,
+        )
+        resp = extractor.run(plan_md, stream=False)
+        raw = getattr(resp, "content", None) or str(resp)
+        try:
+            plans = _parse_exercises(raw)
+        except ValueError:
+            return False
+        # Struttura attesa: lista non vuota di giorni, ognuno con esercizi reali.
+        if not isinstance(plans, list) or not plans:
+            return False
+        for p in plans:
+            if not isinstance(p, dict) or not isinstance(p.get("exercises"), list) or not p["exercises"]:
+                return False
+        try:
+            if is_modifica:
+                for p in plans:
+                    update_workout_plan(user_id, p["name"], p["exercises"])
+            else:
+                save_multiple_workout_plans(user_id, plans)
+        except Exception as e:
+            print(f"[chat_api] salvataggio deterministico fallito: {e}")
+            return False
+        return _workout_snapshot(user_id) != snapshot_prima
+
     def _save_via_tools() -> bool:
         """
-        Esegue il salvataggio forzato eseguendo DIRETTAMENTE l'agente Coach (che possiede
-        i tool), NON l'orchestratore Team. In route-mode il leader tentava di chiamare il
-        tool del membro senza averlo in request.tools (400 tool_use_failed) e, privo dello
-        schema, ne inventava i parametri (`workout_plan`/`day` invece di `plans`/`name`).
-        Girando il membro diretto il tool è in request.tools e il modello riceve lo schema
-        corretto. La run di Fase 1 gira coi tool disattivati (human-in-the-loop): il commit
-        reale sul DB passa ESCLUSIVAMENTE da qui, solo su conferma esplicita.
-
-        Il modello debole a volte, invece di chiamare il tool, emette solo la frase di
-        conferma (action hallucination): verifichiamo lo snapshot e RITENTIAMO fino a 3
-        volte finché il DB cambia davvero. Ritorna True se la scrittura è avvenuta.
-        ponytail: retry a tetto fisso (3); se anche così fallisce spesso, il collo di
-        bottiglia è il modello, non il numero di tentativi.
+        Prima l'estrazione deterministica (INSERT lato server, non dipende dal tool-calling
+        del modello debole). Solo se quella non produce un piano parsabile ripieghiamo sul
+        vecchio tool-loop: agente Coach diretto (tool nello schema, no route-mode 400) che
+        ritenta fino a 3 volte finché lo snapshot DB cambia. Ritorna True se la scrittura
+        è avvenuta.
+        ponytail: fallback a tetto fisso (3); se pure il deterministico fallisce, il piano
+        in cronologia è illeggibile, non è questione di tentativi.
         """
+        if _save_deterministic():
+            return True
         ctx = build_user_context(user_data, macros_odierni, daily_targets, breakdown_odierno, history, request.chat_type)
         coach = get_pt_agent(ctx, build_knowledge(domain="fitness"), user_data, enable_tools=True)
         for tentativo in range(1, 4):
