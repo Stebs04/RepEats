@@ -103,7 +103,7 @@ python -m src.knowledge_base.ingest --delete NOME --domain fitness   # rimuove u
 
 Il **Coach** usa `add_knowledge_to_context=True` con `search_knowledge=False`: i documenti pertinenti vengono recuperati e **iniettati direttamente nel prompt ad ogni turno**, senza dipendere dal fatto che il modello decida di chiamare un tool di ricerca. Scelta deliberata: un LLM da chat è inaffidabile nel decidere *quando* interrogare la KB, quindi togliamo la decisione all'LLM.
 
-Il **Nutrizionista conversazionale** parte dalla stessa iniezione a contesto ma abilita anche `search_knowledge=True`: oltre ai documenti pre-caricati può interrogare autonomamente la KB. Il tool di ricerca ricette online (§3.5) **non** viene più chiamato in automatico: è dietro un human-in-the-loop (§2.5) — di default l'agente risponde solo dal RAG e chiede conferma prima di cercare sul web.
+Il **Nutrizionista conversazionale** parte dalla stessa iniezione a contesto ma abilita anche `search_knowledge=True`: oltre ai documenti pre-caricati può interrogare autonomamente la KB. Il tool di ricerca ricette online. L'agente risponde solo dal RAG e chiede conferma prima di cercare sul web.
 
 ---
 
