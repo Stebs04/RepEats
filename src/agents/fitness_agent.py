@@ -79,6 +79,11 @@ def get_pt_agent(user_context: str, knowledge_base: Knowledge, user_data: dict, 
     """
     user_id = user_data.get('user_id')
 
+    # Riduciamo il top_k RAG (default agno = 10) per abbattere il payload di contesto
+    # e restare sotto il limite TPM di Groq (evita il 413 Request too large).
+    if knowledge_base is not None:
+        knowledge_base.max_results = 3
+
     def create_workout_plan_tool(plan_name: str, exercises: list) -> str:
         """
         Metodo per il deployment di un nuovo protocollo di allenamento all'interno del database.

@@ -97,6 +97,31 @@ def _extract_ai_text(response) -> str:
     return str(response.content) if response.content else "Mi dispiace, non ho ricevuto una risposta."
 
 
+# --- Controllo dimensione payload verso Groq (limite TPM 12000) ------------------
+_MAX_CTX_MSGS = 4          # numero di messaggi recenti tenuti nel payload LLM
+_TOKEN_BUDGET = 11500      # margine sotto il limite TPM di Groq (12000)
+_FIXED_OVERHEAD_TOKENS = 6000  # ponytail: stima grezza di istruzioni+contesto+RAG statici; ritara se i prompt cambiano
+
+
+def _est_tokens(text: str) -> int:
+    # ponytail: 1 token ≈ 4 caratteri; sostituire con tiktoken solo se serve precisione reale
+    return len(text) // 4
+
+
+def _trim_history_for_context(history: list) -> list:
+    """
+    Tiene solo gli ultimi messaggi e scarta forzatamente i più vecchi finché il payload
+    stimato non rientra nel budget TPM di Groq. Evita il 413 (Request too large) quando
+    la cronologia cresce oltre la finestra di contesto.
+
+    Author: Stefano Bellan (20054330)
+    """
+    trimmed = history[-_MAX_CTX_MSGS:]
+    while len(trimmed) > 1 and _est_tokens("".join(m["content"] for m in trimmed)) + _FIXED_OVERHEAD_TOKENS > _TOKEN_BUDGET:
+        trimmed = trimmed[1:]
+    return trimmed
+
+
 def _sse(payload: dict) -> str:
     """
     Impacchetta un dizionario Python in una stringa conforme allo standard Server-Sent Events.
@@ -190,7 +215,10 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         # Fase 1 saltando la conferma e sputando il blocco json nella chat). Il salvataggio
         # reale avviene solo in Fase 2, con un agente tools-enabled ricostruito su richiesta.
         is_coach = request.chat_type == "coach"
-        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, history, request.chat_type, enable_tools=not is_coach)
+        # Cronologia potata per il contesto LLM: solo turni recenti entro il budget TPM (413 guard).
+        # `history` piena resta per la logica deterministica Coach (recupero schede Fase 2).
+        context_history = _trim_history_for_context(history)
+        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, context_history, request.chat_type, enable_tools=not is_coach)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -301,7 +329,9 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             # Nessun testo generato ma errore del provider: mostra un messaggio utile e chiudi.
             if not ai_text and run_error:
                 _low = run_error.lower()
-                if "rate_limit" in _low or "429" in _low or "tokens per day" in _low:
+                if "413" in _low or "request too large" in _low or "too large" in _low or "tokens per minute" in _low:
+                    friendly = "⚠️ La conversazione è diventata troppo lunga per essere elaborata in una volta. Inizia una nuova chat per continuare. 🥗"
+                elif "rate_limit" in _low or "429" in _low or "tokens per day" in _low:
                     friendly = "⚠️ Ho esaurito il numero di richieste disponibili per ora. Riprova tra qualche minuto."
                 else:
                     friendly = "⚠️ Si è verificato un errore momentaneo del servizio. Riprova tra poco."
@@ -329,7 +359,9 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             traceback.print_exc()
             # ponytail: friendly fallback instead of raw error SSE
             _err = str(e).lower()
-            if "failed to call a function" in _err or "tool_use_failed" in _err:
+            if "413" in _err or "request too large" in _err or "too large" in _err or "tokens per minute" in _err:
+                friendly = "⚠️ La conversazione è diventata troppo lunga per essere elaborata in una volta. Inizia una nuova chat per continuare. 🥗"
+            elif "failed to call a function" in _err or "tool_use_failed" in _err:
                 friendly = "⚠️ Si è verificato un problema temporaneo. Riprova con la stessa domanda."
             elif "rate_limit" in _err or "429" in _err:
                 friendly = "⚠️ Ho esaurito il numero di richieste disponibili per ora. Riprova tra qualche minuto."
@@ -552,3 +584,10 @@ if __name__ == "__main__":
     assert _looks_like_modification(_hist_mod)
     assert not _looks_like_modification(_hist_new)
     print("OK _looks_like_modification")
+
+    # Self-check trim cronologia: mai più di _MAX_CTX_MSGS, e un messaggio gigante viene scartato.
+    _long = [{"role": "user", "content": f"msg {i}"} for i in range(10)]
+    assert len(_trim_history_for_context(_long)) == _MAX_CTX_MSGS
+    _huge = [{"role": "user", "content": "x" * (_TOKEN_BUDGET * 4)} for _ in range(4)]
+    assert len(_trim_history_for_context(_huge)) == 1  # sfora il budget: resta solo l'ultimo
+    print("OK _trim_history_for_context")

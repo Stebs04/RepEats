@@ -553,6 +553,10 @@
 
             if (!response.ok || !response.body) {
                 removeLoading();
+                if (response.status === 413) {
+                    appendBotMessage("⚠️ La conversazione è diventata troppo lunga per essere elaborata in una volta. Inizia una nuova chat per continuare. 💪");
+                    return;
+                }
                 let detail = 'Sconosciuto';
                 try { detail = (await response.json()).detail || detail; } catch (e) {}
                 appendBotMessage("Errore: " + detail);

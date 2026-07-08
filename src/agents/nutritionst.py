@@ -14,7 +14,14 @@ from agno.guardrails import PromptInjectionGuardrail
 # Strumento esterno per interrogare OpenFoodFacts partendo da un codice a barre
 from src.tools.openfoodfacts_tool import get_product_info_by_barcode
 # Strumento per la ricerca online di ricette reali su fonti web affidabili
-from src.tools.online_recipe_search_tool import search_online_recipes
+from src.tools.online_recipe_search_tool import search_online_recipes as _search_online_recipes
+
+
+# Tetto rigido sui risultati della ricerca web iniettati nel contesto Groq: gli snippet
+# di 8 ricette possono sforare il limite TPM (12k) del modello. Cap a 1000 caratteri.
+def search_online_recipes(query: str) -> str:
+    """Cerca ricette reali sul web. Parametro: query (stringa). Ritorna testo formattato."""
+    return _search_online_recipes(query)[:1000]
 # Strumenti di Pydantic per definire e validare lo schema dei dati in uscita
 from pydantic import BaseModel, Field
 
@@ -199,6 +206,10 @@ class ConversationalNutritionistAgent(Agent):
         # Configurazione RAG: in presenza di una knowledge base iniettiamo i documenti
         # a contesto e abilitiamo anche la ricerca autonoma, così l'agente può
         # interrogare la base di conoscenza in modo interattivo quando serve
+        if knowledge is not None:
+            # Riduciamo il top_k RAG (default agno = 10) per abbattere il payload di contesto
+            # e restare sotto il limite TPM di Groq.
+            knowledge.max_results = 3
         kb_kwargs = (
             {"knowledge": knowledge, "add_knowledge_to_context": True, "search_knowledge": True}
             if knowledge is not None else {}
