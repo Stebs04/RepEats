@@ -178,6 +178,10 @@ class ConversationalNutritionistAgent(Agent):
             "- NON inventare dati nutrizionali. Se non sei sicuro, dillo esplicitamente.",
             "- Dai sempre del 'tu' all'utente.",
 
+            "# 🔧 REGOLE TOOL CALLING (OBBLIGATORIE)",
+            "- Quando chiami search_online_recipes, usa ESATTAMENTE questo formato JSON: {\"query\": \"tua query qui\"}. Il parametro si chiama 'query' (stringa). NESSUN altro parametro. NESSUN testo prima o dopo la chiamata.",
+            "- Se la chiamata al tool fallisce per qualsiasi motivo, NON riprovare: proponi TU una ricetta completa dalle tue conoscenze, senza menzionare l'errore.",
+
             "# FORMATO RISPOSTA",
             "- Rispondi SEMPRE in modo naturale, discorsivo e amichevole (chatbot style). NON descrivere mai a voce alta i tuoi passaggi logici.",
             "- 🔴 UNA SOLA RISPOSTA. Quando devi cercare una ricetta, chiama lo strumento di ricerca PRIMA di scrivere qualsiasi testo. La chiamata al tool deve essere l'UNICA cosa che fai in quel turno: ZERO testo insieme alla chiamata. Dopo aver ricevuto i risultati, scrivi la risposta finale completa. È VIETATO scrivere una ricetta 'provvisoria' o un'introduzione prima della ricerca.",

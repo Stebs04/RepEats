@@ -327,7 +327,19 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         except Exception as e:
             import traceback
             traceback.print_exc()
-            yield _sse({"type": "error", "detail": str(e)})
+            # ponytail: friendly fallback instead of raw error SSE
+            _err = str(e).lower()
+            if "failed to call a function" in _err or "tool_use_failed" in _err:
+                friendly = "⚠️ Si è verificato un problema temporaneo. Riprova con la stessa domanda."
+            elif "rate_limit" in _err or "429" in _err:
+                friendly = "⚠️ Ho esaurito il numero di richieste disponibili per ora. Riprova tra qualche minuto."
+            else:
+                friendly = "⚠️ Si è verificato un errore momentaneo del servizio. Riprova tra poco."
+            ai_text = "".join(chunks).strip() if chunks else ""
+            if not ai_text:
+                yield _sse({"type": "content", "delta": friendly})
+                save_message(conv_id, "assistant", friendly)
+            yield _sse({"type": "end", "workouts_updated": False})
 
     return StreamingResponse(
         event_stream(),
