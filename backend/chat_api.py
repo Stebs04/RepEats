@@ -98,9 +98,9 @@ def _extract_ai_text(response) -> str:
 
 
 # --- Controllo dimensione payload verso Groq (limite TPM 12000) ------------------
-_MAX_CTX_MSGS = 4          # numero di messaggi recenti tenuti nel payload LLM
-_TOKEN_BUDGET = 11500      # margine sotto il limite TPM di Groq (12000)
-_FIXED_OVERHEAD_TOKENS = 6000  # ponytail: stima grezza di istruzioni+contesto+RAG statici; ritara se i prompt cambiano
+_MAX_CTX_MSGS = 3          # numero di messaggi recenti tenuti nel payload LLM
+_TOKEN_BUDGET = 5000       # finestra contesto ristretta per tagliare i token verso l'orchestratore
+_FIXED_OVERHEAD_TOKENS = 3000  # ponytail: prompt compressi + budget ridotto; deve stare sotto _TOKEN_BUDGET o il trim collassa a 1 msg
 
 
 def _est_tokens(text: str) -> int:

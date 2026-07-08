@@ -33,7 +33,8 @@ L'architettura si fonda su tre principi cardine:
 
 | Componente | Modello | Provider | Motivazione |
 |---|---|---|---|
-| **Orchestratore, Coach, Nutrizionista (chat)** | `llama-3.3-70b-versatile` | Groq | Chat testuale con function calling: 70b invoca i tool in modo affidabile, mentre Scout genera spesso `tool_use_failed` (400) sulle chiamate a funzione (es. ricerca ricette online, salvataggio scheda). Nessuna vision su questo percorso, quindi la multimodalità di Scout non serve. |
+| **Orchestratore** | `llama-3.3-70b-versatile` (`max_tokens=150`, `temperature=0.1`) | Groq | Router silenzioso: deve solo delegare al membro corretto, non generare testo. Il cap a 150 token e la temperatura bassa ne tagliano l'output verboso (vedi §2.6). |
+| **Coach, Nutrizionista (chat)** | `llama-3.3-70b-versatile` (`max_tokens=800`, `temperature=0.3`) | Groq | Chat testuale con function calling: 70b invoca i tool in modo affidabile, mentre Scout genera spesso `tool_use_failed` (400) sulle chiamate a funzione (es. ricerca ricette online, salvataggio scheda). Nessuna vision su questo percorso, quindi la multimodalità di Scout non serve. Cap a 800 token per contenere il consumo mantenendo spazio a scheda/ricetta. |
 | **Vision, Parser** | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq | Le Language Processing Units di Groq offrono latenze estremamente ridotte. Scout è multimodale (vision) e multilingue nativo: copre l'analisi immagini dei pasti e il parsing strutturato che il modello di chat, privo di vision, non può gestire. |
 
 Il modello è iniettato tramite il wrapper `agno.models.groq.Groq`. Il numero di run per messaggio varia per flusso: la chat è single-run (con un eventuale run di *salvataggio* in Fase 2 per il Coach, vedi §2.4), mentre l'analisi di un pasto da immagine è un pipeline a due/tre stadi (§3.4).
@@ -149,6 +150,17 @@ Così il default è conservativo (nessuna chiamata di rete non richiesta) e la r
 
 ---
 
+### 2.6 Ottimizzazione dei Token (limite TPM Groq)
+
+Il limite *tokens-per-minute* di Groq è la risorsa più scarsa del sistema: superarlo genera `413 Request too large` o `429 rate_limit`. Il consumo è tenuto sotto controllo su **quattro leve**, senza toccare l'architettura Team (requisito accademico):
+
+1. **Orchestratore silenzioso** — l'istruzione impone al router *"You are a silent router… ONLY output the tool call"* e il modello è istanziato con `max_tokens=150`, `temperature=0.1`: il leader delega senza rigenerare o commentare la risposta del membro, tagliando i token spesi in preamboli di routing.
+2. **Cap rigido su `max_tokens`** — Coach e Nutrizionista girano con `max_tokens=800` (`temperature=0.3`): abbastanza per una scheda o una proposta di ricetta, ma con un tetto duro che impedisce risposte fuori scala.
+3. **System prompt compressi** — le istruzioni degli agenti sono condensate (fluff e ridondanze rimosse) mantenendo intatti guardrail anti-injection, limiti di competenza, vincolo temporale e regole di salvataggio. Meno token statici iniettati ad ogni turno.
+4. **Finestra di contesto ridotta** — in `backend/chat_api.py`, `_trim_history_for_context` tiene al massimo **`_MAX_CTX_MSGS = 3`** messaggi recenti e forza lo scarto dei più vecchi finché la stima payload + overhead rientra nel budget **`_TOKEN_BUDGET = 5000`**. La cronologia piena resta disponibile solo alla logica deterministica del Coach (recupero schede in Fase 2), non al payload LLM.
+
+---
+
 ## 3. Il Team di Agenti (Framework Agno)
 
 L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMode.route`**: riceve la richiesta e la instrada al membro corretto, restituendo la risposta dell'agente specializzato **senza modificarla**.
@@ -156,6 +168,7 @@ L'orchestrazione vive in `src/orchestrator.py`. Il **Team Agno opera in `TeamMod
 ### 3.1 Orchestratore (Il Router)
 
 * **Modalità:** `TeamMode.route` con streaming abilitato.
+* **Router silenzioso (ottimizzazione token):** il modello (`llama-3.3-70b-versatile`) è istanziato con `max_tokens=150` e `temperature=0.1`, con l'istruzione esplicita di limitarsi a delegare al membro corretto senza produrre testo, ragionamento o preamboli (vedi §2.6). Non modifica né commenta la risposta del membro instradato.
 * **Routing strutturale:** la selezione del membro **non** è affidata alle istruzioni dell'LLM (che potrebbe ignorarle). In base alla pagina corrente (`chat_type`), nel team viene inserito **solo** l'agente competente — Coach sulla pagina *Coach*, Nutrizionista sulla pagina *Nutrition* — rendendo *impossibile* un routing errato.
 * **Memoria Condivisa:** costruisce e inietta un contesto condiviso (`build_user_context`) contenente dati biometrici, intake calorico odierno vs. target, un'**analisi temporale dell'intake** (fascia oraria corrente e range di intake atteso, così il Coach non allarma l'utente se non è ancora sera) e la cronologia della conversazione.
 
