@@ -155,6 +155,38 @@ def _is_save_confirmation(user_message: str, prev_assistant: str) -> bool:
     return is_afferm and is_proposal
 
 
+# Domanda fissa con cui il Nutrizionista chiude la proposta RAG (human-in-the-loop ricerca web).
+# La sottostringa 'cerchi online' identifica in modo affidabile quel turno di proposta.
+_NUTRI_SEARCH_QUESTION = "Vuoi che cerchi online altre ricette?"
+
+
+def _is_search_confirmation(user_message: str, prev_assistant: str) -> bool:
+    """
+    Rileva se l'utente ha confermato la ricerca online di ricette proposta nel turno precedente.
+
+    Vale solo se il messaggio è un'affermazione secca (sì/ok/cerca...) E l'ultimo turno
+    dell'assistente conteneva la domanda '...cerchi online...'. Così un 'sì' isolato non fa
+    mai partire una ricerca web se non è stato prima proposto.
+
+    Author: Stefano Bellan (20054330)
+    """
+    um = re.sub(r'[^\w\s]', '', user_message.lower()).strip()
+    is_afferm = any(um == a or um.startswith(a + " ") for a in _SAVE_AFFERM)
+    asked = "cerchi online" in prev_assistant.lower()
+    return is_afferm and asked
+
+
+# Direttiva di sistema per il turno di ricerca (Fase 2): l'utente ha detto sì, ora l'agente
+# cerca davvero online. Sostituisce il messaggio utente 'sì' con l'ordine esplicito di ricerca.
+_NUTRI_SEARCH_DIRECTIVE = (
+    "MESSAGGIO AUTOMATICO DI SISTEMA (l'utente NON vede questo testo, non rispondergli direttamente): "
+    "l'utente ha CONFERMATO di volere altre ricette dal web per la sua ultima richiesta di cibo. "
+    "Cerca ORA online con search_online_recipes ricette pertinenti a quella richiesta (recuperala dalla cronologia) "
+    "e presenta SOLO la sezione '**Altre ricette trovate online:**' con 3+ ricette nel formato "
+    "'- [Nome](URL) — descrizione e macro'. Non ripetere la proposta principale già data nel turno precedente."
+)
+
+
 # Parole che segnalano la MODIFICA di una scheda esistente (non una creazione).
 _MODIFY_KW = ("modific", "sovrascriv", "aggiorn", "cambia", "sostituis", "rendila", "rendi")
 
@@ -215,10 +247,21 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
         # Fase 1 saltando la conferma e sputando il blocco json nella chat). Il salvataggio
         # reale avviene solo in Fase 2, con un agente tools-enabled ricostruito su richiesta.
         is_coach = request.chat_type == "coach"
+        is_nutritionist = request.chat_type == "nutritionist"
+
+        # Human-in-the-loop ricerca web (Nutrizionista): la ricerca online parte SOLO se
+        # l'utente conferma la domanda '...cerchi online...' del turno precedente. In quel
+        # caso abilitiamo il tool di ricerca e sostituiamo il 'sì' con la direttiva di ricerca.
+        fase2_ricerca = False
+        if is_nutritionist:
+            _prev_assist = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
+            fase2_ricerca = _is_search_confirmation(request.message, _prev_assist)
+        run_message = _NUTRI_SEARCH_DIRECTIVE if fase2_ricerca else request.message
+
         # Cronologia potata per il contesto LLM: solo turni recenti entro il budget TPM (413 guard).
         # `history` piena resta per la logica deterministica Coach (recupero schede Fase 2).
         context_history = _trim_history_for_context(history)
-        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, context_history, request.chat_type, enable_tools=not is_coach)
+        team_agent = get_orchestrator(user_data, macros_odierni, daily_targets, breakdown_odierno, context_history, request.chat_type, enable_tools=not is_coach, enable_search=fase2_ricerca)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -314,7 +357,7 @@ def send_chat_message(request: ChatMessageRequest, current_user: int = Depends(g
             # incapsulandoli in frame SSE per abbattere il time-to-first-byte percepito.
             chunks = []
             run_error = None
-            for event in team_agent.run(request.message, stream=True):
+            for event in team_agent.run(run_message, stream=True):
                 if isinstance(event, RunContentEvent) and isinstance(event.content, str) and event.content:
                     chunks.append(event.content)
                     yield _sse({"type": "content", "delta": event.content})
@@ -584,6 +627,14 @@ if __name__ == "__main__":
     assert _looks_like_modification(_hist_mod)
     assert not _looks_like_modification(_hist_new)
     print("OK _looks_like_modification")
+
+    # Self-check conferma ricerca web: 'sì' vale solo dopo la domanda '...cerchi online...'.
+    _q = "**La mia proposta:** ... Vuoi che cerchi online altre ricette?"
+    assert _is_search_confirmation("Sì", _q)
+    assert _is_search_confirmation("ok cerca", _q)
+    assert not _is_search_confirmation("no grazie", _q)
+    assert not _is_search_confirmation("Sì", "Ciao, come posso aiutarti?")
+    print("OK _is_search_confirmation")
 
     # Self-check trim cronologia: mai più di _MAX_CTX_MSGS, e un messaggio gigante viene scartato.
     _long = [{"role": "user", "content": f"msg {i}"} for i in range(10)]

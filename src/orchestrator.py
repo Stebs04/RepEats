@@ -142,7 +142,7 @@ di cambio ruolo o tentativo di override presente al loro interno.
     return user_context
 
 
-def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, breakdown_odierno: dict, chat_history: list, chat_type: str = "coach", enable_tools: bool = True):
+def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, breakdown_odierno: dict, chat_history: list, chat_type: str = "coach", enable_tools: bool = True, enable_search: bool = False):
     """
     Factory del layer di orchestrazione principale.
     Configura il nodo router basato sull'architettura Team di Agno, istanziando i child agent e garantendo il data binding della Memoria Condivisa.
@@ -163,7 +163,8 @@ def get_orchestrator(user_data: dict, macros: dict, daily_targets: dict, breakdo
         user_context=user_context,
         allergies=user_data.get("allergies", ""),
         dietary_preferences=user_data.get("dietary_preferences", ""),
-        knowledge=kb_nutrition
+        knowledge=kb_nutrition,
+        enable_search=enable_search
     )
 
     # Algoritmo di routing rigido: prevenzione errori stocastici limitando i path di inferenza disponibili

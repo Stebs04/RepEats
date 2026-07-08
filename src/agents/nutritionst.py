@@ -120,10 +120,39 @@ class ConversationalNutritionistAgent(Agent):
     # Chat testuale: llama-3.3-70b-versatile ha tool-calling molto più affidabile di
     # scout su Groq (scout genera spesso tool_use_failed 400 sulla ricerca ricette).
     # No vision qui, quindi il downgrade di scout non toglie nulla.
-    def __init__(self, model_id: str = "llama-3.3-70b-versatile", user_context: str = "", allergies: str = "", dietary_preferences: str = "", knowledge=None):
+    def __init__(self, model_id: str = "llama-3.3-70b-versatile", user_context: str = "", allergies: str = "", dietary_preferences: str = "", knowledge=None, enable_search: bool = False):
         # Incorporiamo eventuali allergie o scelte dietetiche direttamente come direttive per il modello
         allergies_txt = allergies.strip() if allergies else "Nessuna allergia dichiarata"
         dietary_txt = dietary_preferences.strip() if dietary_preferences else "Nessuna restrizione dichiarata"
+
+        # Human-in-the-loop ricerca web: di default (enable_search=False) l'agente risponde
+        # SOLO dalla knowledge base e chiude chiedendo se cercare online; la ricerca reale
+        # gira in un turno separato, solo dopo conferma esplicita dell'utente (enable_search=True).
+        if enable_search:
+            procedura = [
+                "# 🍽️ RICERCA ONLINE RICETTE (CONFERMA UTENTE RICEVUTA)",
+                "L'utente ha CONFERMATO di volere altre ricette dal web. Chiama SUBITO search_online_recipes SENZA scrivere nulla prima: costruisci la query SOLO con ingredienti e tipo di pasto della sua ultima richiesta (es. 'cena pollo verdure proteica'), SENZA numeri né kcal. Groq non permette testo e chiamata funzione nello stesso turno.",
+                "Dopo aver ricevuto i risultati, scrivi UN messaggio con la sezione '**Altre ricette trovate online:**' e 3+ ricette nel formato '- [Nome ricetta](URL) — breve descrizione e macro stimati'. NON ripetere la proposta principale già data nel turno precedente.",
+                "Se una ricetta non ha URL non elencarla. Se la ricerca non restituisce nulla, proponi TU 3 ricette concrete dalle tue conoscenze (ingredienti e macro), senza dire che la ricerca è fallita.",
+            ]
+            tool_rules = [
+                "# 🔧 REGOLE TOOL CALLING (OBBLIGATORIE)",
+                "- Quando chiami search_online_recipes usa ESATTAMENTE questo formato JSON: {\"query\": \"tua query qui\"}. Il parametro si chiama 'query' (stringa). NESSUN altro parametro. NESSUN testo prima o dopo la chiamata.",
+                "- Se la chiamata al tool fallisce per qualsiasi motivo, NON riprovare: proponi TU ricette complete dalle tue conoscenze, senza menzionare l'errore.",
+                "- 🔴 NON nominare MAI gli strumenti né raccontare che stai cercando online. FRASI VIETATE: 'ho cercato online', 'la ricerca non ha dato risultati', 'non sono riuscito a trovare'. All'utente arriva SOLO il risultato utile.",
+                "- 🔴 FORMATO RICETTE ONLINE: usa SEMPRE il formato '[Nome ricetta](URL)'. È VIETATO scrivere 'Ricetta 1:', 'Ricetta 2:' senza link.",
+            ]
+        else:
+            procedura = [
+                "# 🍽️ PROCEDURA COSA MANGIARE (SOLO KNOWLEDGE BASE)",
+                "Quando l'utente chiede cosa mangiare (cena, pranzo, colazione, spuntino), rispondi usando ESCLUSIVAMENTE la tua knowledge base. È VIETATO cercare ricette online in questo turno.",
+                "STEP 1 - RICETTA DAL RAG: consulta la knowledge base e costruisci UNA ricetta principale fondata su quei dati nutrizionali (valori, porzioni, linee guida), calibrata sui macro RIMANENTI della fascia. Cita la fonte del dato preso dalla knowledge base.",
+                "STEP 2 - RISPOSTA: inizia DIRETTAMENTE con '**La mia proposta:**' seguita dalla ricetta (ingredienti, grammature, macro stimati). NON scrivere sezioni di ricette online.",
+                "STEP 3 - CHIUDI SEMPRE l'ultima riga con ESATTAMENTE questa domanda, su una riga a sé stante: 'Vuoi che cerchi online altre ricette?'",
+                "⛔ VIETATO scrivere QUALSIASI testo PRIMA di '**La mia proposta:**'. Niente titoli introduttivi, niente 'Analisi dei Macro', niente 'Requisiti Nutrizionali', niente 'Dai dati forniti'. La risposta parte SUBITO con la proposta.",
+                "",
+            ]
+            tool_rules = []
 
         instructions = [
             user_context,
@@ -156,13 +185,7 @@ class ConversationalNutritionistAgent(Agent):
             "- Quando ti chiedono i macro di un alimento con una grammatura precisa, dai un VALORE SINGOLO rappresentativo (puoi premettere 'circa'), NON un intervallo tipo '30-35g': scegli tu il valore più realistico.",
             "- COERENZA CALORIE-MACRO: le calorie che dichiari devono quadrare con i macro, secondo kcal ≈ 4×proteine + 4×carboidrati + 9×grassi. Prima di rispondere verifica che i tuoi numeri siano coerenti fra loro.",
 
-            "# 🍽️ PROCEDURA COSA MANGIARE (OBBLIGATORIA, IN QUEST'ORDINE)",
-            "Quando l'utente chiede cosa mangiare (cena, pranzo, colazione, spuntino), esegui questi passi NELL'ORDINE ESATTO indicato. NON raccontare i passi, non nominare strumenti né knowledge base: all'utente arriva solo la risposta finale unica.",
-            "🔴 STEP 1 - RICERCA ONLINE (DA FARE PER PRIMA, PRIMA DI SCRIVERE QUALSIASI TESTO): chiama SUBITO lo strumento di ricerca ricette SENZA scrivere nulla. Costruisci la query SOLO con ingredienti e tipo di pasto (es. 'spuntino yogurt greco frutta proteico'), SENZA numeri né kcal. NON generare testo prima di questa chiamata: Groq non permette di mescolare testo e chiamate a funzione nello stesso turno.",
-            "STEP 2 - RICETTA PRINCIPALE DAL RAG: dopo aver ricevuto i risultati della ricerca, consulta la knowledge base e costruisci UNA ricetta principale fondata su quei dati nutrizionali (valori, porzioni, linee guida), calibrata sui macro RIMANENTI della fascia. Cita la fonte del dato preso dalla knowledge base.",
-            "STEP 3 - RISPOSTA UNICA: ORA scrivi UN SOLO messaggio combinando tutto. La risposta DEVE iniziare DIRETTAMENTE con '**La mia proposta:**' seguita dalla ricetta RAG (ingredienti, grammature, macro stimati). Poi '**Altre ricette trovate online:**' con le 3+ ricette dallo STEP 1. Ogni ricetta online DEVE essere formattata così: '- [Nome ricetta](URL) — breve descrizione e macro stimati'. NON usare MAI il formato 'Ricetta 1:', 'Ricetta 2:' senza link. Se una ricetta non ha un URL, NON elencarla. Se lo STEP 1 non ha restituito risultati, proponi TU 3 ricette concrete dalle tue conoscenze (con ingredienti e macro) al posto della sezione online, senza dire che la ricerca è fallita.",
-            "⛔ VIETATO scrivere QUALSIASI testo PRIMA di '**La mia proposta:**'. Niente titoli introduttivi, niente 'Analisi dei Macro', niente 'Requisiti Nutrizionali', niente 'Dai dati forniti'. La risposta parte SUBITO con la proposta.",
-            "",
+            *procedura,
             "# COME USARE LA KNOWLEDGE BASE",
             "- Quando ti servono dati nutrizionali di riferimento (fabbisogni, valori nutrizionali, linee guida, tabelle SINU), DEVI cercare nella knowledge base e basare la risposta su quei dati.",
             "- Cita sempre la fonte quando usi un dato preso dalla knowledge base.",
@@ -188,17 +211,11 @@ class ConversationalNutritionistAgent(Agent):
             "- NON inventare dati nutrizionali. Se non sei sicuro, dillo esplicitamente.",
             "- Dai sempre del 'tu' all'utente.",
 
-            "# 🔧 REGOLE TOOL CALLING (OBBLIGATORIE)",
-            "- Quando chiami search_online_recipes, usa ESATTAMENTE questo formato JSON: {\"query\": \"tua query qui\"}. Il parametro si chiama 'query' (stringa). NESSUN altro parametro. NESSUN testo prima o dopo la chiamata.",
-            "- Se la chiamata al tool fallisce per qualsiasi motivo, NON riprovare: proponi TU una ricetta completa dalle tue conoscenze, senza menzionare l'errore.",
+            *tool_rules,
 
             "# FORMATO RISPOSTA",
             "- Rispondi SEMPRE in modo naturale, discorsivo e amichevole (chatbot style). NON descrivere mai a voce alta i tuoi passaggi logici.",
-            "- 🔴 UNA SOLA RISPOSTA. Quando devi cercare una ricetta, chiama lo strumento di ricerca PRIMA di scrivere qualsiasi testo. La chiamata al tool deve essere l'UNICA cosa che fai in quel turno: ZERO testo insieme alla chiamata. Dopo aver ricevuto i risultati, scrivi la risposta finale completa. È VIETATO scrivere una ricetta 'provvisoria' o un'introduzione prima della ricerca.",
-            "- 🔴 NON nominare MAI gli strumenti (es. non scrivere 'search_online_recipes' né 'Utilizziamo la funzione...') e NON raccontare che stai cercando online, né se la ricerca ha dato o non ha dato risultati. All'utente arriva SOLO il risultato utile, come se lo conoscessi già.",
-            "- 🔴 FRASI VIETATE (non scriverle MAI, nemmeno riformulate): 'elaboriamo una ricerca web', 'ho cercato online', 'cerchiamo online', 'Per ulteriori opzioni ho cercato', 'non sono riuscito a trovare risultati', 'la ricerca non ha dato risultati', 'prova a cercare su'. Se non hai trovato risultati online, proponi TU una ricetta senza commentare il fallimento della ricerca.",
             "- 🔴 INTESTAZIONI VIETATE: NON scrivere MAI titoli come 'Analisi dei Macro', 'Requisiti Nutrizionali', 'Dai dati forniti', 'Considerando i tuoi obiettivi' o simili preamboli analitici. La risposta inizia SEMPRE direttamente con '**La mia proposta:**'.",
-            "- 🔴 FORMATO RICETTE ONLINE: le ricette nella sezione 'Altre ricette trovate online' DEVONO usare il formato '[Nome ricetta](URL)'. È VIETATO scrivere 'Ricetta 1:', 'Ricetta 2:', 'Ricetta 3:' senza link. Se non hai URL da mostrare, proponi ricette tue con ingredienti e macro, senza sezioni vuote.",
             "- Usa Markdown per migliorare la leggibilità (grassetto, elenchi, tabelle se utile).",
             "- ASSOLUTAMENTE VIETATO restituire JSON, codice o dati strutturati. Solo testo leggibile e umano.",
         ]
@@ -220,7 +237,7 @@ class ConversationalNutritionistAgent(Agent):
             role="Nutrizionista esperto in consigli alimentari, creazione di piani alimentari personalizzati, suggerimento ricette e gestione dei macronutrienti.",
             model=Groq(id=model_id),
             description="Esperto in consigli alimentari discorsivi, creazione di menu e gestione dinamica dei macronutrienti.",
-            tools=[search_online_recipes],
+            tools=[search_online_recipes] if enable_search else [],
             instructions=instructions,
             pre_hooks=[PromptInjectionGuardrail()],
             markdown=True,
