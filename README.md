@@ -21,7 +21,7 @@ RepEats è un'applicazione web basata su un sistema multi-agente che funge da **
 
 L'architettura si fonda su tre principi cardine:
 
-1. **Bassa latenza**: inferenza su Groq (LPU) — `llama-3.3-70b-versatile` per la chat testuale e `llama-4-scout-17b-16e-instruct` per vision e parsing — con embedding locali (MiniLM) senza chiamate di rete.
+1. **Bassa latenza**: inferenza su Groq (LPU) — `llama-3.3-70b-versatile` per la chat testuale — e Google Gemini (`gemini-3.5-flash`) per vision e parsing, con embedding locali (MiniLM) senza chiamate di rete.
 2. **Prevenzione delle allucinazioni**: RAG isolato per dominio (ogni agente vede solo i propri documenti) e una **rete di sicurezza deterministica** che verifica lo stato del database invece di fidarsi del testo generato dall'LLM.
 3. **Isolamento dei task**: routing strutturale — nel team è presente **solo** l'agente della pagina corrente, rendendo impossibile un instradamento errato da parte dell'LLM.
 
@@ -35,9 +35,9 @@ L'architettura si fonda su tre principi cardine:
 |---|---|---|---|
 | **Orchestratore** | `llama-3.3-70b-versatile` (`max_tokens=150`, `temperature=0.1`) | Groq | Router silenzioso: deve solo delegare al membro corretto, non generare testo. Il cap a 150 token e la temperatura bassa ne tagliano l'output verboso (vedi §2.6). |
 | **Coach, Nutrizionista (chat)** | `llama-3.3-70b-versatile` (`max_tokens=800`, `temperature=0.3`) | Groq | Chat testuale con function calling: 70b invoca i tool in modo affidabile, mentre Scout genera spesso `tool_use_failed` (400) sulle chiamate a funzione (es. ricerca ricette online, salvataggio scheda). Nessuna vision su questo percorso, quindi la multimodalità di Scout non serve. Cap a 800 token per contenere il consumo mantenendo spazio a scheda/ricetta. |
-| **Vision, Parser** | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq | Le Language Processing Units di Groq offrono latenze estremamente ridotte. Scout è multimodale (vision) e multilingue nativo: copre l'analisi immagini dei pasti e il parsing strutturato che il modello di chat, privo di vision, non può gestire. |
+| **Vision, Parser** | `gemini-3.5-flash` | Google | Gemini 3.5 Flash è multimodale nativo (vision) e multilingue: copre l'analisi immagini dei pasti e il parsing strutturato che il modello di chat, privo di vision, non può gestire. |
 
-Il modello è iniettato tramite il wrapper `agno.models.groq.Groq`. Il numero di run per messaggio varia per flusso: la chat è single-run (con un eventuale run di *salvataggio* in Fase 2 per il Coach, vedi §2.4), mentre l'analisi di un pasto da immagine è un pipeline a due/tre stadi (§3.4).
+Il modello testuale è iniettato tramite il wrapper `agno.models.groq.Groq`, mentre vision e parser usano `agno.models.google.Gemini`. Il numero di run per messaggio varia per flusso: la chat è single-run (con un eventuale run di *salvataggio* in Fase 2 per il Coach, vedi §2.4), mentre l'analisi di un pasto da immagine è un pipeline a due/tre stadi (§3.4).
 
 ---
 
@@ -234,7 +234,7 @@ Oltre alla knowledge base interna, il Nutrizionista conversazionale dispone del 
 | Vector Database | LanceDB (Hybrid Search) |
 | Framework Multi-Agent | Agno |
 | Embedding | SentenceTransformers (all-MiniLM-L6-v2) |
-| LLM | Groq (`llama-3.3-70b-versatile` chat, `llama-4-scout-17b-16e-instruct` vision/parser) |
+| LLM | Groq (`llama-3.3-70b-versatile` chat), Google Gemini (`gemini-3.5-flash` vision/parser) |
 | Barcode | zxing-cpp (primario) + OpenCV (fallback/pre-processing) |
 | Dati prodotti | OpenFoodFacts API |
 | Ricerca ricette online | DuckDuckGo (HTML) + BeautifulSoup |

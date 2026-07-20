@@ -12,6 +12,9 @@ alembic
 
 groq
 
+# Client SDK per i modelli Google Gemini (vision e parsing via agno)
+google-genai
+
 requests
 
 # Parsing HTML per lo scraping dei risultati di ricerca ricette online.

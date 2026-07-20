@@ -19,6 +19,7 @@ from agno.run.team import RunContentEvent, RunErrorEvent
 from agno.models.message import Image as AgnoImage
 from agno.agent import Agent
 from agno.models.groq import Groq as GroqModel
+from agno.models.google import Gemini as GeminiModel
 from src.agents.nutritionst import NutritionistAgent, VisionNutritionistAgent, MealAnalysis
 from src.tools.openfoodfacts_tool import get_product_info_by_barcode
 from src.tools.barcode_scanner import scan_barcode
@@ -551,7 +552,7 @@ async def analyze_food_image(
         # Deleghiamo a un worker separato il mapping dal discorso naturale
         # alla struttura JSON stretta validata contro il nostro schema Pydantic.
         agente_parser = Agent(
-            model=GroqModel(id="meta-llama/llama-4-scout-17b-16e-instruct"),
+            model=GeminiModel(id="gemini-3.5-flash"),
             description="Converti dati nutrizionali in JSON strutturato.",
             instructions=[
                 "Sei un parser di dati nutrizionali. Ricevi un testo con informazioni su un alimento e devi estrarne i dati in formato JSON.",

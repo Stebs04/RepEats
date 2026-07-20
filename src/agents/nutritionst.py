@@ -9,6 +9,8 @@ Author: Stefano Bellan (20054330)
 from agno.agent import Agent
 # Wrapper per i modelli Groq utilizzati come motore inferenziale
 from agno.models.groq import Groq
+# Wrapper per i modelli Google Gemini (vision e parsing)
+from agno.models.google import Gemini
 # Protezione attiva contro tentativi di prompt injection e jailbreak
 from agno.guardrails import PromptInjectionGuardrail
 # Strumento esterno per interrogare OpenFoodFacts partendo da un codice a barre
@@ -60,7 +62,7 @@ class NutritionistAgent(Agent):
     """
     
     # Inizializza l'agente impostando di default il modello LLM preferito
-    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct"):
+    def __init__(self, model_id: str = "gemini-3.5-flash"):
         """
         Configura l'agente caricando le direttive operative e di sicurezza.
         
@@ -94,8 +96,8 @@ class NutritionistAgent(Agent):
 
         # Passiamo al costruttore padre tutti i riferimenti necessari per il funzionamento
         super().__init__(
-            # Imposta l'engine Groq scelto come motore di inferenza
-            model=Groq(id=model_id),
+            # Imposta l'engine Gemini scelto come motore di inferenza (vision)
+            model=Gemini(id=model_id),
             # Descrizione esposta all'orchestratore per il routing delle richieste
             description="Esperto nutrizionista specializzato in analisi dei pasti e calcolo accurato dei macronutrienti sulle porzioni.",
             # Tool a disposizione del modello, come la risoluzione tramite OpenFoodFacts
@@ -228,12 +230,12 @@ class VisionNutritionistAgent(Agent):
     Author: Stefano Bellan (20054330)
     """
 
-    def __init__(self, model_id: str = "meta-llama/llama-4-scout-17b-16e-instruct", with_barcode_tool: bool = True):
+    def __init__(self, model_id: str = "gemini-3.5-flash", with_barcode_tool: bool = True):
         """
         Inizializza l'agente vision con o senza le funzionalità di ricerca per codice a barre.
         
         Args:
-            model_id (str): Identificativo del modello Groq di riferimento.
+            model_id (str): Identificativo del modello Gemini di riferimento.
             with_barcode_tool (bool): Indica se abilitare il tool di OpenFoodFacts.
             
         Author: Stefano Bellan (20054330)
@@ -249,7 +251,7 @@ class VisionNutritionistAgent(Agent):
             vision_instructions.insert(1, "SE CODICE A BARRE nell'immagine: leggi il numero, usa SEMPRE get_product_info_by_barcode (silenzioso). Tool 'non trovato': leggi l'etichetta e stima. SE CIBO senza barcode: VIETATO usare il tool.")
 
         super().__init__(
-            model=Groq(id=model_id),
+            model=Gemini(id=model_id),
             description="Agente Vision per identificazione alimenti e raccolta dati nutrizionali tramite immagini e barcode.",
             tools=[get_product_info_by_barcode] if with_barcode_tool else [],
             instructions=vision_instructions,
