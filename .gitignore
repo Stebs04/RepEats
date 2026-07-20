@@ -33,3 +33,4 @@ src/database/lancedb_vectors/__manifest/_transactions/0-801160a4-db12-4870-996c-
 src/database/lancedb_vectors/protocolli_allenamento.lance/_transactions/0-f8a86174-fe39-4ddb-ba7b-25be071633fb.txn
 *.txn
 *.lance
+docs/Relazione_Tecnica_Completa.md
